@@ -7,10 +7,12 @@
 
 import type { Complex } from '../complex';
 import {
+  type DType,
   getTypedArrayConstructor,
   hasFloat16,
   isBigIntDType,
   isComplexDType,
+  promoteDTypeSequence,
   type TypedArray,
 } from '../dtype';
 import { expandEllipsis } from '../internal/indexing';
@@ -634,6 +636,53 @@ export function moveaxis(
 }
 
 /**
+ * Convert a storage to the dtype that promotion picked for it, returning the input itself when
+ * the dtype already matches. Only value-preserving widenings are supported: complex never
+ * narrows and floats never become integers, which is all that dtype promotion can ask for.
+ */
+export function castStorage(storage: ArrayStorage, dtype: DType): ArrayStorage {
+  if (storage.dtype === dtype) return storage;
+  const srcComplex = isComplexDType(storage.dtype);
+  const dstComplex = isComplexDType(dtype);
+  if (srcComplex && !dstComplex) {
+    throw new Error(`castStorage: cannot narrow ${storage.dtype} to ${dtype}`);
+  }
+
+  const src = storage.isCContiguous ? storage : storage.copy();
+  const n = src.size;
+  const off = src.offset;
+  const out = ArrayStorage.empty(Array.from(storage.shape), dtype);
+  const from = src.data as unknown as {
+    [i: number]: number | bigint;
+    subarray(b: number, e: number): TypedArray;
+  };
+  const to = out.data as unknown as {
+    [i: number]: number | bigint;
+    set(v: ArrayLike<number>, o: number): void;
+  };
+
+  if (dstComplex) {
+    if (srcComplex) {
+      to.set(from.subarray(off * 2, (off + n) * 2) as unknown as ArrayLike<number>, 0);
+    } else {
+      for (let i = 0; i < n; i++) {
+        to[i * 2] = Number(from[off + i]);
+        to[i * 2 + 1] = 0;
+      }
+    }
+  } else if (isBigIntDType(dtype)) {
+    for (let i = 0; i < n; i++) to[i] = BigInt(from[off + i]!);
+  } else if (isBigIntDType(storage.dtype)) {
+    for (let i = 0; i < n; i++) to[i] = Number(from[off + i]);
+  } else {
+    to.set(from.subarray(off, off + n) as unknown as ArrayLike<number>, 0);
+  }
+
+  if (src !== storage) src.dispose();
+  return out;
+}
+
+/**
  * Concatenate arrays along an axis
  */
 export function concatenate(storages: ArrayStorage[], axis: number = 0): ArrayStorage {
@@ -647,7 +696,7 @@ export function concatenate(storages: ArrayStorage[], axis: number = 0): ArraySt
 
   const first = storages[0]!;
   const ndim = first.ndim;
-  const dtype = first.dtype;
+  const dtype = promoteDTypeSequence(storages.map((s) => s.dtype));
 
   // Normalize axis
   const normalizedAxis = axis < 0 ? ndim + axis : axis;
@@ -685,9 +734,11 @@ export function concatenate(storages: ArrayStorage[], axis: number = 0): ArraySt
 
   // Copy data from each input array
   let offset = 0;
-  for (const storage of storages) {
-    const axisSize = storage.shape[normalizedAxis]!;
+  for (const original of storages) {
+    const axisSize = original.shape[normalizedAxis]!;
+    const storage = castStorage(original, dtype);
     copyToOutput(storage, outputData, outputShape, outputStrides, normalizedAxis, offset, dtype);
+    if (storage !== original) storage.dispose();
     offset += axisSize;
   }
 
@@ -1860,6 +1911,17 @@ function blockListDepth(x: NestedBlock): number {
   return 1 + max;
 }
 
+function blockMaxNdim(x: NestedBlock): number {
+  return Array.isArray(x) ? Math.max(0, ...x.map(blockMaxNdim)) : x.ndim;
+}
+
+// Give every leaf the same number of dimensions by prepending axes of length 1.
+function padBlockLeaves(x: NestedBlock, ndim: number): NestedBlock {
+  if (Array.isArray(x)) return x.map((child) => padBlockLeaves(child, ndim));
+  if (x.ndim >= ndim) return x;
+  return reshape(x, [...new Array<number>(ndim - x.ndim).fill(1), ...x.shape]);
+}
+
 function blockRecursive(x: NestedBlock, depthFromTop: number): ArrayStorage {
   if (!Array.isArray(x)) return x;
   if (x.length === 0) {
@@ -1880,5 +1942,8 @@ export function block(arrays: NestedBlock): ArrayStorage {
   if (totalDepth === 0) {
     return (arrays as ArrayStorage).copy();
   }
-  return blockRecursive(arrays, totalDepth);
+  return blockRecursive(
+    padBlockLeaves(arrays, Math.max(totalDepth, blockMaxNdim(arrays))),
+    totalDepth,
+  );
 }

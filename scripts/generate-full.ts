@@ -248,6 +248,34 @@ export function where(
   const r = core.where(condition, x as ArrayLike, y as ArrayLike);
   return Array.isArray(r) ? r.map(up) : up(r);
 }`,
+  intersect1d: (jsDoc) => `${jsDoc}
+export function intersect1d<A extends DType, B extends DType>(
+  ar1: NDArrayCore<A>,
+  ar2: NDArrayCore<B>,
+  assume_unique?: boolean,
+  return_indices?: false,
+): NDArray<Promote<A, B>>;
+export function intersect1d<A extends DType, B extends DType>(
+  ar1: NDArrayCore<A>,
+  ar2: NDArrayCore<B>,
+  assume_unique: boolean | undefined,
+  return_indices: true,
+): [NDArray<Promote<A, B>>, NDArray<'int32'>, NDArray<'int32'>];
+export function intersect1d<A extends DType, B extends DType>(
+  ar1: NDArrayCore<A>,
+  ar2: NDArrayCore<B>,
+  assume_unique?: boolean,
+  return_indices?: boolean,
+): NDArray<Promote<A, B>> | [NDArray<Promote<A, B>>, NDArray<'int32'>, NDArray<'int32'>];
+export function intersect1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique?: boolean,
+  return_indices?: boolean,
+): NDArray | [NDArray, NDArray, NDArray] {
+  const r = core.intersect1d(ar1, ar2, assume_unique, return_indices);
+  return Array.isArray(r) ? ([up(r[0]), up(r[1]), up(r[2])] as [NDArray, NDArray, NDArray]) : up(r);
+}`,
   ...Object.fromEntries(
     ['atleast_1d', 'atleast_2d', 'atleast_3d'].map((name) => [
       name,
@@ -556,7 +584,6 @@ const FUNCTION_RESULT_RULES: Record<
 
   // ---- P1/P2: set ops + binary ufuncs (promote of operands) ----
   union1d: 'promote',
-  intersect1d: 'promote',
   setxor1d: 'promote',
   maximum: 'promote',
   minimum: 'promote',

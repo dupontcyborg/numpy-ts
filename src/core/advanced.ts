@@ -128,13 +128,18 @@ export function take_along_axis(arr: NDArrayCore, indices: NDArrayCore, axis: nu
   return fromStorage(advancedOps.take_along_axis(toStorage(arr), toStorage(indices), axis));
 }
 
+/** Put values into an array along an axis, in place; values may be an array or a scalar */
 export function put_along_axis(
   arr: NDArrayCore,
   indices: NDArrayCore,
-  values: NDArrayCore,
+  values: NDArrayCore | number | bigint | Complex,
   axis: number,
 ): void {
-  advancedOps.put_along_axis(toStorage(arr), toStorage(indices), toStorage(values), axis);
+  const valueStorage =
+    typeof values === 'number' || typeof values === 'bigint' || values instanceof Complex
+      ? values
+      : toStorage(values);
+  advancedOps.put_along_axis(toStorage(arr), toStorage(indices), valueStorage, axis);
 }
 
 export function choose(a: NDArrayCore, choices: NDArrayCore[]): NDArrayCore {

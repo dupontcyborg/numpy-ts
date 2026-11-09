@@ -2,9 +2,10 @@
  * Set operations
  */
 
-import { type DType, isComplexDType, type TypedArray } from '../dtype';
+import { type DType, isComplexDType, isFloatDType, promoteDTypes, type TypedArray } from '../dtype';
 import { widenToF64 } from '../internal/dtype-loops';
 import { ArrayStorage } from '../storage';
+import { castStorage, concatenate, ravel } from './shape';
 
 // Helper: compare complex numbers lexicographically
 function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): number {
@@ -622,365 +623,364 @@ export function unique(
   return result;
 }
 
-// Helper: convert storage element to key string
-function elementToKey(
-  data: ArrayLike<number | bigint>,
-  index: number,
-  isComplex: boolean,
-  offset: number = 0,
-): string {
-  if (isComplex) {
-    const re = Number((data as Float64Array)[(offset + index) * 2]);
-    const im = Number((data as Float64Array)[(offset + index) * 2 + 1]);
-    return `${re},${im}`;
+// ─── Membership and set algebra on flattened inputs ──────────────────────────
+// These follow NumPy's algorithms step for step, so that the assume_unique flag on
+// non-unique input produces the same (unspecified) results NumPy does.
+
+function flatten1d(a: ArrayStorage): ArrayStorage {
+  return ravel(a);
+}
+
+/** Copy the elements at the given positions of a contiguous 1-D storage. */
+function gather(src: ArrayStorage, picks: ArrayLike<number>): ArrayStorage {
+  const out = ArrayStorage.zeros([picks.length], src.dtype);
+  const from = src.data as unknown as { [i: number]: number | bigint };
+  const to = out.data as unknown as { [i: number]: number | bigint };
+  const off = src.offset;
+  if (isComplexDType(src.dtype)) {
+    for (let i = 0; i < picks.length; i++) {
+      const at = (off + picks[i]!) * 2;
+      to[i * 2] = from[at]!;
+      to[i * 2 + 1] = from[at + 1]!;
+    }
+  } else {
+    for (let i = 0; i < picks.length; i++) to[i] = from[off + picks[i]!]!;
   }
-  const v = data[offset + index]!;
-  // int64/uint64 must key off the BigInt itself: String(Number(v)) collapses
-  // distinct values above 2^53 onto one key, which silently merged neighbouring
-  // elements in unique/intersect1d/isin and friends.
-  return typeof v === 'bigint' ? v.toString() : String(Number(v));
+  return out;
+}
+
+/** Equality of two positions of a contiguous 1-D storage; NaN never equals anything. */
+function positionEquals(s: ArrayStorage): (i: number, j: number) => boolean {
+  const d = s.data as unknown as { [i: number]: number | bigint };
+  const off = s.offset;
+  if (isComplexDType(s.dtype)) {
+    return (i, j) => {
+      const a = (off + i) * 2;
+      const b = (off + j) * 2;
+      return d[a] === d[b] && d[a + 1] === d[b + 1];
+    };
+  }
+  return (i, j) => d[off + i] === d[off + j];
+}
+
+/** Stable ordering of a contiguous 1-D storage, NaN last and complex lexicographic. */
+function stableOrder(s: ArrayStorage): number[] {
+  const n = s.size;
+  const order = Array.from({ length: n }, (_, i) => i);
+  const off = s.offset;
+  if (isComplexDType(s.dtype)) {
+    const d = s.data as Float64Array | Float32Array;
+    return order.sort((a, b) =>
+      complexCompare(
+        d[(off + a) * 2]!,
+        d[(off + a) * 2 + 1]!,
+        d[(off + b) * 2]!,
+        d[(off + b) * 2 + 1]!,
+      ),
+    );
+  }
+  const d = s.data as unknown as { [i: number]: number | bigint };
+  return order.sort((a, b) => {
+    const x = d[off + a]!;
+    const y = d[off + b]!;
+    if (x < y) return -1;
+    if (x > y) return 1;
+    if (x === y) return 0;
+    // Only NaN reaches here: it sorts after everything else.
+    const xNaN = x !== x;
+    const yNaN = y !== y;
+    return xNaN === yNaN ? 0 : xNaN ? 1 : -1;
+  });
+}
+
+function isIntOrBool(dtype: DType): boolean {
+  return dtype === 'bool' || (!isComplexDType(dtype) && !isFloatDType(dtype));
+}
+
+// Largest value of each integer dtype, as NumPy's table method bounds the span of the second
+// array by it (bool is widened to uint8 first).
+const INT_MAX: Partial<Record<DType, bigint>> = {
+  bool: 255n,
+  uint8: 255n,
+  uint16: 65535n,
+  uint32: 4294967295n,
+  uint64: 18446744073709551615n,
+  int8: 127n,
+  int16: 32767n,
+  int32: 2147483647n,
+  int64: 9223372036854775807n,
+};
+
+/**
+ * Whether NumPy would answer membership with the sort-and-compare-neighbours method. That
+ * method is only exact for duplicate-free input, which is why it matters under assume_unique;
+ * the table method (small-range integers) and the loop method (few test values) are exact for
+ * any input.
+ */
+function usesSortMethod(a1: ArrayStorage, a2: ArrayStorage): boolean {
+  const n1 = a1.size;
+  const n2 = a2.size;
+  if (isIntOrBool(a1.dtype) && isIntOrBool(a2.dtype)) {
+    if (n2 === 0) return false;
+    const d = a2.data as unknown as { [i: number]: number | bigint };
+    let lo = BigInt(d[a2.offset]!);
+    let hi = lo;
+    for (let i = 1; i < n2; i++) {
+      const v = BigInt(d[a2.offset + i]!);
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+    const range = hi - lo;
+    if (range <= BigInt(6 * (n1 + n2)) && range <= INT_MAX[a2.dtype]!) return false;
+  }
+  return !(n2 < 10 * n1 ** 0.145);
+}
+
+/** Positions of a1 whose value occurs in a2 (a1 and a2 flat and of one dtype), NaN never matching. */
+function exactMembership(a1: ArrayStorage, a2: ArrayStorage): Uint8Array {
+  const out = new Uint8Array(a1.size);
+  const d1 = a1.data as unknown as { [i: number]: number | bigint };
+  const d2 = a2.data as unknown as { [i: number]: number | bigint };
+  if (isComplexDType(a1.dtype)) {
+    const seen = new Set<string>();
+    for (let i = 0; i < a2.size; i++) {
+      const re = d2[(a2.offset + i) * 2] as number;
+      const im = d2[(a2.offset + i) * 2 + 1] as number;
+      if (re === re && im === im) seen.add(`${re},${im}`);
+    }
+    for (let i = 0; i < a1.size; i++) {
+      const re = d1[(a1.offset + i) * 2] as number;
+      const im = d1[(a1.offset + i) * 2 + 1] as number;
+      if (re === re && im === im && seen.has(`${re},${im}`)) out[i] = 1;
+    }
+    return out;
+  }
+  // A Set matches NaN with NaN, which equality never does, so NaN is kept out of it.
+  const seen = new Set<number | bigint>();
+  for (let i = 0; i < a2.size; i++) {
+    const v = d2[a2.offset + i]!;
+    if (v === v) seen.add(v);
+  }
+  for (let i = 0; i < a1.size; i++) if (seen.has(d1[a1.offset + i]!)) out[i] = 1;
+  return out;
+}
+
+/** Whether each element of the flat a1 occurs in the flat a2, following NumPy's method choice. */
+function membership(
+  a1: ArrayStorage,
+  a2: ArrayStorage,
+  assumeUnique: boolean,
+  invert: boolean,
+): Uint8Array {
+  const dtype = promoteDTypes(a1.dtype, a2.dtype);
+  const c1 = castStorage(a1, dtype);
+  const c2 = castStorage(a2, dtype);
+  let found: Uint8Array;
+  if (assumeUnique && usesSortMethod(a1, a2)) {
+    const joined = concatenate([c1, c2], 0);
+    const order = stableOrder(joined);
+    const eq = positionEquals(joined);
+    found = new Uint8Array(a1.size);
+    for (let k = 0; k < order.length - 1; k++) {
+      const at = order[k]!;
+      if (at < a1.size && eq(at, order[k + 1]!)) found[at] = 1;
+    }
+    joined.dispose();
+  } else {
+    found = exactMembership(c1, c2);
+  }
+  if (c1 !== a1) c1.dispose();
+  if (c2 !== a2) c2.dispose();
+  if (invert) for (let i = 0; i < found.length; i++) found[i] = found[i]! ^ 1;
+  return found;
+}
+
+function boolStorage(mask: Uint8Array, shape: number[]): ArrayStorage {
+  const result = ArrayStorage.zeros(shape, 'bool');
+  (result.data as Uint8Array).set(mask);
+  return result;
+}
+
+function uniqueFlat(a: ArrayStorage): ArrayStorage {
+  const flat = flatten1d(a);
+  const result = unique(flat) as ArrayStorage;
+  flat.dispose();
+  return result;
 }
 
 /**
- * Test whether each element of a 1-D array is also present in a second array.
+ * Test whether each element of a 1-D array is also present in a second array. The result is
+ * 1-D even for multi-dimensional input. With assume_unique the inputs are trusted to hold no
+ * duplicates, which on duplicated input gives the same unreliable answers NumPy does.
  * @deprecated Use {@link isin} instead. `in1d` follows NumPy's deprecation and will be removed in a future release.
  */
-export function in1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
-  return isin(ar1, ar2);
+export function in1d(
+  ar1: ArrayStorage,
+  ar2: ArrayStorage,
+  assumeUnique: boolean = false,
+  invert: boolean = false,
+): ArrayStorage {
+  const a1 = flatten1d(ar1);
+  const a2 = flatten1d(ar2);
+  const mask = membership(a1, a2, assumeUnique, invert);
+  return boolStorage(mask, [ar1.size]);
 }
 
 /**
- * Find the intersection of two arrays
+ * Test whether each element of an ND array is also present in a second array, keeping the
+ * shape of the first. NaN is never a member, so with invert it is always reported as absent.
  */
-export function intersect1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
-  const dtype = ar1.dtype;
-  const isComplex = isComplexDType(dtype);
+export function isin(
+  element: ArrayStorage,
+  testElements: ArrayStorage,
+  assumeUnique: boolean = false,
+  invert: boolean = false,
+): ArrayStorage {
+  const a1 = flatten1d(element);
+  const a2 = flatten1d(testElements);
+  const mask = membership(a1, a2, assumeUnique, invert);
+  return boolStorage(mask, Array.from(element.shape));
+}
 
-  const unique1 = unique(ar1) as ArrayStorage;
-  const unique2 = unique(ar2) as ArrayStorage;
-
-  const set2 = new Set<string>();
-  for (let i = 0; i < unique2.size; i++) {
-    set2.add(elementToKey(unique2.data, i, isComplex));
+/**
+ * Find the intersection of two arrays, as the sorted common values. With returnIndices the
+ * result is [values, indices into ar1, indices into ar2], each the first occurrence in the
+ * flattened input.
+ */
+export function intersect1d(
+  ar1: ArrayStorage,
+  ar2: ArrayStorage,
+  assumeUnique: boolean,
+  returnIndices: true,
+): [ArrayStorage, ArrayStorage, ArrayStorage];
+export function intersect1d(
+  ar1: ArrayStorage,
+  ar2: ArrayStorage,
+  assumeUnique?: boolean,
+  returnIndices?: boolean,
+): ArrayStorage;
+export function intersect1d(
+  ar1: ArrayStorage,
+  ar2: ArrayStorage,
+  assumeUnique: boolean = false,
+  returnIndices: boolean = false,
+): ArrayStorage | [ArrayStorage, ArrayStorage, ArrayStorage] {
+  let a1: ArrayStorage;
+  let a2: ArrayStorage;
+  let first1: ArrayStorage | undefined;
+  let first2: ArrayStorage | undefined;
+  if (assumeUnique) {
+    a1 = flatten1d(ar1);
+    a2 = flatten1d(ar2);
+  } else if (returnIndices) {
+    const f1 = flatten1d(ar1);
+    const f2 = flatten1d(ar2);
+    const u1 = unique(f1, true) as { values: ArrayStorage; indices: ArrayStorage };
+    const u2 = unique(f2, true) as { values: ArrayStorage; indices: ArrayStorage };
+    a1 = u1.values;
+    a2 = u2.values;
+    first1 = u1.indices;
+    first2 = u2.indices;
+  } else {
+    a1 = uniqueFlat(ar1);
+    a2 = uniqueFlat(ar2);
   }
 
-  const intersectionIndices: number[] = [];
-  for (let i = 0; i < unique1.size; i++) {
-    const key = elementToKey(unique1.data, i, isComplex);
-    if (set2.has(key)) {
-      intersectionIndices.push(i);
+  const joined = concatenate([a1, a2], 0);
+  const order = stableOrder(joined);
+  const sorted = gather(joined, order);
+  const eq = positionEquals(sorted);
+  const picks: number[] = [];
+  for (let k = 0; k < order.length - 1; k++) if (eq(k, k + 1)) picks.push(k);
+  const common = gather(sorted, picks);
+
+  let result: ArrayStorage | [ArrayStorage, ArrayStorage, ArrayStorage] = common;
+  if (returnIndices) {
+    const idx1 = ArrayStorage.zeros([picks.length], 'int32');
+    const idx2 = ArrayStorage.zeros([picks.length], 'int32');
+    const d1 = idx1.data as Int32Array;
+    const d2 = idx2.data as Int32Array;
+    for (let i = 0; i < picks.length; i++) {
+      const in1 = order[picks[i]!]!;
+      const in2 = order[picks[i]! + 1]! - a1.size;
+      d1[i] = first1 ? (first1.data as Int32Array)[first1.offset + in1]! : in1;
+      d2[i] = first2 ? (first2.data as Int32Array)[first2.offset + in2]! : in2;
     }
+    result = [common, idx1, idx2];
   }
 
-  // unique1 is already sorted, just copy the matching elements
-  if (isComplex) {
-    const result = ArrayStorage.zeros([intersectionIndices.length], dtype);
-    const resultData = result.data as Float64Array | Float32Array;
-    const unique1Data = unique1.data as Float64Array | Float32Array;
-    for (let i = 0; i < intersectionIndices.length; i++) {
-      const idx = intersectionIndices[i]!;
-      resultData[i * 2] = unique1Data[idx * 2]!;
-      resultData[i * 2 + 1] = unique1Data[idx * 2 + 1]!;
-    }
-    unique1.dispose();
-    unique2.dispose();
-    return result;
+  joined.dispose();
+  sorted.dispose();
+  if (!assumeUnique) {
+    a1.dispose();
+    a2.dispose();
+    first1?.dispose();
+    first2?.dispose();
   }
-
-  const result = ArrayStorage.zeros([intersectionIndices.length], dtype as DType);
-  const resultData = result.data;
-  for (let i = 0; i < intersectionIndices.length; i++) {
-    resultData[i] = unique1.data[intersectionIndices[i]!]!;
-  }
-  unique1.dispose();
-  unique2.dispose();
   return result;
 }
 
 /**
- * Test whether each element of an ND array is also present in a second array
+ * Find the set difference of two arrays: the values of ar1 that are not in ar2. The result is
+ * sorted unless assumeUnique is set, in which case ar1 is only flattened and keeps its order.
  */
-export function isin(element: ArrayStorage, testElements: ArrayStorage): ArrayStorage {
-  const shape = Array.from(element.shape);
-  const size = element.size;
-  const isComplex = isComplexDType(element.dtype);
-
-  const testSet = new Set<string>();
-  for (let i = 0; i < testElements.size; i++) {
-    testSet.add(elementToKey(testElements.data, i, isComplex, testElements.offset));
+export function setdiff1d(
+  ar1: ArrayStorage,
+  ar2: ArrayStorage,
+  assumeUnique: boolean = false,
+): ArrayStorage {
+  const a1 = assumeUnique ? flatten1d(ar1) : uniqueFlat(ar1);
+  const a2 = assumeUnique ? flatten1d(ar2) : uniqueFlat(ar2);
+  const absent = membership(a1, a2, true, true);
+  const picks: number[] = [];
+  for (let i = 0; i < absent.length; i++) if (absent[i]) picks.push(i);
+  const result = gather(a1, picks);
+  if (!assumeUnique) {
+    a1.dispose();
+    a2.dispose();
   }
-
-  const result = ArrayStorage.zeros(shape, 'bool');
-  const resultData = result.data as Uint8Array;
-
-  for (let i = 0; i < size; i++) {
-    const key = elementToKey(element.data, i, isComplex, element.offset);
-    resultData[i] = testSet.has(key) ? 1 : 0;
-  }
-
   return result;
 }
 
 /**
- * Find the set difference of two arrays
+ * Find the set exclusive-or of two arrays: the sorted values present in exactly one of them.
+ * NaN compares unequal to itself, so every NaN is kept.
  */
-export function setdiff1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
-  const dtype = ar1.dtype;
-  const isComplex = isComplexDType(dtype);
-
-  const unique1 = unique(ar1) as ArrayStorage;
-
-  const set2 = new Set<string>();
-  for (let i = 0; i < ar2.size; i++) {
-    set2.add(elementToKey(ar2.data, i, isComplex, ar2.offset));
+export function setxor1d(
+  ar1: ArrayStorage,
+  ar2: ArrayStorage,
+  assumeUnique: boolean = false,
+): ArrayStorage {
+  const a1 = assumeUnique ? flatten1d(ar1) : uniqueFlat(ar1);
+  const a2 = assumeUnique ? flatten1d(ar2) : uniqueFlat(ar2);
+  const joined = concatenate([a1, a2], 0);
+  if (!assumeUnique) {
+    a1.dispose();
+    a2.dispose();
   }
+  if (joined.size === 0) return joined;
 
-  const diffIndices: number[] = [];
-  for (let i = 0; i < unique1.size; i++) {
-    const key = elementToKey(unique1.data, i, isComplex);
-    if (!set2.has(key)) {
-      diffIndices.push(i);
-    }
+  const sorted = gather(joined, stableOrder(joined));
+  joined.dispose();
+  const eq = positionEquals(sorted);
+  const picks: number[] = [];
+  for (let i = 0; i < sorted.size; i++) {
+    const differsFromPrev = i === 0 || !eq(i, i - 1);
+    const differsFromNext = i === sorted.size - 1 || !eq(i, i + 1);
+    if (differsFromPrev && differsFromNext) picks.push(i);
   }
-
-  if (isComplex) {
-    const result = ArrayStorage.zeros([diffIndices.length], dtype);
-    const resultData = result.data as Float64Array | Float32Array;
-    const unique1Data = unique1.data as Float64Array | Float32Array;
-    for (let i = 0; i < diffIndices.length; i++) {
-      const idx = diffIndices[i]!;
-      resultData[i * 2] = unique1Data[idx * 2]!;
-      resultData[i * 2 + 1] = unique1Data[idx * 2 + 1]!;
-    }
-    unique1.dispose();
-    return result;
-  }
-
-  const result = ArrayStorage.zeros([diffIndices.length], dtype as DType);
-  const resultData = result.data;
-  for (let i = 0; i < diffIndices.length; i++) {
-    resultData[i] = unique1.data[diffIndices[i]!]!;
-  }
-  unique1.dispose();
+  const result = gather(sorted, picks);
+  sorted.dispose();
   return result;
 }
 
 /**
- * Find the set exclusive-or of two arrays
- */
-export function setxor1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
-  const dtype = ar1.dtype;
-  const isComplex = isComplexDType(dtype);
-
-  const unique1 = unique(ar1) as ArrayStorage;
-  const unique2 = unique(ar2) as ArrayStorage;
-
-  const set1 = new Set<string>();
-  const set2 = new Set<string>();
-
-  for (let i = 0; i < unique1.size; i++) {
-    set1.add(elementToKey(unique1.data, i, isComplex));
-  }
-  for (let i = 0; i < unique2.size; i++) {
-    set2.add(elementToKey(unique2.data, i, isComplex));
-  }
-
-  // Collect from unique1 not in set2, and unique2 not in set1
-  const xorIndices1: number[] = [];
-  const xorIndices2: number[] = [];
-
-  for (let i = 0; i < unique1.size; i++) {
-    const key = elementToKey(unique1.data, i, isComplex);
-    if (!set2.has(key)) {
-      xorIndices1.push(i);
-    }
-  }
-  for (let i = 0; i < unique2.size; i++) {
-    const key = elementToKey(unique2.data, i, isComplex);
-    if (!set1.has(key)) {
-      xorIndices2.push(i);
-    }
-  }
-
-  if (isComplex) {
-    // Collect all values, then sort
-    const xorValues: { re: number; im: number }[] = [];
-    const u1Data = unique1.data as Float64Array | Float32Array;
-    const u2Data = unique2.data as Float64Array | Float32Array;
-
-    for (const idx of xorIndices1) {
-      xorValues.push({ re: u1Data[idx * 2]!, im: u1Data[idx * 2 + 1]! });
-    }
-    for (const idx of xorIndices2) {
-      xorValues.push({ re: u2Data[idx * 2]!, im: u2Data[idx * 2 + 1]! });
-    }
-
-    xorValues.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
-
-    const result = ArrayStorage.zeros([xorValues.length], dtype);
-    const resultData = result.data as Float64Array | Float32Array;
-    for (let i = 0; i < xorValues.length; i++) {
-      resultData[i * 2] = xorValues[i]!.re;
-      resultData[i * 2 + 1] = xorValues[i]!.im;
-    }
-    unique1.dispose();
-    unique2.dispose();
-    return result;
-  }
-
-  // int64/uint64: collect and sort the BigInts. Number() would both merge
-  // distinct values above 2^53 and make the store throw on a BigInt array.
-  if (unique1.data instanceof BigInt64Array || unique1.data instanceof BigUint64Array) {
-    const u1 = unique1.data as BigInt64Array | BigUint64Array;
-    const u2 = unique2.data as BigInt64Array | BigUint64Array;
-    const vals: bigint[] = [];
-    for (const idx of xorIndices1) vals.push(u1[idx]!);
-    for (const idx of xorIndices2) vals.push(u2[idx]!);
-    vals.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    const out = ArrayStorage.zeros([vals.length], dtype as DType);
-    const od = out.data as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < vals.length; i++) od[i] = vals[i]!;
-    unique1.dispose();
-    unique2.dispose();
-    return out;
-  }
-
-  // Collect all values, then sort
-  const xorValues: number[] = [];
-  for (const idx of xorIndices1) {
-    xorValues.push(Number(unique1.data[idx]!));
-  }
-  for (const idx of xorIndices2) {
-    xorValues.push(Number(unique2.data[idx]!));
-  }
-
-  xorValues.sort((a, b) => {
-    if (Number.isNaN(a) && Number.isNaN(b)) return 0;
-    if (Number.isNaN(a)) return 1;
-    if (Number.isNaN(b)) return -1;
-    return a - b;
-  });
-
-  const result = ArrayStorage.zeros([xorValues.length], dtype as DType);
-  const resultData = result.data;
-  for (let i = 0; i < xorValues.length; i++) {
-    resultData[i] = xorValues[i]!;
-  }
-  unique1.dispose();
-  unique2.dispose();
-  return result;
-}
-
-/**
- * Find the union of two arrays
+ * Find the union of two arrays: the sorted unique values of both, in their promoted dtype.
  */
 export function union1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
-  const dtype = ar1.dtype;
-  const isComplex = isComplexDType(dtype);
-
-  const unique1 = unique(ar1) as ArrayStorage;
-  const unique2 = unique(ar2) as ArrayStorage;
-
-  const unionSet = new Set<string>();
-  const unionValues: { re: number; im: number }[] = [];
-
-  if (isComplex) {
-    const u1Data = unique1.data as Float64Array | Float32Array;
-    const u2Data = unique2.data as Float64Array | Float32Array;
-
-    for (let i = 0; i < unique1.size; i++) {
-      const re = u1Data[i * 2]!;
-      const im = u1Data[i * 2 + 1]!;
-      const key = `${re},${im}`;
-      if (!unionSet.has(key)) {
-        unionSet.add(key);
-        unionValues.push({ re, im });
-      }
-    }
-    for (let i = 0; i < unique2.size; i++) {
-      const re = u2Data[i * 2]!;
-      const im = u2Data[i * 2 + 1]!;
-      const key = `${re},${im}`;
-      if (!unionSet.has(key)) {
-        unionSet.add(key);
-        unionValues.push({ re, im });
-      }
-    }
-
-    unionValues.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
-
-    const result = ArrayStorage.zeros([unionValues.length], dtype);
-    const resultData = result.data as Float64Array | Float32Array;
-    for (let i = 0; i < unionValues.length; i++) {
-      resultData[i * 2] = unionValues[i]!.re;
-      resultData[i * 2 + 1] = unionValues[i]!.im;
-    }
-    unique1.dispose();
-    unique2.dispose();
-    return result;
-  }
-
-  // int64/uint64: dedupe on the BigInt itself, for the same reason as setxor1d.
-  if (unique1.data instanceof BigInt64Array || unique1.data instanceof BigUint64Array) {
-    const u1 = unique1.data as BigInt64Array | BigUint64Array;
-    const u2 = unique2.data as BigInt64Array | BigUint64Array;
-    const seen = new Set<bigint>();
-    const vals: bigint[] = [];
-    for (let i = 0; i < unique1.size; i++) {
-      const v = u1[i]!;
-      if (!seen.has(v)) {
-        seen.add(v);
-        vals.push(v);
-      }
-    }
-    for (let i = 0; i < unique2.size; i++) {
-      const v = u2[i]!;
-      if (!seen.has(v)) {
-        seen.add(v);
-        vals.push(v);
-      }
-    }
-    vals.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    const out = ArrayStorage.zeros([vals.length], dtype as DType);
-    const od = out.data as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < vals.length; i++) od[i] = vals[i]!;
-    unique1.dispose();
-    unique2.dispose();
-    return out;
-  }
-
-  const realValues: number[] = [];
-  for (let i = 0; i < unique1.size; i++) {
-    const val = Number(unique1.data[i]!);
-    const key = String(val);
-    if (!unionSet.has(key)) {
-      unionSet.add(key);
-      realValues.push(val);
-    }
-  }
-  for (let i = 0; i < unique2.size; i++) {
-    const val = Number(unique2.data[i]!);
-    const key = String(val);
-    if (!unionSet.has(key)) {
-      unionSet.add(key);
-      realValues.push(val);
-    }
-  }
-
-  realValues.sort((a, b) => {
-    if (Number.isNaN(a) && Number.isNaN(b)) return 0;
-    if (Number.isNaN(a)) return 1;
-    if (Number.isNaN(b)) return -1;
-    return a - b;
-  });
-
-  const result = ArrayStorage.zeros([realValues.length], dtype as DType);
-  const resultData = result.data;
-  for (let i = 0; i < realValues.length; i++) {
-    resultData[i] = realValues[i]!;
-  }
-  unique1.dispose();
-  unique2.dispose();
+  const joined = concatenate([flatten1d(ar1), flatten1d(ar2)], 0);
+  const result = unique(joined) as ArrayStorage;
+  joined.dispose();
   return result;
 }
 

@@ -426,13 +426,23 @@ around(decimals: number = 0): NDArray<RoundResult<D>> {
   }`;
 
 const ALLCLOSE_METHOD = `\
-allclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): boolean {
-    return core.allclose(this, other, rtol, atol);
+allclose(
+    other: NDArray | number,
+    rtol: number | NDArray = 1e-5,
+    atol: number | NDArray = 1e-8,
+    equal_nan: boolean = false,
+  ): boolean {
+    return core.allclose(this, other, rtol, atol, equal_nan);
   }`;
 
 const ISCLOSE_METHOD = `\
-isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray<'bool'> {
-    return up(core.isclose(this, other, rtol, atol)) as NDArray<'bool'>;
+isclose(
+    other: NDArray | number,
+    rtol: number | NDArray = 1e-5,
+    atol: number | NDArray = 1e-8,
+    equal_nan: boolean = false,
+  ): NDArray<'bool'> {
+    return up(core.isclose(this, other, rtol, atol, equal_nan)) as NDArray<'bool'>;
   }`;
 
 // average → true-division result (int → float64, float32 → float32). Typed for
@@ -835,13 +845,13 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'allclose',
     pattern: 'manual',
-    doc: 'Element-wise comparison with tolerance\nReturns True where |a - b| <= (atol + rtol * |b|)\n@param other - Value or array to compare with\n@param rtol - Relative tolerance (default: 1e-5)\n@param atol - Absolute tolerance (default: 1e-8)\n@returns boolean',
+    doc: 'Element-wise comparison with tolerance\nReturns True where |a - b| <= (atol + rtol * |b|)\n@param other - Value or array to compare with\n@param rtol - Relative tolerance, a number or an array (default: 1e-5)\n@param atol - Absolute tolerance, a number or an array (default: 1e-8)\n@param equal_nan - Treat NaN in both inputs as close (default: false)\n@returns boolean',
     manualCode: ALLCLOSE_METHOD,
   },
   {
     name: 'isclose',
     pattern: 'manual',
-    doc: 'Element-wise comparison with tolerance\nReturns True where |a - b| <= (atol + rtol * |b|)\n@param other - Value or array to compare with\n@param rtol - Relative tolerance (default: 1e-5)\n@param atol - Absolute tolerance (default: 1e-8)\n@returns Boolean array',
+    doc: 'Element-wise comparison with tolerance\nReturns True where |a - b| <= (atol + rtol * |b|)\n@param other - Value or array to compare with\n@param rtol - Relative tolerance, a number or an array (default: 1e-5)\n@param atol - Absolute tolerance, a number or an array (default: 1e-8)\n@param equal_nan - Treat NaN in both inputs as close (default: false)\n@returns Boolean array',
     manualCode: ISCLOSE_METHOD,
   },
   {

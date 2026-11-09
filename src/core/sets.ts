@@ -74,31 +74,113 @@ export function unique<
 }
 
 /**
- * Test if elements in ar1 are in ar2.
+ * Test if elements in ar1 are in ar2. The result is 1-D, whatever the shape of ar1.
  * @deprecated Use {@link isin} instead. `in1d` follows NumPy's deprecation and will be removed in a future release.
+ *
+ * @param ar1 - Values to look up
+ * @param ar2 - Values to look in
+ * @param assume_unique - Trust that neither input holds duplicates, skipping the work to remove them
+ * @param invert - Return the logical negation, true where an element is not in ar2
+ * @returns Boolean array with one entry per element of ar1
  */
-export function in1d(ar1: NDArrayCore, ar2: NDArrayCore): NDArrayCore {
-  return fromStorage(setOps.in1d(toStorage(ar1), toStorage(ar2)));
+export function in1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique: boolean = false,
+  invert: boolean = false,
+): NDArrayCore {
+  return fromStorage(setOps.in1d(toStorage(ar1), toStorage(ar2), assume_unique, invert));
 }
 
-/** Find intersection of two arrays */
-export function intersect1d(ar1: NDArrayCore, ar2: NDArrayCore): NDArrayCore {
-  return fromStorage(setOps.intersect1d(toStorage(ar1), toStorage(ar2)));
+/**
+ * Find the sorted values common to two arrays. With return_indices the result is a tuple of the
+ * common values and the index of their first occurrence in each flattened input.
+ *
+ * @param ar1 - First input, flattened
+ * @param ar2 - Second input, flattened
+ * @param assume_unique - Trust that neither input holds duplicates, skipping the work to remove them
+ * @param return_indices - Also return the indices of the common values in ar1 and ar2
+ * @returns The common values, or [values, indices in ar1, indices in ar2]
+ */
+export function intersect1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique?: boolean,
+  return_indices?: false,
+): NDArrayCore;
+export function intersect1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique: boolean | undefined,
+  return_indices: true,
+): [NDArrayCore, NDArrayCore, NDArrayCore];
+export function intersect1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique?: boolean,
+  return_indices?: boolean,
+): NDArrayCore | [NDArrayCore, NDArrayCore, NDArrayCore];
+export function intersect1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique: boolean = false,
+  return_indices: boolean = false,
+): NDArrayCore | [NDArrayCore, NDArrayCore, NDArrayCore] {
+  const r = setOps.intersect1d(toStorage(ar1), toStorage(ar2), assume_unique, return_indices);
+  if (Array.isArray(r)) return [fromStorage(r[0]), fromStorage(r[1]), fromStorage(r[2])];
+  return fromStorage(r);
 }
 
-/** Test if elements are in test elements */
-export function isin(element: NDArrayCore, testElements: NDArrayCore): NDArrayCore {
-  return fromStorage(setOps.isin(toStorage(element), toStorage(testElements)));
+/**
+ * Test if elements are in test elements, keeping the shape of element.
+ *
+ * @param element - Values to look up
+ * @param testElements - Values to look in
+ * @param assume_unique - Trust that neither input holds duplicates, skipping the work to remove them
+ * @param invert - Return the logical negation, true where an element is not in testElements
+ * @returns Boolean array shaped like element
+ */
+export function isin(
+  element: NDArrayCore,
+  testElements: NDArrayCore,
+  assume_unique: boolean = false,
+  invert: boolean = false,
+): NDArrayCore {
+  return fromStorage(
+    setOps.isin(toStorage(element), toStorage(testElements), assume_unique, invert),
+  );
 }
 
-/** Find set difference (elements in ar1 not in ar2) */
-export function setdiff1d(ar1: NDArrayCore, ar2: NDArrayCore): NDArrayCore {
-  return fromStorage(setOps.setdiff1d(toStorage(ar1), toStorage(ar2)));
+/**
+ * Find set difference (elements in ar1 not in ar2)
+ *
+ * @param ar1 - Values to keep, flattened
+ * @param ar2 - Values to remove, flattened
+ * @param assume_unique - Trust that neither input holds duplicates; ar1 is then not sorted
+ * @returns 1-D array of the values of ar1 that are not in ar2
+ */
+export function setdiff1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique: boolean = false,
+): NDArrayCore {
+  return fromStorage(setOps.setdiff1d(toStorage(ar1), toStorage(ar2), assume_unique));
 }
 
-/** Find symmetric difference (elements in either but not both) */
-export function setxor1d(ar1: NDArrayCore, ar2: NDArrayCore): NDArrayCore {
-  return fromStorage(setOps.setxor1d(toStorage(ar1), toStorage(ar2)));
+/**
+ * Find symmetric difference (elements in either but not both)
+ *
+ * @param ar1 - First input, flattened
+ * @param ar2 - Second input, flattened
+ * @param assume_unique - Trust that neither input holds duplicates, skipping the work to remove them
+ * @returns Sorted 1-D array of the values present in exactly one input
+ */
+export function setxor1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique: boolean = false,
+): NDArrayCore {
+  return fromStorage(setOps.setxor1d(toStorage(ar1), toStorage(ar2), assume_unique));
 }
 
 /** Find union of two arrays */

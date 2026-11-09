@@ -1323,26 +1323,40 @@ export function not_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.not_equal(x1, x2)) as NDArray<'bool'>;
 }
 
-/** Element-wise close comparison with tolerance */
+/**
+ * Element-wise close comparison with tolerance: true where |a - b| <= atol + rtol * |b| and b is
+ * finite, or where a equals b, so infinities of the same sign are close. Tolerances may be arrays
+ * and broadcast with the inputs.
+ *
+ * @param a - First input
+ * @param b - Second input, an array or a scalar
+ * @param rtol - Relative tolerance, a number or an array (default 1e-5)
+ * @param atol - Absolute tolerance, a number or an array (default 1e-8)
+ * @param equal_nan - Treat NaN in both inputs as close (default false)
+ * @returns Boolean array of the broadcast shape
+ */
 export function isclose<A extends DType, B extends DType>(
   a: NDArrayCore<A>,
   b: NDArrayCore<B>,
-  rtol?: number,
-  atol?: number,
+  rtol?: number | NDArrayCore,
+  atol?: number | NDArrayCore,
+  equal_nan?: boolean,
 ): NDArray<'bool'>;
 export function isclose<A extends DType>(
   a: NDArrayCore<A>,
   b: number,
-  rtol?: number,
-  atol?: number,
+  rtol?: number | NDArrayCore,
+  atol?: number | NDArrayCore,
+  equal_nan?: boolean,
 ): NDArray<'bool'>;
 export function isclose(
   a: NDArrayCore,
   b: NDArrayCore | number,
-  rtol: number = 1e-5,
-  atol: number = 1e-8,
+  rtol: number | NDArrayCore = 1e-5,
+  atol: number | NDArrayCore = 1e-8,
+  equal_nan: boolean = false,
 ): NDArray {
-  return up(core.isclose(a, b, rtol, atol)) as NDArray<'bool'>;
+  return up(core.isclose(a, b, rtol, atol, equal_nan)) as NDArray<'bool'>;
 }
 
 /**
@@ -2210,47 +2224,127 @@ export function unique<
 }
 
 /**
- * Test if elements in ar1 are in ar2.
+ * Test if elements in ar1 are in ar2. The result is 1-D, whatever the shape of ar1.
  * @deprecated Use {@link isin} instead. `in1d` follows NumPy's deprecation and will be removed in a future release.
+ *
+ * @param ar1 - Values to look up
+ * @param ar2 - Values to look in
+ * @param assume_unique - Trust that neither input holds duplicates, skipping the work to remove them
+ * @param invert - Return the logical negation, true where an element is not in ar2
+ * @returns Boolean array with one entry per element of ar1
  */
 export function in1d<A extends DType, B extends DType>(
   ar1: NDArrayCore<A>,
   ar2: NDArrayCore<B>,
+  assume_unique?: boolean,
+  invert?: boolean,
 ): NDArray<'bool'>;
-export function in1d(ar1: NDArrayCore, ar2: NDArrayCore): NDArray {
-  return up(core.in1d(ar1, ar2)) as NDArray<'bool'>;
+export function in1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique: boolean = false,
+  invert: boolean = false,
+): NDArray {
+  return up(core.in1d(ar1, ar2, assume_unique, invert)) as NDArray<'bool'>;
 }
 
-/** Find intersection of two arrays */
+/**
+ * Find the sorted values common to two arrays. With return_indices the result is a tuple of the
+ * common values and the index of their first occurrence in each flattened input.
+ *
+ * @param ar1 - First input, flattened
+ * @param ar2 - Second input, flattened
+ * @param assume_unique - Trust that neither input holds duplicates, skipping the work to remove them
+ * @param return_indices - Also return the indices of the common values in ar1 and ar2
+ * @returns The common values, or [values, indices in ar1, indices in ar2]
+ */
 export function intersect1d<A extends DType, B extends DType>(
   ar1: NDArrayCore<A>,
   ar2: NDArrayCore<B>,
+  assume_unique?: boolean,
+  return_indices?: false,
 ): NDArray<Promote<A, B>>;
-export function intersect1d(ar1: NDArrayCore, ar2: NDArrayCore): NDArray {
-  return up(core.intersect1d(ar1, ar2));
+export function intersect1d<A extends DType, B extends DType>(
+  ar1: NDArrayCore<A>,
+  ar2: NDArrayCore<B>,
+  assume_unique: boolean | undefined,
+  return_indices: true,
+): [NDArray<Promote<A, B>>, NDArray<'int32'>, NDArray<'int32'>];
+export function intersect1d<A extends DType, B extends DType>(
+  ar1: NDArrayCore<A>,
+  ar2: NDArrayCore<B>,
+  assume_unique?: boolean,
+  return_indices?: boolean,
+): NDArray<Promote<A, B>> | [NDArray<Promote<A, B>>, NDArray<'int32'>, NDArray<'int32'>];
+export function intersect1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique?: boolean,
+  return_indices?: boolean,
+): NDArray | [NDArray, NDArray, NDArray] {
+  const r = core.intersect1d(ar1, ar2, assume_unique, return_indices);
+  return Array.isArray(r) ? ([up(r[0]), up(r[1]), up(r[2])] as [NDArray, NDArray, NDArray]) : up(r);
 }
 
-/** Test if elements are in test elements */
+/**
+ * Test if elements are in test elements, keeping the shape of element.
+ *
+ * @param element - Values to look up
+ * @param testElements - Values to look in
+ * @param assume_unique - Trust that neither input holds duplicates, skipping the work to remove them
+ * @param invert - Return the logical negation, true where an element is not in testElements
+ * @returns Boolean array shaped like element
+ */
 export function isin<A extends DType, B extends DType>(
   element: NDArrayCore<A>,
   testElements: NDArrayCore<B>,
+  assume_unique?: boolean,
+  invert?: boolean,
 ): NDArray<'bool'>;
-export function isin(element: NDArrayCore, testElements: NDArrayCore): NDArray {
-  return up(core.isin(element, testElements)) as NDArray<'bool'>;
+export function isin(
+  element: NDArrayCore,
+  testElements: NDArrayCore,
+  assume_unique: boolean = false,
+  invert: boolean = false,
+): NDArray {
+  return up(core.isin(element, testElements, assume_unique, invert)) as NDArray<'bool'>;
 }
 
-/** Find set difference (elements in ar1 not in ar2) */
-export function setdiff1d<D extends DType>(ar1: NDArrayCore<D>, ar2: NDArrayCore): NDArray<D> {
-  return up(core.setdiff1d(ar1, ar2)) as NDArray<D>;
+/**
+ * Find set difference (elements in ar1 not in ar2)
+ *
+ * @param ar1 - Values to keep, flattened
+ * @param ar2 - Values to remove, flattened
+ * @param assume_unique - Trust that neither input holds duplicates; ar1 is then not sorted
+ * @returns 1-D array of the values of ar1 that are not in ar2
+ */
+export function setdiff1d<D extends DType>(
+  ar1: NDArrayCore<D>,
+  ar2: NDArrayCore,
+  assume_unique: boolean = false,
+): NDArray<D> {
+  return up(core.setdiff1d(ar1, ar2, assume_unique)) as NDArray<D>;
 }
 
-/** Find symmetric difference (elements in either but not both) */
+/**
+ * Find symmetric difference (elements in either but not both)
+ *
+ * @param ar1 - First input, flattened
+ * @param ar2 - Second input, flattened
+ * @param assume_unique - Trust that neither input holds duplicates, skipping the work to remove them
+ * @returns Sorted 1-D array of the values present in exactly one input
+ */
 export function setxor1d<A extends DType, B extends DType>(
   ar1: NDArrayCore<A>,
   ar2: NDArrayCore<B>,
+  assume_unique?: boolean,
 ): NDArray<Promote<A, B>>;
-export function setxor1d(ar1: NDArrayCore, ar2: NDArrayCore): NDArray {
-  return up(core.setxor1d(ar1, ar2));
+export function setxor1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique: boolean = false,
+): NDArray {
+  return up(core.setxor1d(ar1, ar2, assume_unique));
 }
 
 /** Find union of two arrays */

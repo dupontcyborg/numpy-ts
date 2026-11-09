@@ -525,24 +525,36 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * Element-wise comparison with tolerance
    * Returns True where |a - b| <= (atol + rtol * |b|)
    * @param other - Value or array to compare with
-   * @param rtol - Relative tolerance (default: 1e-5)
-   * @param atol - Absolute tolerance (default: 1e-8)
+   * @param rtol - Relative tolerance, a number or an array (default: 1e-5)
+   * @param atol - Absolute tolerance, a number or an array (default: 1e-8)
+   * @param equal_nan - Treat NaN in both inputs as close (default: false)
    * @returns boolean
    */
-  allclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): boolean {
-    return core.allclose(this, other, rtol, atol);
+  allclose(
+    other: NDArray | number,
+    rtol: number | NDArray = 1e-5,
+    atol: number | NDArray = 1e-8,
+    equal_nan: boolean = false,
+  ): boolean {
+    return core.allclose(this, other, rtol, atol, equal_nan);
   }
 
   /**
    * Element-wise comparison with tolerance
    * Returns True where |a - b| <= (atol + rtol * |b|)
    * @param other - Value or array to compare with
-   * @param rtol - Relative tolerance (default: 1e-5)
-   * @param atol - Absolute tolerance (default: 1e-8)
+   * @param rtol - Relative tolerance, a number or an array (default: 1e-5)
+   * @param atol - Absolute tolerance, a number or an array (default: 1e-8)
+   * @param equal_nan - Treat NaN in both inputs as close (default: false)
    * @returns Boolean array
    */
-  isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray<'bool'> {
-    return up(core.isclose(this, other, rtol, atol)) as NDArray<'bool'>;
+  isclose(
+    other: NDArray | number,
+    rtol: number | NDArray = 1e-5,
+    atol: number | NDArray = 1e-8,
+    equal_nan: boolean = false,
+  ): NDArray<'bool'> {
+    return up(core.isclose(this, other, rtol, atol, equal_nan)) as NDArray<'bool'>;
   }
 
   /**
