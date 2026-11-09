@@ -999,11 +999,11 @@ export function trace<D extends DType>(
   offset: number = 0,
   axis1: number = 0,
   axis2: number = 1,
-): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+): NDArray<ReductionAccum<D>> | Scalar<D> {
   const r = core.trace(a, offset, axis1, axis2);
   return (r instanceof NDArrayCore ? up(r) : r) as unknown as
     | NDArray<ReductionAccum<D>>
-    | Scalar<ReductionAccum<D>>;
+    | Scalar<D>;
 }
 
 /** Return diagonal or construct diagonal array */
@@ -1443,7 +1443,7 @@ export function roots(p: NDArrayCore | number[]): NDArray {
 /** Sum of array elements */
 export function sum<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
   opts?: ReductionOpts,
 ): NDArray<ReductionAccum<D>>;
@@ -1452,23 +1452,23 @@ export function sum<D extends DType>(
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts,
-): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>;
+): NDArray<ReductionAccum<D>> | Scalar<D>;
 export function sum<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts,
-): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+): NDArray<ReductionAccum<D>> | Scalar<D> {
   const r = core.sum(a, axis, keepdims, opts);
   return (r instanceof NDArrayCore ? up(r) : r) as unknown as
     | NDArray<ReductionAccum<D>>
-    | Scalar<ReductionAccum<D>>;
+    | Scalar<D>;
 }
 
 /** Mean of array elements */
 export function mean<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
 ): NDArray<TrueDivide<D>>;
 export function mean<D extends DType>(
@@ -1490,7 +1490,7 @@ export function mean<D extends DType>(
 /** Product of array elements */
 export function prod<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
   opts?: ReductionOpts,
 ): NDArray<ReductionAccum<D>>;
@@ -1499,23 +1499,23 @@ export function prod<D extends DType>(
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts,
-): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>;
+): NDArray<ReductionAccum<D>> | Scalar<D>;
 export function prod<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts,
-): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+): NDArray<ReductionAccum<D>> | Scalar<D> {
   const r = core.prod(a, axis, keepdims, opts);
   return (r instanceof NDArrayCore ? up(r) : r) as unknown as
     | NDArray<ReductionAccum<D>>
-    | Scalar<ReductionAccum<D>>;
+    | Scalar<D>;
 }
 
 /** Maximum of array elements */
 export function max<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
   opts?: ReductionOpts,
 ): NDArray<D>;
@@ -1538,7 +1538,7 @@ export function max<D extends DType>(
 /** Minimum of array elements */
 export function min<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
   opts?: ReductionOpts,
 ): NDArray<D>;
@@ -1561,7 +1561,7 @@ export function min<D extends DType>(
 /** Peak-to-peak (max - min) */
 export function ptp<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
 ): NDArray<D>;
 export function ptp<D extends DType>(
@@ -1581,7 +1581,7 @@ export function ptp<D extends DType>(
 /** Index of minimum value */
 export function argmin<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number,
+  axis: number | undefined,
   keepdims: true,
 ): NDArray<'int32'>;
 export function argmin<D extends DType>(
@@ -1601,7 +1601,7 @@ export function argmin<D extends DType>(
 /** Index of maximum value */
 export function argmax<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number,
+  axis: number | undefined,
   keepdims: true,
 ): NDArray<'int32'>;
 export function argmax<D extends DType>(
@@ -1621,7 +1621,7 @@ export function argmax<D extends DType>(
 /** Variance of array elements */
 export function variance<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   ddof: number | undefined,
   keepdims: true,
 ): NDArray<StdVar<D>>;
@@ -1646,7 +1646,7 @@ export function variance<D extends DType>(
 /** Standard deviation of array elements */
 export function std<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   ddof: number | undefined,
   keepdims: true,
 ): NDArray<StdVar<D>>;
@@ -1671,7 +1671,7 @@ export function std<D extends DType>(
 /** Median of array elements */
 export function median<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
 ): NDArray<TrueDivide<D>>;
 export function median<D extends DType>(
@@ -1694,7 +1694,7 @@ export function median<D extends DType>(
 export function percentile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
-  axis: number,
+  axis: number | undefined,
   keepdims: true,
 ): NDArray<TrueDivide<D>>;
 export function percentile<D extends DType>(
@@ -1719,7 +1719,7 @@ export function percentile<D extends DType>(
 export function quantile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
-  axis: number,
+  axis: number | undefined,
   keepdims: true,
 ): NDArray<TrueDivide<D>>;
 export function quantile<D extends DType>(
@@ -1775,7 +1775,7 @@ export function average<D extends DType>(
 /** Test if all elements are true */
 export function all<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
   opts?: ReductionOpts,
 ): NDArray<'bool'>;
@@ -1798,7 +1798,7 @@ export function all<D extends DType>(
 /** Test if any element is true */
 export function any<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
   opts?: ReductionOpts,
 ): NDArray<'bool'>;
@@ -1837,51 +1837,51 @@ export function cumprod<D extends DType>(
 /** Sum ignoring NaN */
 export function nansum<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
 ): NDArray<ReductionAccum<D>>;
 export function nansum<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
-): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>;
+): NDArray<ReductionAccum<D>> | Scalar<D>;
 export function nansum<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
-): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+): NDArray<ReductionAccum<D>> | Scalar<D> {
   const r = core.nansum(a, axis, keepdims);
   return (r instanceof NDArrayCore ? up(r) : r) as unknown as
     | NDArray<ReductionAccum<D>>
-    | Scalar<ReductionAccum<D>>;
+    | Scalar<D>;
 }
 
 /** Product ignoring NaN */
 export function nanprod<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
 ): NDArray<ReductionAccum<D>>;
 export function nanprod<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
-): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>;
+): NDArray<ReductionAccum<D>> | Scalar<D>;
 export function nanprod<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
-): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+): NDArray<ReductionAccum<D>> | Scalar<D> {
   const r = core.nanprod(a, axis, keepdims);
   return (r instanceof NDArrayCore ? up(r) : r) as unknown as
     | NDArray<ReductionAccum<D>>
-    | Scalar<ReductionAccum<D>>;
+    | Scalar<D>;
 }
 
 /** Mean ignoring NaN */
 export function nanmean<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
 ): NDArray<TrueDivide<D>>;
 export function nanmean<D extends DType>(
@@ -1903,7 +1903,7 @@ export function nanmean<D extends DType>(
 /** Variance ignoring NaN */
 export function nanvar<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   ddof: number | undefined,
   keepdims: true,
 ): NDArray<StdVar<D>>;
@@ -1928,7 +1928,7 @@ export function nanvar<D extends DType>(
 /** Standard deviation ignoring NaN */
 export function nanstd<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   ddof: number | undefined,
   keepdims: true,
 ): NDArray<StdVar<D>>;
@@ -1953,7 +1953,7 @@ export function nanstd<D extends DType>(
 /** Minimum ignoring NaN */
 export function nanmin<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
 ): NDArray<D>;
 export function nanmin<D extends DType>(
@@ -1973,7 +1973,7 @@ export function nanmin<D extends DType>(
 /** Maximum ignoring NaN */
 export function nanmax<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number | number[],
+  axis: number | number[] | undefined,
   keepdims: true,
 ): NDArray<D>;
 export function nanmax<D extends DType>(
@@ -2027,7 +2027,7 @@ export function nancumprod<D extends DType>(
 /** Median ignoring NaN */
 export function nanmedian<D extends DType>(
   a: NDArrayCore<D>,
-  axis: number,
+  axis: number | undefined,
   keepdims: true,
 ): NDArray<TrueDivide<D>>;
 export function nanmedian<D extends DType>(
@@ -2050,7 +2050,7 @@ export function nanmedian<D extends DType>(
 export function nanquantile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
-  axis: number,
+  axis: number | undefined,
   keepdims: true,
 ): NDArray<TrueDivide<D>>;
 export function nanquantile<D extends DType>(
@@ -2075,7 +2075,7 @@ export function nanquantile<D extends DType>(
 export function nanpercentile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
-  axis: number,
+  axis: number | undefined,
   keepdims: true,
 ): NDArray<TrueDivide<D>>;
 export function nanpercentile<D extends DType>(

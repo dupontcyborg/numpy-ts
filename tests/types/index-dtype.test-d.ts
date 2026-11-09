@@ -76,7 +76,7 @@ type _kron = Expect<Equal<ReturnType<typeof np.kron<'int8', 'int16'>>, NDArray<'
 type _union = Expect<Equal<ReturnType<typeof np.union1d<'int32', 'float32'>>, NDArray<'float64'>>>;
 // reductions → NDArray<R> | Scalar<R>
 const sm = np.sum(i8);
-type _sum = Expect<Equal<typeof sm, NDArray<'int64'> | bigint>>;
+type _sum = Expect<Equal<typeof sm, NDArray<'int64'> | number>>;
 const mn = np.mean(i32);
 type _mean = Expect<Equal<typeof mn, NDArray<'float64'> | number>>;
 const am = np.argmax(f32);
@@ -91,7 +91,7 @@ type _dot = Expect<
 type _vecdot = Expect<
   Equal<ReturnType<typeof np.vecdot<'int8', 'int16'>>, NDArray<'int16'> | number>
 >;
-type _trace = Expect<Equal<ReturnType<typeof np.trace<'int32'>>, NDArray<'int64'> | bigint>>;
+type _trace = Expect<Equal<ReturnType<typeof np.trace<'int32'>>, NDArray<'int64'> | number>>;
 
 // ── P5: tuples + index families ─────────────────────────────────────────────
 type _frexp = Expect<

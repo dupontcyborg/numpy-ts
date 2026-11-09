@@ -665,16 +665,14 @@ function toOverloadParam(seg: string): string {
 }
 
 // Convert a param segment to a required param, for overloads where a later param is
-// required. The axis stays a concrete value; others still accept undefined
-// (`ddof?: number` → `ddof: number | undefined`).
+// required. The optional ones still accept undefined (`ddof?: number` → `ddof: number | undefined`).
 function toRequiredParam(seg: string): string {
   const optional = toOverloadParam(seg);
   const colon = optional.indexOf(':');
   const name = optional.slice(0, colon).trim();
   const type = optional.slice(colon + 1).trim();
   if (!name.endsWith('?')) return optional;
-  const bare = name.slice(0, -1);
-  return bare === 'axis' ? `${bare}: ${type}` : `${bare}: ${type} | undefined`;
+  return `${name.slice(0, -1)}: ${type} | undefined`;
 }
 
 /**
@@ -738,7 +736,9 @@ export function ${info.name}<D extends DType>(${retyped}): ${rt} {
 // rest, and return `NDArray<R> | Scalar<R>` (the runtime yields either an array
 // or a scalar depending on `axis`). Mirrors the `reduction` method pattern.
 const REDUCTION_RESULT: Record<string, string> = {
-  accum: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
+  // The array result widens (int8 → int64) but the scalar result is the JS value of the input
+  // dtype: a bigint only for int64 and uint64, a number for every narrower integer and bool.
+  accum: 'NDArray<ReductionAccum<D>> | Scalar<D>',
   truedivide: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
   stdvar: 'NDArray<StdVar<D>> | Scalar<StdVar<D>>',
   preserve: 'NDArray<D> | Scalar<D>',
@@ -759,13 +759,11 @@ function generateReductionWrapper(info: FunctionInfo, kind: string): string | nu
   return (r instanceof NDArrayCore ? up(r) : r) as unknown as ${rt};
 }`;
 
-  // An explicit axis with keepdims true always yields an array, so that call gets its
-  // own overload. Without an axis the result collapses to a scalar even with keepdims,
-  // so every other call shape keeps the full union.
+  // keepdims true always yields an array, with or without an axis, so that call gets its
+  // own overload; every other call shape keeps the full union.
   const kdIdx = segs.findIndex((seg) => paramName(seg) === 'keepdims');
   const arrayRt = rt.split(' | ')[0]!;
-  const hasAxis = segs.some((seg) => paramName(seg) === 'axis');
-  if (kdIdx > 0 && hasAxis && arrayRt.startsWith('NDArray<')) {
+  if (kdIdx > 0 && arrayRt.startsWith('NDArray<')) {
     const kdParams = [
       retypeArrayParam(segs[0]!, 'D'),
       ...segs.slice(1, kdIdx).map(toRequiredParam),
@@ -1437,7 +1435,21 @@ function generateMethodCode(def: MethodDef): string {
       const tail = returnType.includes('<')
         ? `return (r instanceof NDArrayCore ? up(r) : r) as unknown as ${returnType};`
         : `return r instanceof NDArrayCore ? up(r) : r;`;
-      return `${doc}  ${def.name}(${params}): ${returnType} {\n    const r = core.${coreName}(this, ${argNames});\n    ${tail}\n  }`;
+      const impl = `${def.name}(${params}): ${returnType} {\n    const r = core.${coreName}(this, ${argNames});\n    ${tail}\n  }`;
+      // keepdims true always yields an array, so that call gets its own overload.
+      const segs = splitTopLevel(params);
+      const kdIdx = segs.findIndex((seg) => paramName(seg) === 'keepdims');
+      const arrayRt = returnType.split(' | ')[0]!;
+      if (kdIdx >= 0 && arrayRt.startsWith('NDArray<')) {
+        const kdParams = [
+          ...segs.slice(0, kdIdx).map(toRequiredParam),
+          'keepdims: true',
+          ...segs.slice(kdIdx + 1).map(toOverloadParam),
+        ].join(', ');
+        const generalParams = segs.map(toOverloadParam).join(', ');
+        return `${doc}  ${def.name}(${kdParams}): ${arrayRt};\n  ${def.name}(${generalParams}): ${returnType};\n  ${impl}`;
+      }
+      return `${doc}  ${impl}`;
     }
 
     case 'passthrough': {

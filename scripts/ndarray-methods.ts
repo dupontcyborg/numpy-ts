@@ -458,13 +458,13 @@ dot<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote
       | Scalar<Promote<D, B>>;
   }`;
 
-// trace → ReductionAccum<D> (sum of the diagonal widens ints, like sum/prod).
+// trace: the array result widens ints to int64 like sum, the scalar result is the input dtype's JS value.
 const TRACE_METHOD = `\
-trace(): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+trace(): NDArray<ReductionAccum<D>> | Scalar<D> {
     const r = core.trace(this);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as
       | NDArray<ReductionAccum<D>>
-      | Scalar<ReductionAccum<D>>;
+      | Scalar<D>;
   }`;
 
 const INNER_METHOD = `\
@@ -1363,7 +1363,7 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'sum',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<D>',
     doc: 'Sum array elements over a given axis',
   },
   {
@@ -1377,7 +1377,7 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'prod',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<D>',
     doc: 'Product of array elements over a given axis',
   },
   {
@@ -1405,14 +1405,14 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'nansum',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<D>',
     doc: 'Return the sum of array elements, treating NaNs as zero',
   },
   {
     name: 'nanprod',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<D>',
     doc: 'Return the product of array elements, treating NaNs as ones',
   },
   {

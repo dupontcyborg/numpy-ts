@@ -5,6 +5,7 @@
  * Checked by `pnpm run typecheck:types`.
  */
 
+import type { Complex } from '../../src/common/complex';
 import type { NDArrayCore } from '../../src/common/ndarray-core';
 import type { ArrayStorage } from '../../src/common/storage';
 import type * as coreEntry from '../../src/core';
@@ -18,6 +19,16 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 
 declare const f64: NDArray<'float64'>;
+declare const f16: NDArray<'float16'>;
+declare const i8: NDArray<'int8'>;
+declare const i16: NDArray<'int16'>;
+declare const i32: NDArray<'int32'>;
+declare const i64: NDArray<'int64'>;
+declare const u8: NDArray<'uint8'>;
+declare const u32: NDArray<'uint32'>;
+declare const u64: NDArray<'uint64'>;
+declare const b: NDArray<'bool'>;
+declare const c64: NDArray<'complex64'>;
 
 // ── reshape accepts a shape array as well as variadic dims ──────────────────
 const rs1 = f64.reshape([2, 3]);
@@ -126,9 +137,93 @@ const k4 = np.argmax(f64, 0, true);
 type _keepArg = Expect<Equal<typeof k4, NDArray<'int32'>>>;
 const k5 = np.percentile(f64, 50, 0, true);
 type _keepPercentile = Expect<Equal<typeof k5, NDArray<'float64'>>>;
-// Without keepdims, or without an axis, the result may still be a scalar.
+// Without keepdims the result may still be a scalar.
 const k6 = np.sum(f64, 0);
 type _noKeep = Expect<Equal<typeof k6, NDArray<'float64'> | number>>;
+const k6b = np.sum(f64);
+type _noKeepNoAxis = Expect<Equal<typeof k6b, NDArray<'float64'> | number>>;
+
+// ── reductions: keepdims true yields an array even without an axis ──────────
+const kn1 = np.sum(f64, undefined, true);
+type _keepNoAxisSum = Expect<Equal<typeof kn1, NDArray<'float64'>>>;
+const kn2 = np.mean(f64, undefined, true);
+type _keepNoAxisMean = Expect<Equal<typeof kn2, NDArray<'float64'>>>;
+const kn3 = np.std(f64, undefined, 0, true);
+type _keepNoAxisStd = Expect<Equal<typeof kn3, NDArray<'float64'>>>;
+const kn4 = np.argmax(f64, undefined, true);
+type _keepNoAxisArg = Expect<Equal<typeof kn4, NDArray<'int32'>>>;
+const kn5 = np.percentile(f64, 50, undefined, true);
+type _keepNoAxisPercentile = Expect<Equal<typeof kn5, NDArray<'float64'>>>;
+const kn6 = np.all(f64, undefined, true);
+type _keepNoAxisAll = Expect<Equal<typeof kn6, NDArray<'bool'>>>;
+const kn7 = np.max(f64, undefined, true);
+type _keepNoAxisMax = Expect<Equal<typeof kn7, NDArray<'float64'>>>;
+const kn8 = np.nansum(i32, undefined, true);
+type _keepNoAxisNansum = Expect<Equal<typeof kn8, NDArray<'int64'>>>;
+const kn9 = np.median(f64, undefined, true);
+type _keepNoAxisMedian = Expect<Equal<typeof kn9, NDArray<'float64'>>>;
+const kn10 = f64.sum(undefined, true);
+type _keepNoAxisMethodSum = Expect<Equal<typeof kn10, NDArray<'float64'>>>;
+const kn11 = f64.std(undefined, 0, true);
+type _keepNoAxisMethodStd = Expect<Equal<typeof kn11, NDArray<'float64'>>>;
+const kn12 = f64.percentile(50, undefined, true);
+type _keepNoAxisMethodPercentile = Expect<Equal<typeof kn12, NDArray<'float64'>>>;
+const kn13 = f64.any(undefined, true);
+type _keepNoAxisMethodAny = Expect<Equal<typeof kn13, NDArray<'bool'>>>;
+const kn14 = f64.sum(0, true);
+type _keepAxisMethodSum = Expect<Equal<typeof kn14, NDArray<'float64'>>>;
+const kn15 = f64.sum(0);
+type _methodNoKeep = Expect<Equal<typeof kn15, NDArray<'float64'> | number>>;
+
+// ── reductions: bigint appears only for int64 and uint64 scalar results ─────
+const sI8 = np.sum(i8);
+type _sumI8 = Expect<Equal<typeof sI8, NDArray<'int64'> | number>>;
+const sU32 = np.sum(u32);
+type _sumU32 = Expect<Equal<typeof sU32, NDArray<'uint64'> | number>>;
+const sBool = np.sum(b);
+type _sumBool = Expect<Equal<typeof sBool, NDArray<'int64'> | number>>;
+const sI64 = np.sum(i64);
+type _sumI64 = Expect<Equal<typeof sI64, NDArray<'int64'> | bigint>>;
+const sU64 = np.sum(u64);
+type _sumU64 = Expect<Equal<typeof sU64, NDArray<'uint64'> | bigint>>;
+const sF16 = np.sum(f16);
+type _sumF16 = Expect<Equal<typeof sF16, NDArray<'float16'> | number>>;
+const sC64 = np.sum(c64);
+type _sumC64 = Expect<Equal<typeof sC64, NDArray<'complex64'> | Complex>>;
+const pI16 = np.prod(i16);
+type _prodI16 = Expect<Equal<typeof pI16, NDArray<'int64'> | number>>;
+const pU64 = np.prod(u64);
+type _prodU64 = Expect<Equal<typeof pU64, NDArray<'uint64'> | bigint>>;
+const nsI32 = np.nansum(i32);
+type _nansumI32 = Expect<Equal<typeof nsI32, NDArray<'int64'> | number>>;
+const npI64 = np.nanprod(i64);
+type _nanprodI64 = Expect<Equal<typeof npI64, NDArray<'int64'> | bigint>>;
+const trI32 = np.trace(i32);
+type _traceI32 = Expect<Equal<typeof trI32, NDArray<'int64'> | number>>;
+const trU64 = np.trace(u64);
+type _traceU64 = Expect<Equal<typeof trU64, NDArray<'uint64'> | bigint>>;
+const mxI32 = np.max(i32);
+type _maxI32 = Expect<Equal<typeof mxI32, NDArray<'int32'> | number>>;
+const mxI64 = np.min(i64);
+type _minI64 = Expect<Equal<typeof mxI64, NDArray<'int64'> | bigint>>;
+const meI64 = np.mean(i64);
+type _meanI64 = Expect<Equal<typeof meI64, NDArray<'float64'> | number>>;
+const methodSumU8 = u8.sum();
+type _methodSumU8 = Expect<Equal<typeof methodSumU8, NDArray<'uint64'> | number>>;
+const methodSumI64 = i64.sum();
+type _methodSumI64 = Expect<Equal<typeof methodSumI64, NDArray<'int64'> | bigint>>;
+const methodTraceI8 = i8.trace();
+type _methodTraceI8 = Expect<Equal<typeof methodTraceI8, NDArray<'int64'> | number>>;
+const methodProdU64 = u64.prod();
+type _methodProdU64 = Expect<Equal<typeof methodProdU64, NDArray<'uint64'> | bigint>>;
+
+// ── reductions: an options object is not an axis ────────────────────────────
+// @ts-expect-error the axis is a number or an array of numbers, not an options object
+np.sum(f64, { axis: 0 });
+// @ts-expect-error the axis is a number or an array of numbers, not an options object
+np.mean(f64, { axis: 1 });
+// @ts-expect-error the axis is a number or an array of numbers, not an options object
+f64.sum({ axis: 0 });
 
 // ── random: an array when size is given, a number otherwise ─────────────────
 const rn1 = main.random.randn(2, 3);

@@ -61,6 +61,28 @@ function describeInput(a: unknown): string {
   return typeof a === 'object' ? (a.constructor?.name ?? 'an object') : typeof a;
 }
 
+function describeAxis(axis: unknown, allowTuple: boolean): string {
+  if (Array.isArray(axis)) return allowTuple ? 'an array containing a non-integer' : 'an array';
+  if (typeof axis === 'number') return `the non-integer number ${axis}`;
+  return typeof axis === 'object' ? 'an object' : `a ${typeof axis}`;
+}
+
+/**
+ * Validates the axis argument of a reduction and returns it with null mapped to undefined, so
+ * callers only test for undefined. A mistaken argument such as an options object would otherwise
+ * be read as an axis and give silently wrong numbers.
+ */
+export function checkAxis(axis: unknown, allowTuple: boolean): number | number[] | undefined {
+  if (axis === undefined || axis === null) return undefined;
+  if (typeof axis === 'number' && Number.isInteger(axis)) return axis;
+  if (allowTuple && Array.isArray(axis) && axis.every((x) => Number.isInteger(x))) {
+    return axis as number[];
+  }
+  throw new TypeError(
+    `axis must be an integer${allowTuple ? ' or an array of integers' : ''}, got ${describeAxis(axis, allowTuple)}`,
+  );
+}
+
 /**
  * Internal storage for NDArray data
  * Manages the underlying TypedArray and metadata

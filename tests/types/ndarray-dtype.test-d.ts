@@ -74,7 +74,7 @@ type _isnanBool = Expect<Equal<ReturnType<typeof f32.isnan>, NDArray<'bool'>>>;
 type _argsortF64 = Expect<Equal<ReturnType<typeof f32.argsort>, NDArray<'float64'>>>;
 
 // ── reductions: sum widens ints, full-reduction scalar reflects the dtype ────
-type _sumI32 = Expect<Equal<ReturnType<typeof i32.sum>, NDArray<'int64'> | bigint>>;
+type _sumI32 = Expect<Equal<ReturnType<typeof i32.sum>, NDArray<'int64'> | number>>;
 type _cumsumI8 = Expect<Equal<ReturnType<typeof i8.cumsum>, NDArray<'int64'>>>;
 type _meanI32 = Expect<Equal<ReturnType<typeof i32.mean>, NDArray<'float64'> | number>>;
 type _stdC128 = Expect<Equal<ReturnType<typeof c128.std>, NDArray<'float64'> | number>>;
@@ -82,7 +82,7 @@ type _stdC128 = Expect<Equal<ReturnType<typeof c128.std>, NDArray<'float64'> | n
 // ── P4/P5 methods: contractions, trace, average, divmod ─────────────────────
 type _dotM = Expect<Equal<ReturnType<typeof i32.dot<'float32'>>, NDArray<'float64'> | number>>;
 type _innerM = Expect<Equal<ReturnType<typeof i8.inner<'int16'>>, NDArray<'int16'> | number>>;
-type _traceM = Expect<Equal<ReturnType<typeof i32.trace>, NDArray<'int64'> | bigint>>;
+type _traceM = Expect<Equal<ReturnType<typeof i32.trace>, NDArray<'int64'> | number>>;
 type _averageM = Expect<Equal<ReturnType<typeof i32.average>, NDArray<'float64'> | number>>;
 type _divmodM = Expect<
   Equal<ReturnType<typeof i8.divmod<'int16'>>, [NDArray<'int16'>, NDArray<'int16'>]>

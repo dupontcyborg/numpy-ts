@@ -133,7 +133,8 @@ function wrapScalarKeepdims(
   dtype: DType,
 ): ArrayStorage {
   const out = ArrayStorage.zeros(Array(ndim).fill(1) as number[], dtype);
-  out.iset(0, scalar as number | bigint | Complex);
+  // A narrow-int sum or prod is a plain number even though the accumulator dtype is 64-bit.
+  out.iset(0, isBigIntDType(dtype) && typeof scalar === 'number' ? BigInt(scalar) : scalar);
   return out;
 }
 
@@ -264,9 +265,7 @@ export function sum(
   if (outputShape.length === 0) {
     const scalar = sum(storage);
     if (!keepdims) return scalar;
-    const out = ArrayStorage.zeros(Array(ndim).fill(1), outDtype);
-    out.iset(0, scalar as number | bigint | Complex);
-    return out;
+    return wrapScalarKeepdims(scalar as number | bigint | Complex, ndim, outDtype);
   }
 
   // Perform reduction along axis
@@ -3099,6 +3098,17 @@ function _complexMedian(
   keepdims: boolean,
   dropNaN: boolean,
 ): ArrayStorage | number | Complex {
+  const r = _complexMedianImpl(storage, axis, keepdims, dropNaN);
+  // The scalar branch below ignores keepdims, so a full reduction is wrapped here.
+  return keepdims && r instanceof Complex ? wrapScalarKeepdims(r, storage.ndim, storage.dtype) : r;
+}
+
+function _complexMedianImpl(
+  storage: ArrayStorage,
+  axis: number | undefined,
+  keepdims: boolean,
+  dropNaN: boolean,
+): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -4925,7 +4935,7 @@ export function nanmin(
   if (outputShape.length === 0) {
     const scalar = nanmin(storage) as number;
     if (!keepdims) return scalar;
-    return wrapScalarKeepdims(scalar, ndim, 'float64');
+    return wrapScalarKeepdims(scalar, ndim, dtype);
   }
 
   // nanmin preserves input dtype (like NumPy)
@@ -4959,7 +4969,7 @@ export function nanmin(
   if (keepdims) {
     const keepdimsShape = [...shape];
     keepdimsShape[normalizedAxis] = 1;
-    return ArrayStorage.fromData(resultData, keepdimsShape, 'float64');
+    return ArrayStorage.fromData(resultData, keepdimsShape, outDtype);
   }
 
   return result;
@@ -5140,7 +5150,7 @@ export function nanmax(
   if (outputShape.length === 0) {
     const scalar = nanmax(storage) as number;
     if (!keepdims) return scalar;
-    return wrapScalarKeepdims(scalar, ndim, 'float64');
+    return wrapScalarKeepdims(scalar, ndim, dtype);
   }
 
   // nanmax preserves input dtype (like NumPy)
@@ -5174,7 +5184,7 @@ export function nanmax(
   if (keepdims) {
     const keepdimsShape = [...shape];
     keepdimsShape[normalizedAxis] = 1;
-    return ArrayStorage.fromData(resultData, keepdimsShape, 'float64');
+    return ArrayStorage.fromData(resultData, keepdimsShape, outDtype);
   }
 
   return result;

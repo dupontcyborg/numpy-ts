@@ -5,7 +5,9 @@
  * imported independently for optimal tree-shaking.
  */
 
+import * as reductionOps from '../common/ops/reduction';
 import * as sortingOps from '../common/ops/sorting';
+import { checkAxis } from '../common/storage';
 import { asarray } from './creation';
 import {
   type ArrayLike,
@@ -113,19 +115,22 @@ export function extract(condition: NDArrayCore, a: NDArrayCore): NDArrayCore {
 
 /** Count non-zero elements */
 export function count_nonzero(a: NDArrayCore, axis?: number | number[]): NDArrayCore | number {
-  if (Array.isArray(axis)) {
+  const ax = checkAxis(axis, true);
+  if (Array.isArray(ax)) {
     const ndim = toStorage(a).ndim;
-    const normAxes = axis.map((ax) => (ax < 0 ? ndim + ax : ax));
+    const normAxes = ax.map((x) => (x < 0 ? ndim + x : x));
     const sortedDesc = [...normAxes].sort((x, y) => y - x);
     let current: ArrayStorage = toStorage(a);
-    for (const ax of sortedDesc) {
-      const r = sortingOps.count_nonzero(current, ax);
+    // Only the first axis counts non-zeros; the counts that remain are summed over the rest.
+    for (const [i, d] of sortedDesc.entries()) {
+      const r =
+        i === 0 ? sortingOps.count_nonzero(current, d) : reductionOps.sum(current, d, false);
       if (typeof r === 'number') return r;
-      current = r;
+      current = r as ArrayStorage;
     }
     return fromStorage(current);
   }
-  const result = sortingOps.count_nonzero(toStorage(a), axis);
+  const result = sortingOps.count_nonzero(toStorage(a), ax);
   if (typeof result === 'number') return result;
   return fromStorage(result);
 }
