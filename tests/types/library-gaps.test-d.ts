@@ -339,3 +339,22 @@ crng.choice(storage, 2);
 core.random.choice([1, 2, 3], 2);
 // @ts-expect-error a plain array population must be wrapped with np.array
 crng.permutation([1, 2, 3]);
+
+// ── ArrayLike accepts boolean, typed and nested plain data ──────────────────
+main.place(f64, [true, false], [1, 2]);
+main.putmask(f64, [[true, false]], 1);
+main.putmask(f64, new Uint8Array([1, 0]), new Float64Array([1, 2]));
+main.take(f64, new Int32Array([0]));
+main.take(f64, [[[[0]]]]);
+main.select([[true, false]], [[1, 2]], 0);
+main.where(f64 as NDArrayCore, true, false);
+main.append(f64, [true, false]);
+main.diff(f64, 1, -1, new Float64Array([0]));
+main.bincount(new Int32Array([0, 1]), new Float64Array([1, 1]));
+main.digitize(new Float64Array([1, 2]), [1.5]);
+main.histogram([1, 2, 3], new Float64Array([0, 2, 4]));
+core.take(f64, new Int32Array([0]));
+// @ts-expect-error strings are not array-like data
+main.take(f64, ['a']);
+// @ts-expect-error objects are not array-like data
+main.bincount({ length: 2 });
