@@ -1125,12 +1125,12 @@ describe('Extended reduction tests', () => {
 
     it('throws for quantile < 0', () => {
       const arr = array([1, 2, 3]);
-      expect(() => arr.nanquantile(-0.1)).toThrow('Quantile must be between 0 and 1');
+      expect(() => arr.nanquantile(-0.1)).toThrow('Quantiles must be in the range [0, 1]');
     });
 
     it('throws for quantile > 1', () => {
       const arr = array([1, 2, 3]);
-      expect(() => arr.nanquantile(1.1)).toThrow('Quantile must be between 0 and 1');
+      expect(() => arr.nanquantile(1.1)).toThrow('Quantiles must be in the range [0, 1]');
     });
 
     it('computes nanquantile along axis=0', () => {
@@ -1887,12 +1887,12 @@ describe('Extended reduction tests', () => {
   describe('quantile/percentile error handling', () => {
     it('quantile throws for q < 0', () => {
       const a = array([1, 2, 3]);
-      expect(() => quantile(a, -0.1)).toThrow('Quantile must be between 0 and 1');
+      expect(() => quantile(a, -0.1)).toThrow('Quantiles must be in the range [0, 1]');
     });
 
     it('quantile throws for q > 1', () => {
       const a = array([1, 2, 3]);
-      expect(() => quantile(a, 1.1)).toThrow('Quantile must be between 0 and 1');
+      expect(() => quantile(a, 1.1)).toThrow('Quantiles must be in the range [0, 1]');
     });
 
     it('percentile with keepdims along axis=1', () => {

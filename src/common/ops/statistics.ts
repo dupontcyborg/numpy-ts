@@ -9,11 +9,10 @@ import { Complex } from '../complex';
 import {
   type DType,
   getComplexComponentDType,
-  getTypedArrayConstructor,
   hasFloat16,
   isBigIntDType,
   isComplexDType,
-  isFloatDType,
+  isIntegerDType,
   promoteDTypes,
   type TypedArray,
   throwIfComplex,
@@ -200,19 +199,380 @@ function upperBound(arr: TypedArray | number[], size: number, val: number): numb
   return lo;
 }
 
+type BinStrategy = 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt';
+
+const BIN_STRATEGIES: readonly string[] = [
+  'auto',
+  'fd',
+  'doane',
+  'scott',
+  'stone',
+  'rice',
+  'sturges',
+  'sqrt',
+];
+
+/** Values in logical order as doubles, so offset and strided views read correctly. */
+function realValues(a: ArrayStorage): Float64Array {
+  const out = new Float64Array(a.size);
+  const src = a.data as ArrayLike<number | bigint>;
+  if (a.isCContiguous) {
+    for (let i = 0; i < out.length; i++) out[i] = Number(src[a.offset + i]);
+  } else {
+    for (let i = 0; i < out.length; i++) out[i] = Number(a.iget(i));
+  }
+  return out;
+}
+
+function checkWeightShape(a: ArrayStorage, weights: ArrayStorage | undefined): void {
+  if (!weights) return;
+  const same =
+    a.ndim === weights.ndim && a.shape.every((n: number, i: number) => n === weights.shape[i]);
+  if (!same) throw new Error('weights should have the same shape as a.');
+}
+
+/** Rounding to the precision edges are computed in: identity for float64. */
+function precisionRounder(dtype: DType): (x: number) => number {
+  if (dtype === 'float32') return Math.fround;
+  if (dtype === 'float16') return typeof Math.f16round === 'function' ? Math.f16round : Math.fround;
+  return (x) => x;
+}
+
 /**
- * Compute the histogram of a set of data.
+ * First and last edge for a set of values: the explicit range, else the data extent, with an
+ * empty range widened by one half on each side. Non-finite or reversed ranges are rejected.
+ */
+function outerEdges(
+  vals: Float64Array,
+  range: readonly [number, number] | undefined,
+  rnd: (x: number) => number,
+): [number, number] {
+  let first: number;
+  let last: number;
+  if (range) {
+    [first, last] = range;
+    if (first > last) throw new Error('max must be larger than min in range parameter.');
+    if (!(Number.isFinite(first) && Number.isFinite(last))) {
+      throw new Error(`supplied range of [${first}, ${last}] is not finite`);
+    }
+  } else if (vals.length === 0) {
+    first = 0;
+    last = 1;
+  } else {
+    first = Infinity;
+    last = -Infinity;
+    for (let i = 0; i < vals.length; i++) {
+      const v = vals[i]!;
+      if (Number.isNaN(v)) {
+        first = NaN;
+        last = NaN;
+        break;
+      }
+      if (v < first) first = v;
+      if (v > last) last = v;
+    }
+    if (!(Number.isFinite(first) && Number.isFinite(last))) {
+      throw new Error(`autodetected range of [${first}, ${last}] is not finite`);
+    }
+  }
+  if (first === last) {
+    first = rnd(first - 0.5);
+    last = rnd(last + 0.5);
+  }
+  return [first, last];
+}
+
+/**
+ * n + 1 equally spaced edges from first to last, the last one exactly. With a rounder other
+ * than the identity every step is rounded to that precision, as NumPy does when the endpoints
+ * are scalars of a narrow float dtype.
+ */
+function linspaceEdges(
+  first: number,
+  last: number,
+  n: number,
+  rnd: (x: number) => number,
+): number[] {
+  const delta = rnd(last - first);
+  const step = rnd(delta / n);
+  const edges: number[] = new Array(n + 1);
+  for (let i = 0; i < n; i++) {
+    edges[i] = step === 0 ? rnd(rnd((i / n) * delta) + first) : rnd(rnd(i * step) + first);
+  }
+  edges[n] = last;
+  return edges;
+}
+
+function edgeDtypeOf(a: DType): DType {
+  return a === 'float32' || a === 'float16' ? a : 'float64';
+}
+
+function edgeStorageOf(edges: ArrayLike<number>, dtype: DType): ArrayStorage {
+  const out = ArrayStorage.empty([edges.length], dtype);
+  const dst = out.data as unknown as number[];
+  for (let i = 0; i < edges.length; i++) dst[i] = edges[i]!;
+  return out;
+}
+
+function checkIncreasing(edges: ArrayLike<number>, what: string): void {
+  for (let i = 0; i + 1 < edges.length; i++) {
+    if (edges[i]! > edges[i + 1]!) {
+      throw new Error(`${what} must increase monotonically, when an array`);
+    }
+  }
+}
+
+function checkBinCount(bins: number): void {
+  if (!Number.isInteger(bins)) {
+    throw new TypeError(`'${typeof bins}' object cannot be interpreted as an integer`);
+  }
+  if (bins < 1) throw new Error('`bins` must be positive, when an integer');
+}
+
+function stdOf(x: Float64Array): number {
+  const n = x.length;
+  let sum = 0;
+  for (let i = 0; i < n; i++) sum += x[i]!;
+  const mean = sum / n;
+  let sq = 0;
+  for (let i = 0; i < n; i++) {
+    const d = x[i]! - mean;
+    sq += d * d;
+  }
+  return Math.sqrt(sq / n);
+}
+
+// Linear-method percentile of an ascending array, with the same lerp as NumPy.
+function sortedPercentile(sorted: Float64Array, p: number): number {
+  const n = sorted.length;
+  const q = p / 100;
+  const virtual = n * q + (1 + q * -1) - 1;
+  const prev = Math.max(0, Math.min(n - 1, Math.floor(virtual)));
+  const next = Math.min(n - 1, prev + 1);
+  const gamma = virtual - Math.floor(virtual);
+  const a = sorted[prev]!;
+  const b = sorted[next]!;
+  const diff = b - a;
+  return gamma >= 0.5 ? b - diff * (1 - gamma) : a + diff * gamma;
+}
+
+// Count of x in each of nbins equal bins over [first, last], matching how NumPy places values
+// that land on a computed edge.
+function uniformCounts(x: Float64Array, first: number, last: number, nbins: number): Float64Array {
+  const edges = linspaceEdges(first, last, nbins, (v) => v);
+  const counts = new Float64Array(nbins);
+  const norm = last - first;
+  for (let i = 0; i < x.length; i++) {
+    const v = x[i]!;
+    let idx = Math.trunc(((v - first) / norm) * nbins);
+    if (idx === nbins) idx -= 1;
+    if (v < edges[idx]!) idx -= 1;
+    else if (v >= edges[idx + 1]! && idx !== nbins - 1) idx += 1;
+    counts[idx]! += 1;
+  }
+  return counts;
+}
+
+/**
+ * Optimal bin width for a bin-count strategy over x, the values inside [first, last]. Zero means
+ * no usable width and gives a single bin.
+ */
+function strategyWidth(
+  method: BinStrategy,
+  x: Float64Array,
+  sorted: () => Float64Array,
+  first: number,
+  last: number,
+): number {
+  const n = x.length;
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < n; i++) {
+    if (x[i]! < min) min = x[i]!;
+    if (x[i]! > max) max = x[i]!;
+  }
+  const ptp = max - min;
+  const sturges = () => ptp / (Math.log2(n) + 1.0);
+  const fd = () => {
+    const s = sorted();
+    const iqr = sortedPercentile(s, 75) - sortedPercentile(s, 25);
+    return 2.0 * iqr * n ** (-1.0 / 3.0);
+  };
+  switch (method) {
+    case 'sqrt':
+      return ptp / Math.sqrt(n);
+    case 'sturges':
+      return sturges();
+    case 'rice':
+      return ptp / (2.0 * n ** (1.0 / 3));
+    case 'scott':
+      return ((24.0 * Math.PI ** 0.5) / n) ** (1.0 / 3.0) * stdOf(x);
+    case 'fd':
+      return fd();
+    case 'auto':
+      // The Freedman-Diaconis width is floored at half the sqrt width so a zero IQR or a tight
+      // cluster cannot produce a huge bin count.
+      return Math.min(Math.max(fd(), ptp / Math.sqrt(n) / 2), sturges());
+    case 'doane': {
+      if (n > 2) {
+        const sg1 = Math.sqrt((6.0 * (n - 2)) / ((n + 1.0) * (n + 3)));
+        const sigma = stdOf(x);
+        if (sigma > 0.0) {
+          let sum = 0;
+          for (let i = 0; i < n; i++) sum += x[i]!;
+          const mean = sum / n;
+          let g = 0;
+          for (let i = 0; i < n; i++) g += ((x[i]! - mean) / sigma) ** 3;
+          const g1 = g / n;
+          return ptp / (1.0 + Math.log2(n) + Math.log2(1.0 + Math.abs(g1) / sg1));
+        }
+      }
+      return 0.0;
+    }
+    case 'stone': {
+      if (n <= 1 || ptp === 0) return 0;
+      const upper = Math.max(100, Math.trunc(Math.sqrt(n)));
+      let best = 1;
+      let bestScore = Infinity;
+      for (let nbins = 1; nbins <= upper; nbins++) {
+        const counts = uniformCounts(x, first, last, nbins);
+        let dot = 0;
+        for (let i = 0; i < nbins; i++) {
+          const p = counts[i]! / n;
+          dot += p * p;
+        }
+        const score = (2 - (n + 1) * dot) / (ptp / nbins);
+        if (score < bestScore) {
+          bestScore = score;
+          best = nbins;
+        }
+      }
+      return ptp / best;
+    }
+  }
+}
+
+interface ResolvedEdges {
+  edges: Float64Array | number[];
+  // The caller's own edge array when bins was an array, so its dtype survives.
+  source?: ArrayStorage;
+  dtype: DType;
+}
+
+/**
+ * Bin edges for one set of values from an edge count, a strategy name or an explicit edge array,
+ * following NumPy's histogram_bin_edges.
+ */
+function resolveBinEdges(
+  a: ArrayStorage,
+  vals: Float64Array,
+  bins: number | BinStrategy | ArrayStorage,
+  range: readonly [number, number] | undefined,
+  weights: ArrayStorage | undefined,
+): ResolvedEdges {
+  checkWeightShape(a, weights);
+  if (typeof bins !== 'number' && typeof bins !== 'string') {
+    if (bins.ndim !== 1) throw new Error('`bins` must be 1d, when an array');
+    const edges = realValues(bins);
+    checkIncreasing(edges, '`bins`');
+    return { edges, source: bins, dtype: bins.dtype };
+  }
+
+  const dtype = edgeDtypeOf(a.dtype);
+  const rnd = precisionRounder(dtype);
+  // Edges taken from the data are narrow-float scalars, so NumPy steps through them in that
+  // precision. An explicit range is plain Python floats and is computed in float64.
+  const stepRnd = range ? (x: number) => x : rnd;
+
+  let nBins: number;
+  let first: number;
+  let last: number;
+  if (typeof bins === 'string') {
+    if (!BIN_STRATEGIES.includes(bins)) {
+      throw new Error(`'${bins}' is not a valid estimator for \`bins\``);
+    }
+    if (weights) {
+      throw new TypeError(
+        'Automated estimation of the number of bins is not supported for weighted data',
+      );
+    }
+    [first, last] = outerEdges(vals, range, rnd);
+    let x = vals;
+    if (range) x = vals.filter((v) => v >= first && v <= last);
+    if (x.length === 0) {
+      nBins = 1;
+    } else {
+      let cached: Float64Array | undefined;
+      const sorted = () => {
+        cached ??= Float64Array.from(x).sort();
+        return cached;
+      };
+      let width = strategyWidth(bins, x, sorted, first, last);
+      if (width) {
+        if (isIntegerDType(a.dtype) && width < 1) width = 1;
+        nBins = Math.ceil((last - first) / width);
+      } else {
+        nBins = 1;
+      }
+    }
+  } else {
+    checkBinCount(bins);
+    nBins = bins;
+    [first, last] = outerEdges(vals, range, rnd);
+  }
+  const edges = linspaceEdges(first, last, nBins, stepRnd);
+  for (let i = 0; i + 1 < edges.length; i++) {
+    if (edges[i]! >= edges[i + 1]!) {
+      throw new Error(`Too many bins for data range. Cannot create ${nBins} finite-sized bins.`);
+    }
+  }
+  return { edges, dtype };
+}
+
+function toEdgeStorage(r: ResolvedEdges): ArrayStorage {
+  return r.source ? r.source.copy() : edgeStorageOf(r.edges, r.dtype);
+}
+
+/**
+ * Edges for one dimension of histogram2d or histogramdd: an edge count over the data extent or
+ * explicit edges. Unlike the 1-D histogram these never accept a strategy name, and NumPy builds
+ * count-based edges with linspace, so an explicit range gives float64 and data-derived edges keep
+ * a narrow float dtype.
+ */
+function resolveDimEdges(
+  vals: Float64Array,
+  dtype: DType,
+  bins: number | ArrayStorage,
+  range: readonly [number, number] | undefined,
+  what: string,
+): ResolvedEdges {
+  if (typeof bins !== 'number') {
+    if (bins.ndim !== 1) throw new Error(`${what} must be 1d, when an array`);
+    const edges = realValues(bins);
+    checkIncreasing(edges, what);
+    return { edges, source: bins, dtype: bins.dtype };
+  }
+  checkBinCount(bins);
+  const edgeDtype = range ? 'float64' : edgeDtypeOf(dtype);
+  const rnd = precisionRounder(edgeDtype);
+  const [first, last] = outerEdges(vals, range, rnd);
+  return { edges: linspaceEdges(first, last, bins, rnd), dtype: edgeDtype };
+}
+
+/**
+ * Compute the histogram of a set of data. Bin edges follow histogram_bin_edges, so bins may be a
+ * count, a strategy name or an explicit edge array; counts are floats.
  *
  * @param a - Input data (flattened if not 1D)
- * @param bins - Number of bins (default: 10) or array of bin edges
+ * @param bins - Number of bins (default: 10), a strategy name, or an array of bin edges
  * @param range - Lower and upper range of bins. If not provided, uses [a.min(), a.max()]
  * @param density - If true, return probability density function (default: false)
- * @param weights - Optional weights for each data point
+ * @param weights - Optional weights for each data point, same shape as a
  * @returns Tuple of [hist, bin_edges]
  */
 export function histogram(
   a: ArrayStorage,
-  bins: number | ArrayStorage = 10,
+  bins: number | BinStrategy | ArrayStorage = 10,
   range?: [number, number],
   density: boolean = false,
   weights?: ArrayStorage,
@@ -224,119 +584,50 @@ export function histogram(
     realPart.dispose();
     return result;
   }
-  if (typeof bins !== 'number' && isComplexDType(bins.dtype)) {
+  if (typeof bins !== 'number' && typeof bins !== 'string' && isComplexDType(bins.dtype)) {
     const realBins = extractRealPart(bins);
     const result = histogram(a, realBins, range, density, weights);
     realBins.dispose();
     return result;
   }
-  const aData = a.data;
-  const aSize = a.size;
+  const vals = realValues(a);
+  const weightVals = weights ? realValues(weights) : undefined;
+  const resolved = resolveBinEdges(a, vals, bins, range, weights);
+  const binEdges = resolved.edges;
 
-  // Determine bin edges
-  let binEdges: number[];
-
-  if (typeof bins === 'number') {
-    // Compute bin edges from range
-    let minVal: number, maxVal: number;
-
-    if (range) {
-      [minVal, maxVal] = range;
-    } else {
-      minVal = Infinity;
-      maxVal = -Infinity;
-      for (let i = 0; i < aSize; i++) {
-        const val = Number(aData[i]);
-        if (val < minVal) minVal = val;
-        if (val > maxVal) maxVal = val;
-      }
-      // Handle case where all values are the same
-      if (minVal === maxVal) {
-        minVal = minVal - 0.5;
-        maxVal = maxVal + 0.5;
-      }
-    }
-
-    binEdges = [];
-    // Compute edges in the input dtype's precision to match NumPy.
-    // NumPy computes bin edges in the input dtype, so for float16/float32
-    // the step and arithmetic are done in that precision, with intermediate
-    // rounding affecting the final edges.
-    const Ctor = getTypedArrayConstructor(a.dtype);
-    if (Ctor && isFloatDType(a.dtype) && a.dtype !== 'float64') {
-      // Use a typed array to compute edges in the input dtype's precision
-      const tmp = new Ctor(3); // [step, edge, minVal]
-      tmp[0] = (maxVal - minVal) / bins;
-      tmp[2] = minVal;
-      for (let i = 0; i <= bins; i++) {
-        // Compute minVal + i * step in the input dtype
-        tmp[1] = Number(tmp[2]!) + i * Number(tmp[0]!);
-        binEdges.push(Number(tmp[1]!));
-      }
-    } else {
-      const step = (maxVal - minVal) / bins;
-      for (let i = 0; i <= bins; i++) {
-        binEdges.push(minVal + i * step);
-      }
-    }
-  } else {
-    // bins is an ArrayStorage of bin edges
-    const binsData = bins.data;
-    binEdges = [];
-    for (let i = 0; i < bins.size; i++) {
-      binEdges.push(Number(binsData[i]));
-    }
-  }
-
-  const numBins = binEdges.length - 1;
+  const numBins = Math.max(0, binEdges.length - 1);
   const histStorage = ArrayStorage.zeros([numBins], 'float64');
   const hist = histStorage.data as Float64Array;
 
-  // Compute histogram
-  const weightsData = weights?.data;
+  for (let i = 0; i < vals.length; i++) {
+    const val = vals[i]!;
+    const w = weightVals ? weightVals[i]! : 1;
 
-  for (let i = 0; i < aSize; i++) {
-    const val = Number(aData[i]);
-    const w = weightsData ? Number(weightsData[i]) : 1;
-
-    // Find bin index using binary search
     let binIdx = upperBound(binEdges, binEdges.length, val) - 1;
-
-    // Handle edge cases
-    if (binIdx < 0) {
-      // Value is below the first bin edge
-      continue;
-    }
+    if (binIdx < 0) continue;
     if (binIdx >= numBins) {
-      // Value is at or above the last bin edge
-      // Include values exactly at the last edge in the last bin
+      // The last bin includes its right edge.
       if (val === binEdges[numBins]) {
         binIdx = numBins - 1;
       } else {
         continue;
       }
     }
-
     hist[binIdx]! += w;
   }
 
-  // Apply density normalization if requested
   if (density) {
     let totalWeight = 0;
     for (let i = 0; i < numBins; i++) {
       totalWeight += hist[i]!;
     }
-
     for (let i = 0; i < numBins; i++) {
       const binWidth = binEdges[i + 1]! - binEdges[i]!;
       hist[i]! = hist[i]! / (totalWeight * binWidth);
     }
   }
 
-  return {
-    hist: histStorage,
-    bin_edges: ArrayStorage.fromData(new Float64Array(binEdges), [binEdges.length], 'float64'),
-  };
+  return { hist: histStorage, bin_edges: toEdgeStorage(resolved) };
 }
 
 /**
@@ -360,140 +651,44 @@ export function histogram2d(
 ): { hist: ArrayStorage; x_edges: ArrayStorage; y_edges: ArrayStorage } {
   throwIfComplex(x.dtype, 'histogram2d', 'histogram2d requires real numbers.');
   throwIfComplex(y.dtype, 'histogram2d', 'histogram2d requires real numbers.');
-  const xData = x.data;
-  const yData = y.data;
   const size = x.size;
-
   if (y.size !== size) {
     throw new Error('x and y must have the same length');
   }
+  const xVals = realValues(x);
+  const yVals = realValues(y);
 
-  // Determine bin edges for x and y
-  let xEdges: number[];
-  let yEdges: number[];
-
-  // Parse bins parameter
   let nxBins: number | ArrayStorage;
   let nyBins: number | ArrayStorage;
-
   if (typeof bins === 'number') {
     nxBins = bins;
     nyBins = bins;
   } else if (Array.isArray(bins) && bins.length === 2) {
-    if (typeof bins[0] === 'number') {
-      nxBins = bins[0] as number;
-      nyBins = bins[1] as number;
-    } else {
-      nxBins = bins[0] as ArrayStorage;
-      nyBins = bins[1] as ArrayStorage;
-    }
+    [nxBins, nyBins] = bins as [number | ArrayStorage, number | ArrayStorage];
   } else {
     nxBins = 10;
     nyBins = 10;
   }
 
-  // Compute x edges
-  if (typeof nxBins === 'number') {
-    let xMin: number, xMax: number;
-    if (range) {
-      [xMin, xMax] = range[0];
-    } else {
-      xMin = Infinity;
-      xMax = -Infinity;
-      for (let i = 0; i < size; i++) {
-        const val = Number(xData[i]);
-        if (val < xMin) xMin = val;
-        if (val > xMax) xMax = val;
-      }
-      if (xMin === xMax) {
-        xMin -= 0.5;
-        xMax += 0.5;
-      }
-    }
-    xEdges = [];
-    const xCtor = getTypedArrayConstructor(x.dtype);
-    if (xCtor && isFloatDType(x.dtype) && x.dtype !== 'float64') {
-      const tmp = new xCtor(3);
-      tmp[0] = (xMax - xMin) / nxBins;
-      tmp[2] = xMin;
-      for (let i = 0; i <= nxBins; i++) {
-        tmp[1] = Number(tmp[2]!) + i * Number(tmp[0]!);
-        xEdges.push(Number(tmp[1]!));
-      }
-    } else {
-      const step = (xMax - xMin) / nxBins;
-      for (let i = 0; i <= nxBins; i++) {
-        xEdges.push(xMin + i * step);
-      }
-    }
-  } else {
-    const edgesData = nxBins.data;
-    xEdges = [];
-    for (let i = 0; i < nxBins.size; i++) {
-      xEdges.push(Number(edgesData[i]));
-    }
-  }
+  const xr = resolveDimEdges(xVals, x.dtype, nxBins, range?.[0], '`bins[0]`');
+  const yr = resolveDimEdges(yVals, y.dtype, nyBins, range?.[1], '`bins[1]`');
+  const xEdges = xr.edges;
+  const yEdges = yr.edges;
 
-  // Compute y edges
-  if (typeof nyBins === 'number') {
-    let yMin: number, yMax: number;
-    if (range) {
-      [yMin, yMax] = range[1];
-    } else {
-      yMin = Infinity;
-      yMax = -Infinity;
-      for (let i = 0; i < size; i++) {
-        const val = Number(yData[i]);
-        if (val < yMin) yMin = val;
-        if (val > yMax) yMax = val;
-      }
-      if (yMin === yMax) {
-        yMin -= 0.5;
-        yMax += 0.5;
-      }
-    }
-    yEdges = [];
-    const yCtor = getTypedArrayConstructor(y.dtype);
-    if (yCtor && isFloatDType(y.dtype) && y.dtype !== 'float64') {
-      const tmp = new yCtor(3);
-      tmp[0] = (yMax - yMin) / nyBins;
-      tmp[2] = yMin;
-      for (let i = 0; i <= nyBins; i++) {
-        tmp[1] = Number(tmp[2]!) + i * Number(tmp[0]!);
-        yEdges.push(Number(tmp[1]!));
-      }
-    } else {
-      const step = (yMax - yMin) / nyBins;
-      for (let i = 0; i <= nyBins; i++) {
-        yEdges.push(yMin + i * step);
-      }
-    }
-  } else {
-    const edgesData = nyBins.data;
-    yEdges = [];
-    for (let i = 0; i < nyBins.size; i++) {
-      yEdges.push(Number(edgesData[i]));
-    }
-  }
-
-  const nx = xEdges.length - 1;
-  const ny = yEdges.length - 1;
+  const nx = Math.max(0, xEdges.length - 1);
+  const ny = Math.max(0, yEdges.length - 1);
   const histStorage = ArrayStorage.zeros([nx, ny], 'float64');
   const hist = histStorage.data as Float64Array;
-
-  // Compute histogram
-  const weightsData = weights?.data;
+  const weightVals = weights ? realValues(weights) : undefined;
 
   for (let i = 0; i < size; i++) {
-    const xVal = Number(xData[i]);
-    const yVal = Number(yData[i]);
-    const w = weightsData ? Number(weightsData[i]) : 1;
+    const xVal = xVals[i]!;
+    const yVal = yVals[i]!;
+    const w = weightVals ? weightVals[i]! : 1;
 
-    // Find bin indices
     let xIdx = upperBound(xEdges, xEdges.length, xVal) - 1;
     let yIdx = upperBound(yEdges, yEdges.length, yVal) - 1;
 
-    // Handle edge cases
     if (xIdx < 0 || xIdx >= nx) {
       if (xVal === xEdges[nx] && xIdx === nx) {
         xIdx = nx - 1;
@@ -512,28 +707,20 @@ export function histogram2d(
     hist[xIdx * ny + yIdx]! += w;
   }
 
-  // Apply density normalization if requested
   if (density) {
     let totalWeight = 0;
     for (let i = 0; i < hist.length; i++) {
       totalWeight += hist[i]!;
     }
-
     for (let i = 0; i < nx; i++) {
       for (let j = 0; j < ny; j++) {
-        const xWidth = xEdges[i + 1]! - xEdges[i]!;
-        const yWidth = yEdges[j + 1]! - yEdges[j]!;
-        const area = xWidth * yWidth;
+        const area = (xEdges[i + 1]! - xEdges[i]!) * (yEdges[j + 1]! - yEdges[j]!);
         hist[i * ny + j]! = hist[i * ny + j]! / (totalWeight * area);
       }
     }
   }
 
-  return {
-    hist: histStorage,
-    x_edges: ArrayStorage.fromData(new Float64Array(xEdges), [xEdges.length], 'float64'),
-    y_edges: ArrayStorage.fromData(new Float64Array(yEdges), [yEdges.length], 'float64'),
-  };
+  return { hist: histStorage, x_edges: toEdgeStorage(xr), y_edges: toEdgeStorage(yr) };
 }
 
 /**
@@ -555,11 +742,8 @@ export function histogramdd(
 ): { hist: ArrayStorage; edges: ArrayStorage[] } {
   throwIfComplex(sample.dtype, 'histogramdd', 'histogramdd requires real numbers.');
   const shape = sample.shape;
-  const data = sample.data;
 
-  // Determine number of samples and dimensions
   let N: number, D: number;
-
   if (shape.length === 1) {
     N = shape[0]!;
     D = 1;
@@ -569,8 +753,8 @@ export function histogramdd(
   } else {
     throw new Error('sample must be 1D or 2D array');
   }
+  const data = realValues(sample);
 
-  // Determine bin counts for each dimension
   let binCounts: number[];
   if (typeof bins === 'number') {
     binCounts = new Array(D).fill(bins);
@@ -581,62 +765,36 @@ export function histogramdd(
     }
   }
 
-  // Compute edges for each dimension
-  const allEdges: number[][] = [];
-
+  const resolved: ResolvedEdges[] = [];
   for (let d = 0; d < D; d++) {
-    let minVal: number, maxVal: number;
-
-    if (range && range[d]) {
-      [minVal, maxVal] = range[d]!;
-    } else {
-      minVal = Infinity;
-      maxVal = -Infinity;
-      for (let i = 0; i < N; i++) {
-        const val = D === 1 ? Number(data[i]) : Number(data[i * D + d]);
-        if (val < minVal) minVal = val;
-        if (val > maxVal) maxVal = val;
-      }
-      if (minVal === maxVal) {
-        minVal -= 0.5;
-        maxVal += 0.5;
-      }
-    }
-
-    const numBins = binCounts[d]!;
-    const edges: number[] = [];
-    const step = (maxVal - minVal) / numBins;
-    for (let i = 0; i <= numBins; i++) {
-      edges.push(minVal + i * step);
-    }
-    allEdges.push(edges);
+    const column = new Float64Array(N);
+    for (let i = 0; i < N; i++) column[i] = data[i * D + d]!;
+    resolved.push(resolveDimEdges(column, sample.dtype, binCounts[d]!, range?.[d], `bins[${d}]`));
   }
+  const allEdges = resolved.map((r) => r.edges);
 
-  // Compute histogram shape
-  const histShape = binCounts.slice();
+  const histShape = allEdges.map((e) => Math.max(0, e.length - 1));
   const histSize = histShape.reduce((a, b) => a * b, 1);
   const histStorage = ArrayStorage.zeros(histShape, 'float64');
   const hist = histStorage.data as Float64Array;
 
-  // Compute strides for indexing into histogram
   const strides: number[] = new Array(D);
   strides[D - 1] = 1;
   for (let d = D - 2; d >= 0; d--) {
-    strides[d] = strides[d + 1]! * binCounts[d + 1]!;
+    strides[d] = strides[d + 1]! * histShape[d + 1]!;
   }
 
-  // Compute histogram
-  const weightsData = weights?.data;
+  const weightVals = weights ? realValues(weights) : undefined;
 
   for (let i = 0; i < N; i++) {
-    const w = weightsData ? Number(weightsData[i]) : 1;
+    const w = weightVals ? weightVals[i]! : 1;
     let histIdx = 0;
     let outOfBounds = false;
 
     for (let d = 0; d < D; d++) {
-      const val = D === 1 ? Number(data[i]) : Number(data[i * D + d]);
+      const val = data[i * D + d]!;
       const edges = allEdges[d]!;
-      const numBins = binCounts[d]!;
+      const numBins = histShape[d]!;
 
       let binIdx = upperBound(edges, edges.length, val) - 1;
 
@@ -657,40 +815,24 @@ export function histogramdd(
     }
   }
 
-  // Apply density normalization if requested
   if (density) {
     let totalWeight = 0;
     for (let i = 0; i < histSize; i++) {
       totalWeight += hist[i]!;
     }
 
-    // Compute volume of each bin
-    const binVolumes = new Float64Array(histSize);
     for (let i = 0; i < histSize; i++) {
       let volume = 1;
-      const idx = i;
       for (let d = 0; d < D; d++) {
-        const binIdx = Math.floor(idx / strides[d]!) % binCounts[d]!;
+        const binIdx = Math.floor(i / strides[d]!) % histShape[d]!;
         const edges = allEdges[d]!;
         volume *= edges[binIdx + 1]! - edges[binIdx]!;
       }
-      binVolumes[i] = volume;
-    }
-
-    for (let i = 0; i < histSize; i++) {
-      hist[i]! = hist[i]! / (totalWeight * binVolumes[i]!);
+      hist[i]! = hist[i]! / (totalWeight * volume);
     }
   }
 
-  // Convert edges to ArrayStorage
-  const edgeStorages = allEdges.map((edges) =>
-    ArrayStorage.fromData(new Float64Array(edges), [edges.length], 'float64'),
-  );
-
-  return {
-    hist: histStorage,
-    edges: edgeStorages,
-  };
+  return { hist: histStorage, edges: resolved.map(toEdgeStorage) };
 }
 
 /**
@@ -1400,173 +1542,24 @@ export function corrcoef(x: ArrayStorage, y?: ArrayStorage, rowvar: boolean = tr
 }
 
 /**
- * Compute the edges of the bins for a histogram, without computing the
- * histogram itself.
+ * Compute the edges of the bins for a histogram, without computing the histogram itself.
+ * Strategy names estimate the bin count from the data and cannot be combined with weights; an
+ * explicit edge array is returned as a copy with its own dtype.
  *
  * @param a - Input data (flattened if not 1D)
- * @param bins - Number of bins (default: 10) or a string specifying the bin algorithm
+ * @param bins - Number of bins (default: 10), a strategy name, or an array of bin edges
  * @param range - Lower and upper range of bins. If not provided, uses [a.min(), a.max()]
- * @param weights - Optional weights for each data point (used for some algorithms)
+ * @param weights - Optional weights, same shape as a; only validated
  * @returns Array of bin edges (length = bins + 1)
  */
 export function histogram_bin_edges(
   a: ArrayStorage,
-  bins: number | 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt' = 10,
+  bins: number | BinStrategy | ArrayStorage = 10,
   range?: [number, number],
-  _weights?: ArrayStorage,
+  weights?: ArrayStorage,
 ): ArrayStorage {
   throwIfComplex(a.dtype, 'histogram_bin_edges', 'histogram_bin_edges requires real numbers.');
-  const aData = a.data;
-  const aSize = a.size;
-
-  // Determine min and max
-  let minVal: number, maxVal: number;
-
-  if (range) {
-    [minVal, maxVal] = range;
-  } else {
-    minVal = Infinity;
-    maxVal = -Infinity;
-    for (let i = 0; i < aSize; i++) {
-      const val = Number(aData[i]);
-      if (!Number.isNaN(val)) {
-        if (val < minVal) minVal = val;
-        if (val > maxVal) maxVal = val;
-      }
-    }
-    // Handle edge cases
-    if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) {
-      minVal = 0;
-      maxVal = 1;
-    } else if (minVal === maxVal) {
-      minVal = minVal - 0.5;
-      maxVal = maxVal + 0.5;
-    }
-  }
-
-  // Determine number of bins
-  let numBins: number;
-
-  if (typeof bins === 'number') {
-    numBins = bins;
-  } else {
-    // Compute optimal number of bins using the specified algorithm
-    numBins = computeOptimalBins(aData, aSize, minVal, maxVal, bins);
-  }
-
-  // Ensure at least 1 bin
-  numBins = Math.max(1, Math.round(numBins));
-
-  // Preserve float32/float16 precision; all other types (int, bool, float64) use float64 edges
-  const edgeDtype =
-    a.dtype === 'float32' ? 'float32' : a.dtype === 'float16' ? 'float16' : 'float64';
-  const edgeStorage = ArrayStorage.empty([numBins + 1], edgeDtype);
-  const binEdges = edgeStorage.data as Float64Array;
-  const step = (maxVal - minVal) / numBins;
-  for (let i = 0; i <= numBins; i++) {
-    binEdges[i] = minVal + i * step;
-  }
-
-  return edgeStorage;
-}
-
-/**
- * Helper to compute optimal number of bins for histogram
- */
-function computeOptimalBins(
-  data: TypedArray | number[],
-  size: number,
-  minVal: number,
-  maxVal: number,
-  method: 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt',
-): number {
-  if (size === 0) return 1;
-
-  const range = maxVal - minVal;
-  if (range === 0) return 1;
-
-  // Collect non-NaN values and compute statistics
-  const values: number[] = [];
-  let sum = 0;
-  for (let i = 0; i < size; i++) {
-    const val = Number(data[i]);
-    if (!Number.isNaN(val)) {
-      values.push(val);
-      sum += val;
-    }
-  }
-  const n = values.length;
-  if (n === 0) return 1;
-
-  const mean = sum / n;
-
-  // Compute standard deviation
-  let sumSq = 0;
-  for (let i = 0; i < n; i++) {
-    const diff = values[i]! - mean;
-    sumSq += diff * diff;
-  }
-  const std = Math.sqrt(sumSq / n);
-
-  // Compute IQR (interquartile range)
-  values.sort((a, b) => a - b);
-  const q1 = values[Math.floor(n * 0.25)] ?? 0;
-  const q3 = values[Math.floor(n * 0.75)] ?? 0;
-  const iqr = q3 - q1;
-
-  switch (method) {
-    case 'sqrt':
-      return Math.ceil(Math.sqrt(n));
-
-    case 'sturges':
-      return Math.ceil(Math.log2(n) + 1);
-
-    case 'rice':
-      return Math.ceil(2 * n ** (1 / 3));
-
-    case 'scott': {
-      if (std === 0) return 1;
-      const scottBinWidth = (3.5 * std) / n ** (1 / 3);
-      return Math.ceil(range / scottBinWidth);
-    }
-
-    case 'fd': {
-      // Freedman-Diaconis
-      if (iqr === 0) return computeOptimalBins(data, size, minVal, maxVal, 'sturges');
-      const fdBinWidth = (2 * iqr) / n ** (1 / 3);
-      return Math.ceil(range / fdBinWidth);
-    }
-
-    case 'doane': {
-      // Doane's formula
-      const g1 = computeSkewness(values, mean, std);
-      const sigmaG1 = Math.sqrt((6 * (n - 2)) / ((n + 1) * (n + 3)));
-      return Math.ceil(1 + Math.log2(n) + Math.log2(1 + Math.abs(g1) / sigmaG1));
-    }
-
-    case 'stone':
-      // Stone's rule is more complex; use Sturges as fallback
-      return computeOptimalBins(data, size, minVal, maxVal, 'sturges');
-    default: {
-      // Use maximum of Sturges and FD
-      const sturgeBins = Math.ceil(Math.log2(n) + 1);
-      const fdBins = iqr === 0 ? sturgeBins : Math.ceil(range / ((2 * iqr) / n ** (1 / 3)));
-      return Math.max(sturgeBins, fdBins);
-    }
-  }
-}
-
-/**
- * Helper to compute skewness
- */
-function computeSkewness(values: number[], mean: number, std: number): number {
-  if (std === 0) return 0;
-  const n = values.length;
-  let sum = 0;
-  for (let i = 0; i < n; i++) {
-    sum += ((values[i]! - mean) / std) ** 3;
-  }
-  return sum / n;
+  return toEdgeStorage(resolveBinEdges(a, realValues(a), bins, range, weights));
 }
 
 /**

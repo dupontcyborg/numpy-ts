@@ -180,6 +180,13 @@ const CUSTOM_WRAPPERS: Record<
   };
   return up(core.apply_along_axis(wrappedFunc1d, axis, arr, ...args));`,
   },
+  // unwrap keeps floating dtypes, gives float64 for other kinds, and stays integer for a signed
+  // integer input with an integer-valued period.
+  unwrap: {
+    generic: 'unary',
+    returnType: 'NDArray<TrueDivide<D>> | NDArray<D>',
+    body: 'return up(core.unwrap(p, discont, axis, period)) as unknown as NDArray<TrueDivide<D>> | NDArray<D>;',
+  },
   // average can return either a single value or a tuple [avg, sum_of_weights]
   // when returned=true. Map the inner NDArrayCore values to NDArray.
   average: {
@@ -565,10 +572,9 @@ const FUNCTION_RESULT_RULES: Record<
   vecmat: 'promote',
 
   // ---- P6: previously-deferred rules, now validated ----
-  // sinc/i0/unwrap: true-divide rule (float/complex preserved, ints/bool → float64).
+  // sinc/i0: true-divide rule (float/complex preserved, ints/bool → float64).
   sinc: 'truediv',
   i0: 'truediv',
-  unwrap: 'truediv',
   // vander: promote against the default int (float32 → float64, uint64 → float64).
   vander: 'accumint',
   // ldexp(x1, x2) = x1 * 2**x2 → preserves x1's (float) dtype.
@@ -747,6 +753,8 @@ const REDUCTION_RESULT: Record<string, string> = {
   bool: "NDArray<'bool'> | boolean",
 };
 
+const QUANTILE_FUNCTIONS = new Set(['percentile', 'quantile', 'nanpercentile', 'nanquantile']);
+
 function generateReductionWrapper(info: FunctionInfo, kind: string): string | null {
   const rt = REDUCTION_RESULT[kind];
   if (!rt) return null;
@@ -763,6 +771,36 @@ function generateReductionWrapper(info: FunctionInfo, kind: string): string | nu
   // own overload; every other call shape keeps the full union.
   const kdIdx = segs.findIndex((seg) => paramName(seg) === 'keepdims');
   const arrayRt = rt.split(' | ')[0]!;
+
+  // An NDArray q always gives an array, typed over the promotion of the data and q dtypes. The
+  // scalar-q overloads below keep q as a plain number.
+  if (QUANTILE_FUNCTIONS.has(info.name) && kdIdx > 0) {
+    const scalarSegs = segs.map((seg) =>
+      paramName(seg) === 'q' ? seg.replace('number | NDArrayCore', 'number') : seg,
+    );
+    const qArrayParams = [
+      retypeArrayParam(segs[0]!, 'D'),
+      segs[1]!.replace('number | NDArrayCore', 'NDArrayCore<Q>'),
+      ...segs.slice(2).map(toOverloadParam),
+    ].join(', ');
+    const qArrayRt = 'NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>';
+    const kdParams = [
+      retypeArrayParam(segs[0]!, 'D'),
+      ...scalarSegs.slice(1, kdIdx).map(toRequiredParam),
+      'keepdims: true',
+      ...scalarSegs.slice(kdIdx + 1).map(toOverloadParam),
+    ].join(', ');
+    const generalParams = [
+      retypeArrayParam(segs[0]!, 'D'),
+      ...scalarSegs.slice(1).map(toOverloadParam),
+    ].join(', ');
+    return `${info.jsDoc}
+export function ${info.name}<D extends DType, Q extends DType>(${qArrayParams}): ${qArrayRt};
+export function ${info.name}<D extends DType>(${kdParams}): ${arrayRt};
+export function ${info.name}<D extends DType>(${generalParams}): ${rt};
+${impl}`;
+  }
+
   if (kdIdx > 0 && arrayRt.startsWith('NDArray<')) {
     const kdParams = [
       retypeArrayParam(segs[0]!, 'D'),

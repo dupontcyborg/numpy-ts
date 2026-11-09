@@ -13,6 +13,7 @@ import {
   isBigIntDType,
   isComplexDType,
   isFloatDType,
+  promoteDTypes,
   reductionAccumDtype,
   stdVarResultDtype,
   type TypedArray,
@@ -3260,7 +3261,96 @@ export function percentile(
   axis?: number,
   keepdims: boolean = false,
 ): ArrayStorage | number {
+  checkQuantileRange(q, 100);
   return quantile(storage, q / 100, axis, keepdims);
+}
+
+// A NaN q fails the range test too, as in NumPy.
+function checkQuantileRange(q: number, scale: 1 | 100): void {
+  if (!(q >= 0 && q <= scale)) {
+    throw new Error(
+      scale === 1
+        ? 'Quantiles must be in the range [0, 1]'
+        : 'Percentiles must be in the range [0, 100]',
+    );
+  }
+}
+
+/**
+ * Propagate NaN the way NumPy does: a lane containing a NaN gives NaN, because the sorted-lane
+ * interpolation otherwise reads past the NaNs that sort last. Integer input has no NaN.
+ */
+function propagateQuantileNaN(
+  storage: ArrayStorage,
+  axis: number | undefined,
+  result: ArrayStorage | number,
+): ArrayStorage | number {
+  if (!isFloatDType(storage.dtype) || storage.size === 0) return result;
+  const data = storage.data;
+  const off = storage.offset;
+
+  if (axis === undefined) {
+    if (storage.isCContiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        if (Number.isNaN(data[off + i])) return NaN;
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        if (Number.isNaN(storage.iget(i))) return NaN;
+      }
+    }
+    return result;
+  }
+
+  const shape = storage.shape;
+  const ax = axis < 0 ? axis + shape.length : axis;
+  const outerSize = storage.size / shape[ax]!;
+  const { baseOffsets, axisStride } = precomputeAxisOffsets(
+    shape,
+    storage.strides,
+    off,
+    ax,
+    outerSize,
+  );
+  const axisSize = shape[ax]!;
+  for (let lane = 0; lane < outerSize; lane++) {
+    let idx = baseOffsets[lane]!;
+    for (let k = 0; k < axisSize; k++) {
+      if (Number.isNaN(data[idx])) {
+        if (!(result instanceof ArrayStorage)) return NaN;
+        (result.data as Float64Array)[result.offset + lane] = NaN;
+        break;
+      }
+      idx += axisStride;
+    }
+  }
+  return result;
+}
+
+/**
+ * Stack per-q results from percentile, quantile or their nan variants along a new leading
+ * q-shaped axis. The result dtype is the true-divide dtype of the data promoted with that of q,
+ * so float32 data with float64 q gives float64.
+ */
+export function stackQuantileResults(
+  storage: ArrayStorage,
+  q: ArrayStorage,
+  results: (ArrayStorage | number)[],
+  innerShape: number[],
+): ArrayStorage {
+  const dtype = promoteDTypes(trueDivideResultDtype(storage.dtype), trueDivideResultDtype(q.dtype));
+  const out = ArrayStorage.empty([...Array.from(q.shape), ...innerShape], dtype);
+  const dst = out.data as Float64Array;
+  const innerSize = innerShape.reduce((x, y) => x * y, 1);
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i]!;
+    if (r instanceof ArrayStorage) {
+      for (let j = 0; j < innerSize; j++) dst[i * innerSize + j] = Number(r.iget(j));
+    } else {
+      dst[i] = r;
+    }
+  }
+  return out;
 }
 
 /**
@@ -3275,7 +3365,7 @@ export function quantile(
   keepdims: boolean = false,
 ): ArrayStorage | number {
   return narrowFloatResult(
-    quantileImpl(storage, q, axis, keepdims),
+    propagateQuantileNaN(storage, axis, quantileImpl(storage, q, axis, keepdims)),
     trueDivideResultDtype(storage.dtype),
   );
 }
@@ -3293,9 +3383,7 @@ function quantileImpl(
       `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`,
     );
   }
-  if (q < 0 || q > 1) {
-    throw new Error('Quantile must be between 0 and 1');
-  }
+  checkQuantileRange(q, 1);
 
   const shape = storage.shape;
   const ndim = shape.length;
@@ -6112,9 +6200,7 @@ function nanquantileImpl(
     return quantile(storage, q, axis, keepdims);
   }
 
-  if (q < 0 || q > 1) {
-    throw new Error('Quantile must be between 0 and 1');
-  }
+  checkQuantileRange(q, 1);
 
   const shape = storage.shape;
   const ndim = shape.length;
@@ -6272,5 +6358,6 @@ export function nanpercentile(
   axis?: number,
   keepdims: boolean = false,
 ): ArrayStorage | number {
+  checkQuantileRange(q, 100);
   return nanquantile(storage, q / 100, axis, keepdims);
 }

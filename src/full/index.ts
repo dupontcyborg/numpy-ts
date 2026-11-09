@@ -569,11 +569,13 @@ export function interp(
 /** Unwrap phase angles */
 export function unwrap<D extends DType>(
   p: NDArrayCore<D>,
-  discont: number = Math.PI,
+  discont?: number | null,
   axis: number = -1,
   period: number = 2 * Math.PI,
-): NDArray<TrueDivide<D>> {
-  return up(core.unwrap(p, discont, axis, period)) as NDArray<TrueDivide<D>>;
+): NDArray<TrueDivide<D>> | NDArray<D> {
+  return up(core.unwrap(p, discont, axis, period)) as unknown as
+    | NDArray<TrueDivide<D>>
+    | NDArray<D>;
 }
 
 /** Sinc function */
@@ -1690,7 +1692,16 @@ export function median<D extends DType>(
     | Scalar<TrueDivide<D>>;
 }
 
-/** Percentile of array elements */
+/**
+ * Percentile of array elements. An NDArray q gives an array of shape q.shape followed by the
+ * reduced shape.
+ */
+export function percentile<D extends DType, Q extends DType>(
+  a: NDArrayCore<D>,
+  q: NDArrayCore<Q>,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
 export function percentile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
@@ -1705,7 +1716,7 @@ export function percentile<D extends DType>(
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
 export function percentile<D extends DType>(
   a: NDArrayCore<D>,
-  q: number,
+  q: number | NDArrayCore,
   axis?: number,
   keepdims?: boolean,
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
@@ -1715,7 +1726,16 @@ export function percentile<D extends DType>(
     | Scalar<TrueDivide<D>>;
 }
 
-/** Quantile of array elements */
+/**
+ * Quantile of array elements. An NDArray q gives an array of shape q.shape followed by the
+ * reduced shape.
+ */
+export function quantile<D extends DType, Q extends DType>(
+  a: NDArrayCore<D>,
+  q: NDArrayCore<Q>,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
 export function quantile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
@@ -1730,7 +1750,7 @@ export function quantile<D extends DType>(
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
 export function quantile<D extends DType>(
   a: NDArrayCore<D>,
-  q: number,
+  q: number | NDArrayCore,
   axis?: number,
   keepdims?: boolean,
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
@@ -2046,7 +2066,13 @@ export function nanmedian<D extends DType>(
     | Scalar<TrueDivide<D>>;
 }
 
-/** Quantile ignoring NaN */
+/** Quantile ignoring NaN. An NDArray q gives q.shape followed by the reduced shape. */
+export function nanquantile<D extends DType, Q extends DType>(
+  a: NDArrayCore<D>,
+  q: NDArrayCore<Q>,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
 export function nanquantile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
@@ -2061,7 +2087,7 @@ export function nanquantile<D extends DType>(
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
 export function nanquantile<D extends DType>(
   a: NDArrayCore<D>,
-  q: number,
+  q: number | NDArrayCore,
   axis?: number,
   keepdims?: boolean,
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
@@ -2071,7 +2097,13 @@ export function nanquantile<D extends DType>(
     | Scalar<TrueDivide<D>>;
 }
 
-/** Percentile ignoring NaN */
+/** Percentile ignoring NaN. An NDArray q gives q.shape followed by the reduced shape. */
+export function nanpercentile<D extends DType, Q extends DType>(
+  a: NDArrayCore<D>,
+  q: NDArrayCore<Q>,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
 export function nanpercentile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
@@ -2086,7 +2118,7 @@ export function nanpercentile<D extends DType>(
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
 export function nanpercentile<D extends DType>(
   a: NDArrayCore<D>,
-  q: number,
+  q: number | NDArrayCore,
   axis?: number,
   keepdims?: boolean,
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {

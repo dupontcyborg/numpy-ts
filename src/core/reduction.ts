@@ -5,19 +5,26 @@
  * imported independently for optimal tree-shaking.
  */
 
-import type { DType } from '../common/dtype';
+import {
+  type DType,
+  isComplexDType,
+  isFloatDType,
+  promoteDTypes,
+  throwIfComplex,
+  trueDivideResultDtype,
+} from '../common/dtype';
 import * as arithmeticOps from '../common/ops/arithmetic';
 import * as reductionOps from '../common/ops/reduction';
 import * as shapeOps from '../common/ops/shape';
 import * as sortingOps from '../common/ops/sorting';
-import { checkAxis } from '../common/storage';
+import { checkAxis, notAnNDArray } from '../common/storage';
 import { asarray } from './creation';
 import {
   type ArrayLike,
   ArrayStorage,
   Complex,
   fromStorage,
-  type NDArrayCore,
+  NDArrayCore,
   toStorage,
 } from './types';
 
@@ -469,28 +476,77 @@ export function median(
   );
 }
 
-/** Percentile of array elements */
-export function percentile(
-  a: NDArrayCore,
+type QuantileOp = (
+  s: ArrayStorage,
   q: number,
-  axis?: number,
-  keepdims?: boolean,
+  axis: number | undefined,
+  keepdims: boolean,
+) => ArrayStorage | number;
+
+/**
+ * Shared body of percentile, quantile and their nan variants. A scalar q reduces directly. An
+ * NDArray q gives q.shape followed by the reduced shape, one reduction per q value.
+ */
+function quantileReduce(
+  a: NDArrayCore,
+  q: number | NDArrayCore,
+  axis: number | undefined,
+  keepdims: boolean | undefined,
+  op: QuantileOp,
 ): NDArrayCore | number {
-  return reduceAxes(toStorage(a), axis, keepdims, false, (s, ax, kd) =>
-    reductionOps.percentile(s, q, ax as number | undefined, kd),
-  );
+  const reduceOne = (s: ArrayStorage, qv: number) =>
+    reduceAxes(s, axis, keepdims, false, (st, ax, kd) => op(st, qv, ax as number | undefined, kd));
+  if (typeof q === 'number') return reduceOne(toStorage(a), q);
+  if (!(q instanceof NDArrayCore)) {
+    // Complex data is reported ahead of a bad q, as the scalar path does.
+    throwIfComplex(a.dtype, 'quantile', 'Complex numbers are not orderable.');
+    throw notAnNDArray(q);
+  }
+
+  const qs = toStorage(q);
+  if (isComplexDType(qs.dtype)) throw new TypeError('q is not supported for complex numbers.');
+  if (qs.ndim > 2) throw new Error('q must be a scalar or 1d');
+  // The reduction narrows its result to the data dtype, so float32 data with float64 q is widened
+  // first to keep the extra precision.
+  const outDtype = promoteDTypes(trueDivideResultDtype(a.dtype), trueDivideResultDtype(qs.dtype));
+  const data = outDtype === 'float64' && isFloatDType(a.dtype) ? a.astype('float64') : a;
+  const s = toStorage(data);
+
+  const results: (ArrayStorage | number)[] = [];
+  for (let i = 0; i < qs.size; i++) {
+    const r = reduceOne(s, Number(qs.iget(i)));
+    results.push(r instanceof NDArrayCore ? toStorage(r) : r);
+  }
+  const probe = results[0] ?? (reduceOne(s, 0.5) as NDArrayCore | number);
+  const first = probe instanceof NDArrayCore ? toStorage(probe) : probe;
+  const innerShape = first instanceof ArrayStorage ? Array.from(first.shape) : [];
+  return fromStorage(reductionOps.stackQuantileResults(s, qs, results, innerShape));
 }
 
-/** Quantile of array elements */
-export function quantile(
+/**
+ * Percentile of array elements. An NDArray q gives an array of shape q.shape followed by the
+ * reduced shape.
+ */
+export function percentile(
   a: NDArrayCore,
-  q: number,
+  q: number | NDArrayCore,
   axis?: number,
   keepdims?: boolean,
 ): NDArrayCore | number {
-  return reduceAxes(toStorage(a), axis, keepdims, false, (s, ax, kd) =>
-    reductionOps.quantile(s, q, ax as number | undefined, kd),
-  );
+  return quantileReduce(a, q, axis, keepdims, reductionOps.percentile);
+}
+
+/**
+ * Quantile of array elements. An NDArray q gives an array of shape q.shape followed by the
+ * reduced shape.
+ */
+export function quantile(
+  a: NDArrayCore,
+  q: number | NDArrayCore,
+  axis?: number,
+  keepdims?: boolean,
+): NDArrayCore | number {
+  return quantileReduce(a, q, axis, keepdims, reductionOps.quantile);
 }
 
 /**
@@ -762,26 +818,22 @@ export function nanmedian(
   );
 }
 
-/** Quantile ignoring NaN */
+/** Quantile ignoring NaN. An NDArray q gives q.shape followed by the reduced shape. */
 export function nanquantile(
   a: NDArrayCore,
-  q: number,
+  q: number | NDArrayCore,
   axis?: number,
   keepdims?: boolean,
 ): NDArrayCore | number {
-  return reduceAxes(toStorage(a), axis, keepdims, false, (s, ax, kd) =>
-    reductionOps.nanquantile(s, q, ax as number | undefined, kd),
-  );
+  return quantileReduce(a, q, axis, keepdims, reductionOps.nanquantile);
 }
 
-/** Percentile ignoring NaN */
+/** Percentile ignoring NaN. An NDArray q gives q.shape followed by the reduced shape. */
 export function nanpercentile(
   a: NDArrayCore,
-  q: number,
+  q: number | NDArrayCore,
   axis?: number,
   keepdims?: boolean,
 ): NDArrayCore | number {
-  return reduceAxes(toStorage(a), axis, keepdims, false, (s, ax, kd) =>
-    reductionOps.nanpercentile(s, q, ax as number | undefined, kd),
-  );
+  return quantileReduce(a, q, axis, keepdims, reductionOps.nanpercentile);
 }

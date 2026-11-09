@@ -14,6 +14,7 @@ import type { DType } from '../dtype';
 import {
   boolArithmeticDtype,
   getComplexComponentDType,
+  getTypedArrayConstructor,
   hasFloat16,
   isBigIntDType,
   isComplexDType,
@@ -3190,20 +3191,30 @@ export function interp(
 }
 
 /**
- * Unwrap by changing deltas between values to 2*pi complement
+ * Python-style modulo: the result takes the sign of the divisor, and a zero divisor gives NaN.
+ * JS `%` keeps the dividend's sign, which breaks the wrapping arithmetic in unwrap.
+ */
+function flooredMod(x: number, m: number): number {
+  const r = x % m;
+  if (r !== 0 && r < 0 !== m < 0) return r + m;
+  return r === 0 ? (m < 0 ? -0 : 0) : r;
+}
+
+/**
+ * Unwrap by changing deltas between values to the period complement. Jumps of at least
+ * discont along the axis are replaced by their complement modulo period; discont defaults to
+ * period / 2. Floating inputs keep their dtype, bool and mixed-kind inputs give float64, and a
+ * signed integer input with an integer-valued period stays integer, as in NumPy.
  *
- * Unwrap radian phase p by changing absolute jumps greater than
- * discont to their 2*pi complement along the given axis.
- *
- * @param p - Input array of phase angles in radians
- * @param discont - Maximum discontinuity between values (default: pi)
+ * @param p - Input array of phase angles
+ * @param discont - Maximum discontinuity between values (default: period / 2)
  * @param axis - Axis along which to unwrap (default: -1, last axis)
  * @param period - Size of the range over which the input wraps (default: 2*pi)
  * @returns Unwrapped array
  */
 export function unwrap(
   p: ArrayStorage,
-  discont: number = Math.PI,
+  discont?: number | null,
   axis: number = -1,
   period: number = 2 * Math.PI,
 ): ArrayStorage {
@@ -3211,110 +3222,101 @@ export function unwrap(
 
   const shape = Array.from(p.shape);
   const ndim = shape.length;
-
-  // Normalize axis
-  if (axis < 0) axis += ndim;
-  if (axis < 0 || axis >= ndim) {
+  if (ndim === 0) {
+    throw new Error('diff requires input that is at least one dimensional');
+  }
+  if (axis < -ndim || axis >= ndim) {
     throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
   }
+  if (axis < 0) axis += ndim;
 
-  // unwrap preserves float types, promotes int/bool to float64
-  const outDtype: DType =
-    p.dtype === 'float32' ? 'float32' : p.dtype === 'float16' ? 'float16' : 'float64';
+  const intMode = isIntegerDType(p.dtype) && Number.isInteger(period);
+  if (intMode && period > 1 && p.dtype.startsWith('uint')) {
+    throw new Error(`Python integer ${-Math.floor(period / 2)} out of bounds for ${p.dtype}`);
+  }
+  const outDtype: DType = intMode
+    ? p.dtype
+    : p.dtype === 'float32' || p.dtype === 'float16'
+      ? p.dtype
+      : 'float64';
 
-  // For 1D arrays, simple implementation
-  if (ndim === 1) {
-    const size = p.size;
-    const result = ArrayStorage.empty(shape, outDtype);
-    const resultData = result.data as Float64Array;
-    const pData = p.data;
-
-    if (size === 0) return result;
-
-    resultData[0] = Number(pData[0]!);
-    let offset = 0;
-
-    for (let i = 1; i < size; i++) {
-      const prev = Number(pData[i - 1]!);
-      const curr = Number(pData[i]!);
-      let diff = curr - prev;
-
-      // Wrap the difference
-      diff = ((diff + period / 2) % period) - period / 2;
-      if (diff === -period / 2 && curr - prev > 0) {
-        diff = period / 2;
-      }
-
-      // Check for discontinuity
-      if (Math.abs(diff) > discont) {
-        offset -= Math.round((curr - prev - diff) / period) * period;
-      }
-
-      resultData[i] = curr + offset;
-    }
-
-    return result;
+  // Working precision of the lane arithmetic. Float32 and float16 round every intermediate the
+  // way NumPy does. Integer input wraps its differences to the input width, as the diff does.
+  let wrapInput: (x: number) => number = (x) => x;
+  if (isIntegerDType(p.dtype)) {
+    const big = isBigIntDType(p.dtype);
+    const cell = new (
+      getTypedArrayConstructor(p.dtype) as new (
+        n: number,
+      ) => Record<number, number | bigint>
+    )(1);
+    wrapInput = (x) => {
+      cell[0] = big ? BigInt(x) : x;
+      return Number(cell[0]);
+    };
+  }
+  let rnd: (x: number) => number = intMode ? wrapInput : (x) => x;
+  if (outDtype === 'float32') rnd = Math.fround;
+  else if (outDtype === 'float16') {
+    rnd = typeof Math.f16round === 'function' ? Math.f16round : Math.fround;
   }
 
-  // For multi-dimensional arrays, we need to process along the axis
-  // This is a simplified implementation for 2D case
+  let low: number;
+  let high: number;
+  let ambiguous: boolean;
+  if (intMode) {
+    high = Math.floor(period / 2);
+    ambiguous = period - 2 * high === 0;
+    low = -high;
+  } else {
+    high = rnd(period / 2);
+    ambiguous = true;
+    low = rnd(-(period / 2));
+  }
+  const per = intMode ? period : rnd(period);
+  const thresh = intMode ? (discont ?? period / 2) : rnd(discont ?? period / 2);
+
+  const n = shape[axis]!;
+  let outer = 1;
+  for (let i = 0; i < axis; i++) outer *= shape[i]!;
+  let inner = 1;
+  for (let i = axis + 1; i < ndim; i++) inner *= shape[i]!;
+
   const result = ArrayStorage.empty(shape, outDtype);
-  const resultData = result.data as Float64Array;
-  const pData = p.data;
+  const out = result.data as unknown as { [i: number]: number | bigint };
+  const isBool = p.dtype === 'bool';
+  const asBig = isBigIntDType(outDtype);
+  const store = asBig ? (v: number) => BigInt(v) : (v: number) => v;
 
-  // Copy all data first
-  for (let i = 0; i < p.size; i++) {
-    resultData[i] = Number(pData[i]!);
+  const vals = new Float64Array(p.size);
+  const src = p.data as ArrayLike<number | bigint>;
+  if (p.isCContiguous) {
+    for (let i = 0; i < vals.length; i++) vals[i] = Number(src[p.offset + i]);
+  } else {
+    for (let i = 0; i < vals.length; i++) vals[i] = Number(p.iget(i));
   }
 
-  // Unwrap along axis
-  if (ndim === 2) {
-    const [rows, cols] = shape;
-    if (axis === 0) {
-      // Unwrap along rows (for each column)
-      for (let c = 0; c < cols!; c++) {
-        let offset = 0;
-        for (let r = 1; r < rows!; r++) {
-          const prevIdx = (r - 1) * cols! + c;
-          const currIdx = r * cols! + c;
-          const prev = resultData[prevIdx]!;
-          const curr = resultData[currIdx]!;
-          let diff = curr - prev;
-
-          diff = ((diff + period / 2) % period) - period / 2;
-          if (diff === -period / 2 && curr - prev > 0) {
-            diff = period / 2;
-          }
-
-          if (Math.abs(diff) > discont) {
-            offset -= Math.round((curr - prev - diff) / period) * period;
-          }
-
-          resultData[currIdx] = curr + offset;
+  for (let o = 0; o < outer; o++) {
+    for (let j = 0; j < inner; j++) {
+      const base = o * n * inner + j;
+      if (n === 0) continue;
+      out[base] = store(vals[base]!);
+      let cum = 0;
+      for (let k = 1; k < n; k++) {
+        const idx = base + k * inner;
+        const prev = vals[idx - inner]!;
+        const cur = vals[idx]!;
+        const dd = isBool ? (prev !== cur ? 1 : 0) : rnd(wrapInput(cur - prev));
+        let corr: number;
+        if (Math.abs(dd) < thresh) {
+          corr = 0;
+        } else {
+          let ddmod = rnd(flooredMod(rnd(dd - low), per) + low);
+          if (ambiguous && ddmod === low && dd > 0) ddmod = high;
+          corr = rnd(ddmod - dd);
         }
-      }
-    } else {
-      // Unwrap along columns (for each row)
-      for (let r = 0; r < rows!; r++) {
-        let offset = 0;
-        for (let c = 1; c < cols!; c++) {
-          const prevIdx = r * cols! + (c - 1);
-          const currIdx = r * cols! + c;
-          const prev = resultData[prevIdx]!;
-          const curr = resultData[currIdx]!;
-          let diff = curr - prev;
-
-          diff = ((diff + period / 2) % period) - period / 2;
-          if (diff === -period / 2 && curr - prev > 0) {
-            diff = period / 2;
-          }
-
-          if (Math.abs(diff) > discont) {
-            offset -= Math.round((curr - prev - diff) / period) * period;
-          }
-
-          resultData[currIdx] = curr + offset;
-        }
+        cum = rnd(cum + corr);
+        out[idx] = store(rnd(cur + cum));
       }
     }
   }

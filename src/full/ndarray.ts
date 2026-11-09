@@ -628,6 +628,114 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
     return up(core.searchsorted(this, v, side)) as NDArray<'float64'>;
   }
 
+  /**
+   * Compute the q-th percentile of the data along the specified axis
+   * @param q - Percentile to compute (0-100), a number or an NDArray of percentiles that gives q.shape followed by the reduced shape
+   */
+  percentile<Q extends DType>(
+    q: NDArray<Q>,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
+  percentile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  percentile(
+    q: number,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+  percentile(
+    q: number | NDArray,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> | NDArray<Promote<TrueDivide<D>, DType>> {
+    const r = core.percentile(this, q, axis, keepdims);
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>
+      | NDArray<Promote<TrueDivide<D>, DType>>;
+  }
+
+  /**
+   * Compute the q-th quantile of the data along the specified axis
+   * @param q - Quantile to compute (0-1), a number or an NDArray of quantiles that gives q.shape followed by the reduced shape
+   */
+  quantile<Q extends DType>(
+    q: NDArray<Q>,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
+  quantile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  quantile(
+    q: number,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+  quantile(
+    q: number | NDArray,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> | NDArray<Promote<TrueDivide<D>, DType>> {
+    const r = core.quantile(this, q, axis, keepdims);
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>
+      | NDArray<Promote<TrueDivide<D>, DType>>;
+  }
+
+  /**
+   * Compute the q-th quantile, ignoring NaNs
+   * @param q - Quantile to compute (0-1), a number or an NDArray of quantiles that gives q.shape followed by the reduced shape
+   */
+  nanquantile<Q extends DType>(
+    q: NDArray<Q>,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
+  nanquantile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  nanquantile(
+    q: number,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+  nanquantile(
+    q: number | NDArray,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> | NDArray<Promote<TrueDivide<D>, DType>> {
+    const r = core.nanquantile(this, q, axis, keepdims);
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>
+      | NDArray<Promote<TrueDivide<D>, DType>>;
+  }
+
+  /**
+   * Compute the q-th percentile, ignoring NaNs
+   * @param q - Percentile to compute (0-100), a number or an NDArray of percentiles that gives q.shape followed by the reduced shape
+   */
+  nanpercentile<Q extends DType>(
+    q: NDArray<Q>,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
+  nanpercentile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  nanpercentile(
+    q: number,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+  nanpercentile(
+    q: number | NDArray,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> | NDArray<Promote<TrueDivide<D>, DType>> {
+    const r = core.nanpercentile(this, q, axis, keepdims);
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>
+      | NDArray<Promote<TrueDivide<D>, DType>>;
+  }
+
   // ========================================
   // Unary operations
   // ========================================
@@ -1600,90 +1708,6 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
     keepdims: boolean = false,
   ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.nanmedian(this, axis, keepdims);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
-      | NDArray<TrueDivide<D>>
-      | Scalar<TrueDivide<D>>;
-  }
-
-  /**
-   * Compute the q-th percentile of the data along the specified axis
-   * @param q - Percentile to compute (0-100)
-   */
-  percentile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
-  percentile(
-    q: number,
-    axis?: number,
-    keepdims?: boolean,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
-  percentile(
-    q: number,
-    axis?: number,
-    keepdims: boolean = false,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
-    const r = core.percentile(this, q, axis, keepdims);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
-      | NDArray<TrueDivide<D>>
-      | Scalar<TrueDivide<D>>;
-  }
-
-  /**
-   * Compute the q-th quantile of the data along the specified axis
-   * @param q - Quantile to compute (0-1)
-   */
-  quantile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
-  quantile(
-    q: number,
-    axis?: number,
-    keepdims?: boolean,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
-  quantile(
-    q: number,
-    axis?: number,
-    keepdims: boolean = false,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
-    const r = core.quantile(this, q, axis, keepdims);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
-      | NDArray<TrueDivide<D>>
-      | Scalar<TrueDivide<D>>;
-  }
-
-  /**
-   * Compute the q-th quantile, ignoring NaNs
-   * @param q - Quantile to compute (0-1)
-   */
-  nanquantile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
-  nanquantile(
-    q: number,
-    axis?: number,
-    keepdims?: boolean,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
-  nanquantile(
-    q: number,
-    axis?: number,
-    keepdims: boolean = false,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
-    const r = core.nanquantile(this, q, axis, keepdims);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
-      | NDArray<TrueDivide<D>>
-      | Scalar<TrueDivide<D>>;
-  }
-
-  /**
-   * Compute the q-th percentile, ignoring NaNs
-   * @param q - Percentile to compute (0-100)
-   */
-  nanpercentile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
-  nanpercentile(
-    q: number,
-    axis?: number,
-    keepdims?: boolean,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
-  nanpercentile(
-    q: number,
-    axis?: number,
-    keepdims: boolean = false,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
-    const r = core.nanpercentile(this, q, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as
       | NDArray<TrueDivide<D>>
       | Scalar<TrueDivide<D>>;

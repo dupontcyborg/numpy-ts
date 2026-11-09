@@ -458,6 +458,32 @@ dot<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote
       | Scalar<Promote<D, B>>;
   }`;
 
+// percentile / quantile and their nan variants: a scalar q reduces to NDArray | Scalar, an NDArray q
+// always gives an array typed over the promotion of the data and q dtypes.
+const quantileMethod = (name: string): string => `\
+${name}<Q extends DType>(
+    q: NDArray<Q>,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
+  ${name}(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  ${name}(
+    q: number,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+  ${name}(
+    q: number | NDArray,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> | NDArray<Promote<TrueDivide<D>, DType>> {
+    const r = core.${name}(this, q, axis, keepdims);
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>
+      | NDArray<Promote<TrueDivide<D>, DType>>;
+  }`;
+
 // trace: the array result widens ints to int64 like sum, the scalar result is the input dtype's JS value.
 const TRACE_METHOD = `\
 trace(): NDArray<ReductionAccum<D>> | Scalar<D> {
@@ -1533,35 +1559,27 @@ export const METHOD_DEFS: MethodDef[] = [
   // q first, then axis? + keepdims? → NDArray | number
   {
     name: 'percentile',
-    pattern: 'reduction',
-    params: 'q: number, axis?: number, keepdims: boolean = false',
-    coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
-    doc: 'Compute the q-th percentile of the data along the specified axis\n@param q - Percentile to compute (0-100)',
+    pattern: 'manual',
+    doc: 'Compute the q-th percentile of the data along the specified axis\n@param q - Percentile to compute (0-100), a number or an NDArray of percentiles that gives q.shape followed by the reduced shape',
+    manualCode: quantileMethod('percentile'),
   },
   {
     name: 'quantile',
-    pattern: 'reduction',
-    params: 'q: number, axis?: number, keepdims: boolean = false',
-    coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
-    doc: 'Compute the q-th quantile of the data along the specified axis\n@param q - Quantile to compute (0-1)',
+    pattern: 'manual',
+    doc: 'Compute the q-th quantile of the data along the specified axis\n@param q - Quantile to compute (0-1), a number or an NDArray of quantiles that gives q.shape followed by the reduced shape',
+    manualCode: quantileMethod('quantile'),
   },
   {
     name: 'nanquantile',
-    pattern: 'reduction',
-    params: 'q: number, axis?: number, keepdims: boolean = false',
-    coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
-    doc: 'Compute the q-th quantile, ignoring NaNs\n@param q - Quantile to compute (0-1)',
+    pattern: 'manual',
+    doc: 'Compute the q-th quantile, ignoring NaNs\n@param q - Quantile to compute (0-1), a number or an NDArray of quantiles that gives q.shape followed by the reduced shape',
+    manualCode: quantileMethod('nanquantile'),
   },
   {
     name: 'nanpercentile',
-    pattern: 'reduction',
-    params: 'q: number, axis?: number, keepdims: boolean = false',
-    coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
-    doc: 'Compute the q-th percentile, ignoring NaNs\n@param q - Percentile to compute (0-100)',
+    pattern: 'manual',
+    doc: 'Compute the q-th percentile, ignoring NaNs\n@param q - Percentile to compute (0-100), a number or an NDArray of percentiles that gives q.shape followed by the reduced shape',
+    manualCode: quantileMethod('nanpercentile'),
   },
 
   // ============================================================
