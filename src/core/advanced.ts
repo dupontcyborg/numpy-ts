@@ -25,9 +25,14 @@ export function broadcast_to(a: NDArrayCore, shape: readonly number[]): NDArrayC
   return fromStorageView(advancedOps.broadcast_to(toStorage(a), shape), a);
 }
 
+/** Broadcast arrays against each other - views, except that an array already of the common shape is returned as is */
 export function broadcast_arrays(...arrays: NDArrayCore[]): NDArrayCore[] {
   const storages = arrays.map(toStorage);
-  return advancedOps.broadcast_arrays(storages).map((s) => fromStorage(s));
+  return advancedOps.broadcast_arrays(storages).map((s, i) => {
+    const src = storages[i]!;
+    const same = s.ndim === src.ndim && s.shape.every((d, k) => d === src.shape[k]);
+    return same ? arrays[i]! : fromStorageView(s, arrays[i]!);
+  });
 }
 
 export function broadcast_shapes(...shapes: number[][]): number[] {

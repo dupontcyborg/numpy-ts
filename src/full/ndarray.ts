@@ -251,10 +251,12 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   reshape(...args: [readonly number[]] | number[]): NDArray<D> {
     const first = args[0];
     const newShape = (args.length === 1 && Array.isArray(first) ? first : args) as number[];
-    const resultStorage = core.reshape(this, newShape).storage;
-    const isView = resultStorage.data === this.data;
-    const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
+    const result = core.reshape(this, newShape);
+    const base = result.base as NDArrayCore;
+    return NDArray.fromStorage(
+      result.storage,
+      base instanceof NDArray ? base : NDArray.fromStorage(base.storage),
+    ) as NDArray<D>;
   }
 
   /**
@@ -262,10 +264,11 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @returns 1D array containing all elements
    */
   ravel(): NDArray<D> {
-    const resultStorage = core.ravel(this).storage;
-    const isView = resultStorage.data === this.data;
-    const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
+    const result = core.ravel(this);
+    return NDArray.fromStorage(
+      result.storage,
+      (result.base ?? undefined) as NDArray | undefined,
+    ) as NDArray<D>;
   }
 
   /**

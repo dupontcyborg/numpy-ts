@@ -683,7 +683,7 @@ export function bitwise_right_shift(x1: NDArrayCore, x2: NDArrayCore | number): 
   return up(core.bitwise_right_shift(x1, x2));
 }
 
-/** Extract real part of array (a view of `x`, as in NumPy) */
+/** Extract real part of array (a view of `x` for complex input, `x` itself otherwise, as in NumPy) */
 export function real<D extends DType>(x: NDArrayCore<D>): NDArray<ComplexComponent<D>> {
   return up(core.real(x)) as NDArray<ComplexComponent<D>>;
 }
@@ -872,10 +872,12 @@ export function asanyarray(a: NDArrayCore | unknown, dtype?: DType): NDArray {
   return up(core.asanyarray(a, dtype));
 }
 
+/** Return an array in C order with at least one dimension; the input itself when it already is one */
 export function ascontiguousarray(a: NDArrayCore | unknown, dtype?: DType): NDArray {
   return up(core.ascontiguousarray(a, dtype));
 }
 
+/** Return an array in Fortran order with at least one dimension; the input itself when it already is one */
 export function asfortranarray(a: NDArrayCore | unknown, dtype?: DType): NDArray {
   return up(core.asfortranarray(a, dtype));
 }
@@ -2335,12 +2337,12 @@ export function flatten<D extends DType>(a: NDArrayCore<D>): NDArray<D> {
   return up(core.flatten(a)) as NDArray<D>;
 }
 
-/** Return contiguous flattened array */
+/** Return contiguous flattened array (a view when the input is already contiguous) */
 export function ravel<D extends DType>(a: NDArrayCore<D>): NDArray<D> {
   return up(core.ravel(a)) as NDArray<D>;
 }
 
-/** Remove single-dimensional entries from shape - returns a view */
+/** Remove single-dimensional entries from shape - returns a view, or the input itself when nothing is removed */
 export function squeeze<D extends DType>(a: NDArrayCore<D>, axis?: number): NDArray<D> {
   return up(core.squeeze(a, axis)) as NDArray<D>;
 }

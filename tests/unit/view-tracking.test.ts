@@ -79,13 +79,23 @@ describe('View Tracking', () => {
       expect(flattened.base).toBe(null);
     });
 
-    it('does not track base for reshaped arrays (when copy)', () => {
+    it('reshape of a non-contiguous array that cannot be a view copies, like NumPy', () => {
       const arr = ones([2, 3]);
       const transposed = arr.transpose(); // Makes non-contiguous
-      const reshaped = transposed.reshape(3, 2);
+      const reshaped = transposed.reshape(6);
 
-      // reshape creates a copy for non-contiguous arrays
-      expect(reshaped.base).toBe(null);
+      // NumPy returns a view of a hidden copy: base is set, nothing is shared with the input
+      expect(reshaped.base).not.toBe(null);
+      expect(reshaped.base).not.toBe(arr);
+      expect(reshaped.flags.OWNDATA).toBe(false);
+      reshaped.set([0], 9);
+      expect(arr.get([0, 0])).toBe(1);
+    });
+
+    it('reshape of a non-contiguous array to the same shape is a view', () => {
+      const arr = ones([2, 3]);
+      const reshaped = arr.transpose().reshape(3, 2);
+      expect(reshaped.base).toBe(arr);
     });
   });
 

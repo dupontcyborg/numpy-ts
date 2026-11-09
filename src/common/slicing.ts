@@ -148,9 +148,22 @@ export function normalizeSlice(
   if (start < 0) start = size + start;
   if (stop < 0) stop = size + stop;
 
+  // A backward slice that starts before the first element selects nothing.
+  if (step < 0 && start < 0) return { start: 0, stop: 0, step, isIndex: false };
+
   // Clamp to valid range
   start = Math.max(0, Math.min(start, size));
   stop = Math.max(-1, Math.min(stop, size)); // -1 allowed for backward slices
+
+  // A backward slice must start on an existing element; with none it is empty.
+  if (step < 0 && start > size - 1) {
+    if (size === 0) {
+      start = 0;
+      stop = 0;
+    } else {
+      start = size - 1;
+    }
+  }
 
   return {
     start,

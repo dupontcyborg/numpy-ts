@@ -16,7 +16,7 @@ import {
 import { expandEllipsis } from '../internal/indexing';
 import { stridedScatterFrom } from '../internal/strided-copy';
 import { normalizeSlice, parseSlice } from '../slicing';
-import { ArrayStorage, computeStrides } from '../storage';
+import { ArrayStorage, computeStrides, memoryOrder } from '../storage';
 import { wasmRepeat } from '../wasm/repeat';
 import { wasmRoll } from '../wasm/roll';
 import { wasmTile2D } from '../wasm/tile';
@@ -129,8 +129,58 @@ export function sliceKeepDim(storage: ArrayStorage, ...slices: string[]): ArrayS
 }
 
 /**
+ * Strides that let newShape view the same buffer as an array of the given shape and strides,
+ * or null when the elements are not laid out so that a view can express the new shape.
+ * Axes of length one are ignored on the old side because their strides carry no information.
+ */
+function attemptNoCopyReshape(
+  shape: readonly number[],
+  strides: readonly number[],
+  newShape: readonly number[],
+): number[] | null {
+  const oldDims: number[] = [];
+  const oldStrides: number[] = [];
+  for (let i = 0; i < shape.length; i++) {
+    if (shape[i] !== 1) {
+      oldDims.push(shape[i]!);
+      oldStrides.push(strides[i]!);
+    }
+  }
+  const oldnd = oldDims.length;
+  const newnd = newShape.length;
+  const newStrides = new Array<number>(newnd).fill(1);
+
+  let oi = 0;
+  let oj = 1;
+  let ni = 0;
+  let nj = 1;
+  while (ni < newnd && oi < oldnd) {
+    let np = newShape[ni]!;
+    let op = oldDims[oi]!;
+    while (np !== op) {
+      if (np < op) np *= newShape[nj++]!;
+      else op *= oldDims[oj++]!;
+    }
+    for (let ok = oi; ok < oj - 1; ok++) {
+      if (oldStrides[ok] !== oldDims[ok + 1]! * oldStrides[ok + 1]!) return null;
+    }
+    newStrides[nj - 1] = oldStrides[oj - 1]!;
+    for (let nk = nj - 1; nk > ni; nk--) {
+      newStrides[nk - 1] = newStrides[nk]! * newShape[nk]!;
+    }
+    ni = nj++;
+    oi = oj++;
+  }
+
+  // Trailing axes of length one take the stride of the axis before them.
+  const lastStride = newStrides[Math.max(ni - 1, 0)]!;
+  for (let nk = ni; nk < newnd; nk++) newStrides[nk] = lastStride;
+  return newStrides;
+}
+
+/**
  * Reshape array to a new shape
- * Returns a view if array is C-contiguous, otherwise copies data
+ * Returns a view when the layout allows it, otherwise copies data
  */
 export function reshape(storage: ArrayStorage, newShape: readonly number[]): ArrayStorage {
   const size = storage.size;
@@ -171,13 +221,16 @@ export function reshape(storage: ArrayStorage, newShape: readonly number[]): Arr
   // with a non-zero offset. Hardcoding 0 here silently re-based the view on the
   // start of the buffer and returned the wrong elements; `tensordot` reshapes
   // its operands and hit this for any sliced input.
-  if (storage.isCContiguous) {
-    const data = storage.data;
+  const order = memoryOrder(storage.shape, storage.strides);
+  const viewStrides = order.c
+    ? computeStrides(finalShape)
+    : attemptNoCopyReshape(storage.shape, storage.strides, finalShape);
+  if (viewStrides !== null) {
     return ArrayStorage.fromDataShared(
-      data,
+      storage.data,
       finalShape,
       dtype,
-      computeStrides(finalShape),
+      viewStrides,
       storage.offset,
       storage.wasmRegion,
     );
@@ -280,7 +333,7 @@ export function ravel(storage: ArrayStorage): ArrayStorage {
   // Fast path: if array is C-contiguous, create a view (no copy needed).
   // The offset carries over for the same reason as in reshape() above: a sliced
   // view is C-contiguous but does not start at the beginning of the buffer.
-  if (storage.isCContiguous) {
+  if (memoryOrder(storage.shape, storage.strides).c) {
     const data = storage.data;
     return ArrayStorage.fromDataShared(
       data,
@@ -1347,7 +1400,14 @@ export function rot90(
   k = ((k % 4) + 4) % 4;
 
   if (k === 0) {
-    return storage.copy();
+    return ArrayStorage.fromDataShared(
+      storage.data,
+      [...shape],
+      dtype,
+      [...storage.strides],
+      storage.offset,
+      storage.wasmRegion,
+    );
   }
 
   // Return a strided view — O(1), no data copied, works for any ndim and any k.

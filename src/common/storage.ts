@@ -701,3 +701,34 @@ export function computeStrides(shape: readonly number[]): number[] {
   }
   return strides;
 }
+
+/**
+ * Contiguity as NumPy reports it in flags: axes of length one never matter, and an array
+ * with a zero-length axis is both C and F contiguous. The storage getters isCContiguous
+ * and isFContiguous are stricter because kernels rely on them.
+ */
+export function memoryOrder(
+  shape: readonly number[],
+  strides: readonly number[],
+): { c: boolean; f: boolean } {
+  let c = true;
+  let f = true;
+  let expectC = 1;
+  let expectF = 1;
+  for (let i = 0; i < shape.length; i++) {
+    if (shape[i] === 0) return { c: true, f: true };
+  }
+  for (let i = shape.length - 1; i >= 0; i--) {
+    const dim = shape[i]!;
+    if (dim === 1) continue;
+    if (strides[i] !== expectC) c = false;
+    expectC *= dim;
+  }
+  for (let i = 0; i < shape.length; i++) {
+    const dim = shape[i]!;
+    if (dim === 1) continue;
+    if (strides[i] !== expectF) f = false;
+    expectF *= dim;
+  }
+  return { c, f };
+}

@@ -8,7 +8,8 @@
 import * as shapeOps from '../common/ops/shape';
 import {
   fromStorage,
-  fromStorageArray,
+  fromStorageMaybeView,
+  fromStorageReshaped,
   fromStorageView,
   fromStorageViewArray,
   type NDArrayCore,
@@ -21,7 +22,7 @@ import {
 
 /** Reshape array without changing data */
 export function reshape(a: NDArrayCore, newShape: readonly number[]): NDArrayCore {
-  return fromStorage(shapeOps.reshape(toStorage(a), newShape));
+  return fromStorageReshaped(shapeOps.reshape(toStorage(a), newShape), a);
 }
 
 /** Flatten array to 1D */
@@ -29,14 +30,16 @@ export function flatten(a: NDArrayCore): NDArrayCore {
   return fromStorage(shapeOps.flatten(toStorage(a)));
 }
 
-/** Return contiguous flattened array */
+/** Return contiguous flattened array (a view when the input is already contiguous) */
 export function ravel(a: NDArrayCore): NDArrayCore {
-  return fromStorage(shapeOps.ravel(toStorage(a)));
+  return fromStorageMaybeView(shapeOps.ravel(toStorage(a)), a);
 }
 
-/** Remove single-dimensional entries from shape - returns a view */
+/** Remove single-dimensional entries from shape - returns a view, or the input itself when nothing is removed */
 export function squeeze(a: NDArrayCore, axis?: number): NDArrayCore {
-  return fromStorageView(shapeOps.squeeze(toStorage(a), axis), a);
+  const result = shapeOps.squeeze(toStorage(a), axis);
+  if (axis === undefined && result.ndim === toStorage(a).ndim) return a;
+  return fromStorageView(result, a);
 }
 
 /** Expand array dimensions - returns a view */
@@ -186,7 +189,7 @@ export function dsplit(ary: NDArrayCore, indices_or_sections: number | number[])
 
 /** Unstack array into list of arrays */
 export function unstack(a: NDArrayCore, axis: number = 0): NDArrayCore[] {
-  return fromStorageArray(shapeOps.unstack(toStorage(a), axis));
+  return fromStorageViewArray(shapeOps.unstack(toStorage(a), axis), a);
 }
 
 // ============================================================
@@ -209,7 +212,7 @@ export function repeat(a: NDArrayCore, repeats: number | number[], axis?: number
 
 /** Reverse order of elements along axis */
 export function flip(m: NDArrayCore, axis?: number | number[]): NDArrayCore {
-  return fromStorage(shapeOps.flip(toStorage(m), axis));
+  return fromStorageMaybeView(shapeOps.flip(toStorage(m), axis), m);
 }
 
 /** Flip array left/right */
@@ -224,7 +227,7 @@ export function flipud(m: NDArrayCore): NDArrayCore {
 
 /** Rotate array by 90 degrees */
 export function rot90(m: NDArrayCore, k: number = 1, axes: [number, number] = [0, 1]): NDArrayCore {
-  return fromStorage(shapeOps.rot90(toStorage(m), k, axes));
+  return fromStorageMaybeView(shapeOps.rot90(toStorage(m), k, axes), m);
 }
 
 /** Roll array elements along axis */
@@ -253,31 +256,28 @@ export function resize(a: NDArrayCore, new_shape: readonly number[]): NDArrayCor
 export function atleast_1d(a: NDArrayCore): NDArrayCore;
 export function atleast_1d(...arrays: NDArrayCore[]): NDArrayCore[];
 export function atleast_1d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[] {
-  const result = shapeOps.atleast1d(arrays.map((a) => toStorage(a)));
-  if (result.length === 1) {
-    return fromStorage(result[0]!);
-  }
-  return fromStorageArray(result);
+  const result = shapeOps
+    .atleast1d(arrays.map((a) => toStorage(a)))
+    .map((s, i) => (s === toStorage(arrays[i]!) ? arrays[i]! : fromStorageView(s, arrays[i]!)));
+  return result.length === 1 ? result[0]! : result;
 }
 
 /** Ensure array has at least 2 dimensions; one argument returns an array, several return a list */
 export function atleast_2d(a: NDArrayCore): NDArrayCore;
 export function atleast_2d(...arrays: NDArrayCore[]): NDArrayCore[];
 export function atleast_2d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[] {
-  const result = shapeOps.atleast2d(arrays.map((a) => toStorage(a)));
-  if (result.length === 1) {
-    return fromStorage(result[0]!);
-  }
-  return fromStorageArray(result);
+  const result = shapeOps
+    .atleast2d(arrays.map((a) => toStorage(a)))
+    .map((s, i) => (s === toStorage(arrays[i]!) ? arrays[i]! : fromStorageView(s, arrays[i]!)));
+  return result.length === 1 ? result[0]! : result;
 }
 
 /** Ensure array has at least 3 dimensions; one argument returns an array, several return a list */
 export function atleast_3d(a: NDArrayCore): NDArrayCore;
 export function atleast_3d(...arrays: NDArrayCore[]): NDArrayCore[];
 export function atleast_3d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[] {
-  const result = shapeOps.atleast3d(arrays.map((a) => toStorage(a)));
-  if (result.length === 1) {
-    return fromStorage(result[0]!);
-  }
-  return fromStorageArray(result);
+  const result = shapeOps
+    .atleast3d(arrays.map((a) => toStorage(a)))
+    .map((s, i) => (s === toStorage(arrays[i]!) ? arrays[i]! : fromStorageView(s, arrays[i]!)));
+  return result.length === 1 ? result[0]! : result;
 }
