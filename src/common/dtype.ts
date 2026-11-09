@@ -555,6 +555,21 @@ export function promoteDTypes(dtype1: DType, dtype2: DType): DType {
   throw new Error(`promoteDTypes: unhandled dtype pair '${dtype1}' + '${dtype2}'`);
 }
 
+/**
+ * Promote any number of dtypes the way NumPy's result_type does. A left fold over
+ * promoteDTypes is order-dependent for mixes such as (int8, uint16, float32); NumPy
+ * instead promotes the combined inexact dtype with each other dtype separately and
+ * joins those results, so the integers never widen each other first.
+ */
+export function promoteDTypeSequence(dtypes: readonly DType[]): DType {
+  if (dtypes.length === 0) throw new Error('promoteDTypeSequence: need at least one dtype');
+  const inexact = dtypes.filter((d) => isFloatDType(d) || isComplexDType(d));
+  const others = dtypes.filter((d) => !(isFloatDType(d) || isComplexDType(d)));
+  if (inexact.length === 0) return others.reduce(promoteDTypes);
+  const joined = inexact.reduce(promoteDTypes);
+  return others.reduce((acc, d) => promoteDTypes(acc, promoteDTypes(joined, d)), joined);
+}
+
 // ─── Unary / reduction result-dtype rules (NumPy 2.x) ───────────────────────
 
 /**

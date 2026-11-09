@@ -4,7 +4,14 @@
  * Tree-shakeable standalone functions for dtype operations.
  */
 
-import { isComplexDType, isFloatDType, isIntegerDType } from '../common/dtype';
+import {
+  isComplexDType,
+  isFloatDType,
+  isIntegerDType,
+  isValidDType,
+  promoteDTypeSequence,
+  promoteDTypes,
+} from '../common/dtype';
 import { type DType, NDArrayCore } from '../common/ndarray-core';
 
 // Dtype categories for type checking
@@ -15,26 +22,35 @@ const FLOAT_DTYPES: DType[] = ['float16', 'float32', 'float64'];
 const COMPLEX_DTYPES: DType[] = ['complex64', 'complex128'];
 const NUMERIC_DTYPES: DType[] = [...INTEGER_DTYPES, ...FLOAT_DTYPES, ...COMPLEX_DTYPES];
 
-// Type hierarchy for casting
-const TYPE_HIERARCHY: Record<DType, number> = {
+// Kind order used by same_kind casting: a cast is allowed toward an equal or later kind.
+const KIND_ORDER: Record<DType, number> = {
   bool: 0,
-  int8: 1,
-  uint8: 2,
-  int16: 3,
-  uint16: 4,
-  int32: 5,
-  uint32: 6,
-  int64: 7,
-  uint64: 8,
-  float16: 9,
-  float32: 10,
-  float64: 11,
-  complex64: 12,
-  complex128: 13,
+  uint8: 1,
+  uint16: 1,
+  uint32: 1,
+  uint64: 1,
+  int8: 2,
+  int16: 2,
+  int32: 2,
+  int64: 2,
+  float16: 3,
+  float32: 3,
+  float64: 3,
+  complex64: 4,
+  complex128: 4,
 };
 
+function assertDType(d: unknown): asserts d is DType {
+  if (typeof d !== 'string' || !isValidDType(d)) {
+    throw new TypeError(`data type '${String(d)}' not understood`);
+  }
+}
+
 /**
- * Check if a cast between dtypes is possible according to the casting rule
+ * Check if a cast between dtypes is possible according to the casting rule. Safe casting
+ * means the target holds every source value (promotion of the pair is the target);
+ * same_kind also allows casts toward an equal or later kind in bool, unsigned, signed,
+ * float, complex order.
  */
 export function can_cast(
   from_: DType | NDArrayCore,
@@ -42,99 +58,22 @@ export function can_cast(
   casting: 'no' | 'equiv' | 'safe' | 'same_kind' | 'unsafe' = 'safe',
 ): boolean {
   const fromDtype: DType = from_ instanceof NDArrayCore ? (from_.dtype as DType) : from_;
+  assertDType(fromDtype);
+  assertDType(to);
 
-  if (casting === 'no') {
-    return fromDtype === to;
-  }
-
-  if (casting === 'equiv') {
-    return fromDtype === to;
-  }
-
-  if (casting === 'unsafe') {
-    return true;
-  }
-
-  const fromRank = TYPE_HIERARCHY[fromDtype] ?? -1;
-  const toRank = TYPE_HIERARCHY[to] ?? -1;
-
-  if (casting === 'safe') {
-    // Safe casting: no loss of precision
-
-    // Integer to float: only safe if float can represent all values
-    // This check must come BEFORE the rank comparison because int32->float32
-    // has increasing rank but is NOT safe (precision loss)
-    if (isIntegerDType(fromDtype) && isFloatDType(to)) {
-      // float32 has 24-bit mantissa, can safely hold int8, int16, uint8, uint16
-      // float64 has 53-bit mantissa, can safely hold int8-int32, uint8-uint32
-      const intBits: Record<DType, number> = {
-        int8: 8,
-        int16: 16,
-        int32: 32,
-        int64: 64,
-        uint8: 8,
-        uint16: 16,
-        uint32: 32,
-        uint64: 64,
-        bool: 1,
-        float16: 0,
-        float32: 0,
-        float64: 0,
-        complex64: 0,
-        complex128: 0,
-      };
-      const floatMantissaBits: Record<DType, number> = {
-        float16: 11,
-        float32: 24,
-        float64: 53,
-        int8: 0,
-        int16: 0,
-        int32: 0,
-        int64: 0,
-        uint8: 0,
-        uint16: 0,
-        uint32: 0,
-        uint64: 0,
-        bool: 0,
-        complex64: 24,
-        complex128: 53,
-      };
-      const srcBits = intBits[fromDtype] ?? 64;
-      const dstBits = floatMantissaBits[to] ?? 0;
-      return srcBits <= dstBits;
-    }
-
-    // Integer to complex: NumPy allows any integer to complex (conceptually "wider")
-    // This differs from int->float which considers precision loss
-    if (isIntegerDType(fromDtype) && isComplexDType(to)) {
+  switch (casting) {
+    case 'no':
+    case 'equiv':
+      return fromDtype === to;
+    case 'unsafe':
       return true;
-    }
-
-    // Float to complex: always safe
-    if (isFloatDType(fromDtype) && isComplexDType(to)) return true;
-
-    // For same-kind types, use rank comparison
-    if (fromRank <= toRank) return true;
-
-    return false;
+    case 'safe':
+      return promoteDTypes(fromDtype, to) === to;
+    case 'same_kind':
+      return promoteDTypes(fromDtype, to) === to || KIND_ORDER[fromDtype] <= KIND_ORDER[to];
+    default:
+      throw new Error("casting must be one of 'no', 'equiv', 'safe', 'same_kind', or 'unsafe'");
   }
-
-  if (casting === 'same_kind') {
-    // Same kind: integers to integers, floats to floats, etc.
-    // Does NOT allow cross-kind casting (int->float, float->complex)
-    if (isIntegerDType(fromDtype) && isIntegerDType(to)) return true;
-    if (isFloatDType(fromDtype) && isFloatDType(to)) return true;
-    if (isComplexDType(fromDtype) && isComplexDType(to)) return true;
-    if (fromDtype === 'bool' && isIntegerDType(to)) return true;
-    if (fromDtype === 'bool' && to === 'bool') return true;
-
-    // Float to complex is allowed (same numeric kind in broader sense)
-    if (isFloatDType(fromDtype) && isComplexDType(to)) return true;
-
-    return false;
-  }
-
-  return false;
 }
 
 /**
@@ -185,112 +124,33 @@ export function common_type(...arrays: NDArrayCore[]): DType {
 }
 
 /**
- * Returns the NumPy-compatible type promotion result: integers promote to the
- * smallest larger integer type that holds both ranges (e.g. int32+uint32 -> int64),
- * integer+float promotes to float64 once the integer is 32 bits or wider, and
- * float+complex promotes to the matching-width complex type.
+ * Returns the NumPy type promotion of all inputs. Several inputs are not promoted by a
+ * plain left fold: NumPy promotes the combined float or complex dtype with each integer
+ * separately, so result_type of int8, uint16 and float32 is float32.
+ *
+ * @param arrays_and_dtypes - Arrays or dtype names; at least one is required
+ * @returns Promoted dtype
  */
 export function result_type(...arrays_and_dtypes: (NDArrayCore | DType)[]): DType {
   if (arrays_and_dtypes.length === 0) {
-    return 'float64';
+    throw new Error('at least one array or dtype is required');
   }
 
-  const dtypes: DType[] = arrays_and_dtypes.map((item) =>
-    item instanceof NDArrayCore ? (item.dtype as DType) : item,
-  );
+  const dtypes: DType[] = arrays_and_dtypes.map((item) => {
+    const d = item instanceof NDArrayCore ? (item.dtype as DType) : item;
+    assertDType(d);
+    return d;
+  });
 
-  // Check for complex
-  const hasComplex = dtypes.some(isComplexDType);
-  const hasFloat = dtypes.some(isFloatDType);
-  const hasInteger = dtypes.some(isIntegerDType);
-
-  // Complex promotion
-  if (hasComplex) {
-    const hasFloat64 = dtypes.some((d) => d === 'float64');
-    const hasComplex128 = dtypes.some((d) => d === 'complex128');
-    const has64BitInt = dtypes.some(
-      (d) => d === 'int64' || d === 'uint64' || d === 'int32' || d === 'uint32',
-    );
-    if (hasComplex128 || hasFloat64 || has64BitInt) {
-      return 'complex128';
-    }
-    return 'complex64';
-  }
-
-  // Float promotion
-  if (hasFloat) {
-    const hasFloat64 = dtypes.some((d) => d === 'float64');
-    const hasFloat32 = dtypes.some((d) => d === 'float32');
-    // Integer + float: promote based on integer size
-    if (hasInteger) {
-      const has32BitOrLarger = dtypes.some(
-        (d) => d === 'int32' || d === 'uint32' || d === 'int64' || d === 'uint64',
-      );
-      if (has32BitOrLarger || hasFloat64) {
-        return 'float64';
-      }
-      // float16 + int16/uint16 → float32 (float16 has only 11-bit mantissa)
-      const has16BitInt = dtypes.some((d) => d === 'int16' || d === 'uint16');
-      if (!hasFloat32 && has16BitInt) {
-        return 'float32';
-      }
-    }
-    if (hasFloat64) return 'float64';
-    return hasFloat32 ? 'float32' : 'float16';
-  }
-
-  // Pure integer promotion
-  if (hasInteger) {
-    const hasSigned = dtypes.some((d) => SIGNED_INTEGER_DTYPES.includes(d));
-    const hasUnsigned = dtypes.some((d) => UNSIGNED_INTEGER_DTYPES.includes(d));
-
-    // Find max bit width
-    const bitWidths: Record<DType, number> = {
-      bool: 8,
-      int8: 8,
-      uint8: 8,
-      int16: 16,
-      uint16: 16,
-      int32: 32,
-      uint32: 32,
-      int64: 64,
-      uint64: 64,
-      float16: 0,
-      float32: 0,
-      float64: 0,
-      complex64: 0,
-      complex128: 0,
-    };
-    const maxBits = Math.max(...dtypes.map((d) => bitWidths[d] ?? 0));
-
-    // Mixed signed/unsigned: promote to next larger signed type
-    if (hasSigned && hasUnsigned) {
-      if (maxBits >= 32) return 'int64';
-      if (maxBits >= 16) return 'int32';
-      return 'int16';
-    }
-
-    // All signed
-    if (hasSigned) {
-      if (maxBits >= 64) return 'int64';
-      if (maxBits >= 32) return 'int32';
-      if (maxBits >= 16) return 'int16';
-      return 'int8';
-    }
-
-    // All unsigned
-    if (maxBits >= 64) return 'uint64';
-    if (maxBits >= 32) return 'uint32';
-    if (maxBits >= 16) return 'uint16';
-    return 'uint8';
-  }
-
-  // Bool only
-  return 'bool';
+  return promoteDTypeSequence(dtypes);
 }
 
 /**
- * Return the minimum scalar type needed to represent a value
+ * Return the smallest dtype that can hold a scalar value. Integers use the smallest
+ * unsigned type for non-negative values and the smallest signed type for negative ones.
+ * Non-integer numbers pick float16, float32 or float64 by magnitude alone, as NumPy
+ * does. A JS number that is integer-valued is treated as an integer, since JS cannot
+ * distinguish 1.0 from 1. Integers outside the 64-bit range have no dtype here and throw.
  */
 export function min_scalar_type(val: number | bigint | boolean): DType {
   if (typeof val === 'boolean') {
@@ -302,32 +162,35 @@ export function min_scalar_type(val: number | bigint | boolean): DType {
       if (val <= 255n) return 'uint8';
       if (val <= 65535n) return 'uint16';
       if (val <= 4294967295n) return 'uint32';
-      return 'uint64';
+      if (val <= 18446744073709551615n) return 'uint64';
     } else {
-      if (val >= -128n && val <= 127n) return 'int8';
-      if (val >= -32768n && val <= 32767n) return 'int16';
-      if (val >= -2147483648n && val <= 2147483647n) return 'int32';
-      return 'int64';
+      if (val >= -128n) return 'int8';
+      if (val >= -32768n) return 'int16';
+      if (val >= -2147483648n) return 'int32';
+      if (val >= -9223372036854775808n) return 'int64';
     }
+    throw new RangeError(`min_scalar_type: ${val} does not fit in any supported integer dtype`);
   }
 
-  // Number
-  if (Number.isInteger(val)) {
+  if (Number.isInteger(val) && !Object.is(val, -0)) {
     if (val >= 0) {
       if (val <= 255) return 'uint8';
       if (val <= 65535) return 'uint16';
       if (val <= 4294967295) return 'uint32';
-      return 'int64';
+      if (val < 2 ** 64) return 'uint64';
     } else {
-      if (val >= -128 && val <= 127) return 'int8';
-      if (val >= -32768 && val <= 32767) return 'int16';
-      if (val >= -2147483648 && val <= 2147483647) return 'int32';
-      return 'int64';
+      if (val >= -128) return 'int8';
+      if (val >= -32768) return 'int16';
+      if (val >= -2147483648) return 'int32';
+      if (val >= -(2 ** 63)) return 'int64';
     }
   }
 
-  // Float
-  return 'float64';
+  // NumPy gives NaN and both infinities float16.
+  if (!Number.isFinite(val)) return 'float16';
+  const magnitude = Math.abs(val);
+  if (magnitude < 65000) return 'float16';
+  return magnitude < 3.4e38 ? 'float32' : 'float64';
 }
 
 /**
@@ -366,100 +229,85 @@ export function issubdtype(dtype1: DType | NDArrayCore, dtype2: DType | string):
   return dt1 === dtype2;
 }
 
-/**
- * Returns the dtype name directly, matching NumPy's dtype description.
- */
-export function typename(dtype: DType): string {
-  return dtype;
-}
+const TYPE_NAMES = new Map<string, string>([
+  ['S1', 'character'],
+  ['?', 'bool'],
+  ['b', 'signed char'],
+  ['B', 'unsigned char'],
+  ['h', 'short'],
+  ['H', 'unsigned short'],
+  ['i', 'integer'],
+  ['I', 'unsigned integer'],
+  ['l', 'long integer'],
+  ['L', 'unsigned long integer'],
+  ['q', 'long long integer'],
+  ['Q', 'unsigned long long integer'],
+  ['f', 'single precision'],
+  ['d', 'double precision'],
+  ['g', 'long precision'],
+  ['F', 'complex single precision'],
+  ['D', 'complex double precision'],
+  ['G', 'complex long double precision'],
+  ['S', 'string'],
+  ['U', 'unicode'],
+  ['V', 'void'],
+  ['O', 'object'],
+]);
 
 /**
- * Returns the character code for the minimum-size type in typeset that can safely
- * represent every input type, using safe-casting rules to avoid precision loss.
+ * Returns NumPy's description of a type character code, for example 'd' gives
+ * 'double precision' and 'S1' gives 'character'. A code NumPy has no description for
+ * throws.
+ *
+ * @param char - Type character code
+ * @returns Description of the type code
+ */
+export function typename(char: string): string {
+  const name = TYPE_NAMES.get(char);
+  if (name === undefined) {
+    throw new Error(`typename: unknown type code '${String(char)}'`);
+  }
+  return name;
+}
+
+// Type codes ordered largest first; mintypecode picks the earliest one present.
+const TYPECODES_BY_ELSIZE = 'GDFgdfQqLlIiHhBb?';
+
+/**
+ * Returns the character code for the smallest type in typeset that covers the given
+ * type codes, following NumPy: each element of typechars is a whole code (a plain string
+ * is read character by character), only codes found in typeset count, 'F' together
+ * with 'd' gives 'D', and the default is returned when nothing matches. Membership in a
+ * string typeset is a substring test, as in NumPy.
+ *
+ * @param typechars - String of type codes or array of type-code strings
+ * @param typeset - String or array of the codes the result is chosen from
+ * @param default_ - Result when no input code is in typeset
+ * @returns The selected type code
  */
 export function mintypecode(
   typechars: string | readonly string[],
-  typeset: string = 'GDFgdf',
+  typeset: string | readonly string[] = 'GDFgdf',
   default_: string = 'd',
 ): string {
-  // Map type characters to dtypes
-  const charToDtype: Record<string, DType | null> = {
-    b: 'int8',
-    B: 'uint8',
-    h: 'int16',
-    H: 'uint16',
-    i: 'int32',
-    I: 'uint32',
-    l: 'int64',
-    L: 'uint64',
-    f: 'float32',
-    d: 'float64',
-    F: 'complex64',
-    D: 'complex128',
-    g: 'float64', // long double maps to float64
-    G: 'complex128', // complex long double maps to complex128
-  };
-
-  // Rank for ordering types (lower is smaller)
-  // Use separate sub-ranks to prefer standard types over long-double aliases
-  const typeCodeToRank: Record<string, number> = {
-    b: 0,
-    B: 1,
-    h: 2,
-    H: 3,
-    i: 4,
-    I: 5,
-    l: 6,
-    L: 7,
-    f: 8.0,
-    g: 9.1, // long double - slightly higher than d
-    d: 9.0, // prefer d over g
-    F: 10.0,
-    G: 11.1, // complex long double - slightly higher than D
-    D: 11.0, // prefer D over G
-  };
-
-  if (typechars.length === 0) {
-    return default_;
+  const intersection = new Set<string>();
+  for (const item of typechars) {
+    // An empty string has no code of its own; NumPy reads it as a unicode array, 'U'.
+    const t = item === '' ? 'U' : item;
+    if (typeset.includes(t)) intersection.add(t);
   }
+  if (intersection.size === 0) return default_;
+  if (intersection.has('F') && intersection.has('d')) return 'D';
 
-  // Get input dtypes
-  const inputDtypes: DType[] = [];
-  for (const char of typechars) {
-    const dtype = charToDtype[char];
-    if (dtype) {
-      inputDtypes.push(dtype);
+  let best: string | undefined;
+  let bestIdx = Infinity;
+  for (const t of intersection) {
+    const idx = TYPECODES_BY_ELSIZE.indexOf(t);
+    if (idx === -1) throw new Error(`mintypecode: '${t}' is not a known type code`);
+    if (idx < bestIdx) {
+      bestIdx = idx;
+      best = t;
     }
   }
-
-  if (inputDtypes.length === 0) {
-    return default_;
-  }
-
-  // Find the minimum type in typeset that can safely represent ALL input types
-  let bestChar = default_;
-  let bestRank = Infinity;
-
-  for (const char of typeset) {
-    const targetDtype = charToDtype[char];
-    if (!targetDtype) continue;
-
-    const rank = typeCodeToRank[char] ?? Infinity;
-
-    // Check if this type can safely cast from ALL inputs
-    let canCastAll = true;
-    for (const srcDtype of inputDtypes) {
-      if (!can_cast(srcDtype, targetDtype, 'safe')) {
-        canCastAll = false;
-        break;
-      }
-    }
-
-    if (canCastAll && rank < bestRank) {
-      bestRank = rank;
-      bestChar = char;
-    }
-  }
-
-  return bestChar;
+  return best as string;
 }

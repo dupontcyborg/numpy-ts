@@ -128,8 +128,8 @@ export function iterable(obj: unknown): boolean {
   return logicOps.iterable(obj);
 }
 
-/** Check dtype against a kind string */
-export function isdtype(dtype: DType, kind: string): boolean {
+/** Check a dtype against a kind name, a dtype name, or an array of them */
+export function isdtype(dtype: DType, kind: string | readonly string[]): boolean {
   return logicOps.isdtype(dtype, kind);
 }
 

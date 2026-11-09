@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   array,
+  Complex,
   can_cast,
   common_type,
   isdtype,
@@ -20,6 +21,7 @@ import {
   result_type,
   typename,
 } from '../../src';
+import { promoteDTypeSequence } from '../../src/common/dtype';
 
 describe('Type Checking Functions', () => {
   describe('can_cast()', () => {
@@ -60,9 +62,19 @@ describe('Type Checking Functions', () => {
         expect(can_cast('int32', 'float32')).toBe(false);
       });
 
-      it('allows any real to complex', () => {
+      it('allows real to complex only when the component holds every value', () => {
         expect(can_cast('float64', 'complex128')).toBe(true);
-        expect(can_cast('int32', 'complex64')).toBe(true);
+        expect(can_cast('int16', 'complex64')).toBe(true);
+        expect(can_cast('int32', 'complex64')).toBe(false);
+        expect(can_cast('int32', 'complex128')).toBe(true);
+        expect(can_cast('float64', 'complex64')).toBe(false);
+      });
+
+      it('denies signed to unsigned and int64 to float64 is safe', () => {
+        expect(can_cast('int8', 'uint8')).toBe(false);
+        expect(can_cast('uint8', 'int16')).toBe(true);
+        expect(can_cast('uint8', 'int8')).toBe(false);
+        expect(can_cast('int64', 'float64')).toBe(true);
       });
 
       it('handles NDArray input', () => {
@@ -85,8 +97,9 @@ describe('Type Checking Functions', () => {
         expect(can_cast('float64', 'float32', 'same_kind')).toBe(true);
       });
 
-      it('allows int/uint mixing', () => {
-        expect(can_cast('int32', 'uint32', 'same_kind')).toBe(true);
+      it('allows unsigned to signed but not signed to unsigned', () => {
+        expect(can_cast('int32', 'uint32', 'same_kind')).toBe(false);
+        expect(can_cast('uint64', 'int8', 'same_kind')).toBe(true);
         expect(can_cast('uint16', 'int64', 'same_kind')).toBe(true);
       });
 
@@ -94,8 +107,11 @@ describe('Type Checking Functions', () => {
         expect(can_cast('float32', 'complex64', 'same_kind')).toBe(true);
       });
 
-      it('denies int to float in same_kind', () => {
-        expect(can_cast('int32', 'float32', 'same_kind')).toBe(false);
+      it('allows int to float and bool to anything, but not float to int', () => {
+        expect(can_cast('int32', 'float32', 'same_kind')).toBe(true);
+        expect(can_cast('bool', 'float16', 'same_kind')).toBe(true);
+        expect(can_cast('float32', 'int64', 'same_kind')).toBe(false);
+        expect(can_cast('complex64', 'float64', 'same_kind')).toBe(false);
       });
     });
 
@@ -149,8 +165,13 @@ describe('Type Checking Functions', () => {
   });
 
   describe('result_type()', () => {
-    it('returns float64 for no inputs', () => {
-      expect(result_type()).toBe('float64');
+    it('throws for no inputs', () => {
+      expect(() => result_type()).toThrow('at least one array or dtype is required');
+    });
+
+    it('does not widen integers before joining them with a float', () => {
+      expect(result_type('int8', 'uint16', 'float32')).toBe('float32');
+      expect(result_type('int8', 'uint8', 'float16')).toBe('float16');
     });
 
     it('promotes bool to other type', () => {
@@ -160,6 +181,8 @@ describe('Type Checking Functions', () => {
     it('promotes integers correctly', () => {
       expect(result_type('int8', 'int16')).toBe('int16');
       expect(result_type('int32', 'uint32')).toBe('int64');
+      expect(result_type('int16', 'uint8')).toBe('int16');
+      expect(result_type('int64', 'uint64')).toBe('float64');
     });
 
     it('promotes float with integer', () => {
@@ -205,10 +228,29 @@ describe('Type Checking Functions', () => {
       expect(min_scalar_type(-32768)).toBe('int16');
     });
 
-    it('returns float64 for floats', () => {
-      expect(min_scalar_type(3.14)).toBe('float64');
-      expect(min_scalar_type(Infinity)).toBe('float64');
-      expect(min_scalar_type(NaN)).toBe('float64');
+    it('picks the float width by magnitude', () => {
+      expect(min_scalar_type(3.14)).toBe('float16');
+      expect(min_scalar_type(Infinity)).toBe('float16');
+      expect(min_scalar_type(NaN)).toBe('float16');
+      expect(min_scalar_type(-0)).toBe('float16');
+      expect(min_scalar_type(65000.5)).toBe('float32');
+      expect(min_scalar_type(3.5e38)).toBe('float64');
+      expect(min_scalar_type(1e300)).toBe('float64');
+    });
+
+    it('returns uint64 for integers above the uint32 range', () => {
+      expect(min_scalar_type(4294967296)).toBe('uint64');
+      expect(min_scalar_type(-2147483649)).toBe('int64');
+      expect(min_scalar_type(2n ** 64n - 1n)).toBe('uint64');
+      expect(min_scalar_type(-129n)).toBe('int16');
+      expect(min_scalar_type(-32769n)).toBe('int32');
+      expect(min_scalar_type(-2147483649n)).toBe('int64');
+      expect(min_scalar_type(-(2n ** 63n))).toBe('int64');
+    });
+
+    it('throws for bigints outside the 64-bit range', () => {
+      expect(() => min_scalar_type(2n ** 64n)).toThrow(RangeError);
+      expect(() => min_scalar_type(-(2n ** 63n) - 1n)).toThrow(RangeError);
     });
 
     it('handles bigint values', () => {
@@ -250,45 +292,77 @@ describe('Type Checking Functions', () => {
   });
 
   describe('typename()', () => {
-    it('returns dtype name', () => {
-      expect(typename('float64')).toBe('float64');
-      expect(typename('int32')).toBe('int32');
-      expect(typename('complex128')).toBe('complex128');
-      expect(typename('bool')).toBe('bool');
+    it('describes type character codes', () => {
+      expect(typename('d')).toBe('double precision');
+      expect(typename('f')).toBe('single precision');
+      expect(typename('S1')).toBe('character');
+      expect(typename('?')).toBe('bool');
+      expect(typename('G')).toBe('complex long double precision');
+    });
+
+    it('throws for unknown codes and dtype names', () => {
+      expect(() => typename('float64')).toThrow(/unknown type code/);
+      expect(() => typename('e')).toThrow(/unknown type code/);
+      expect(() => typename('')).toThrow(/unknown type code/);
     });
   });
 
   describe('mintypecode()', () => {
-    it('returns minimum type character', () => {
-      expect(mintypecode('ff')).toBe('f'); // float32 + float32 = float32
-      expect(mintypecode('fd')).toBe('d'); // float32 + float64 = float64
-      expect(mintypecode('if')).toBe('d'); // int32 + float32 = float64 (safe promotion)
+    it('picks the largest code present from the typeset', () => {
+      expect(mintypecode('ff')).toBe('f');
+      expect(mintypecode('fd')).toBe('d');
+      expect(mintypecode('FF')).toBe('F');
+      expect(mintypecode('FD')).toBe('D');
     });
 
-    it('handles complex types', () => {
-      expect(mintypecode('FF')).toBe('F'); // complex64
-      expect(mintypecode('FD')).toBe('D'); // complex128
+    it('ignores codes outside the typeset', () => {
+      expect(mintypecode('if')).toBe('f');
+      expect(mintypecode(['i', 'f'])).toBe('f');
+      expect(mintypecode(['d', 'f', 'S'])).toBe('d');
     });
 
-    it('returns default for empty input', () => {
+    it('returns D for single and double precision complex mixed', () => {
+      expect(mintypecode(['F', 'd'])).toBe('D');
+      expect(mintypecode('dF')).toBe('D');
+    });
+
+    it('returns default when nothing matches', () => {
       expect(mintypecode('')).toBe('d');
+      expect(mintypecode([])).toBe('d');
       expect(mintypecode('', 'GDFgdf', 'f')).toBe('f');
+      expect(mintypecode('abceh', 'GDFgdf', 'G')).toBe('G');
+      expect(mintypecode('bb', 'fd')).toBe('d');
     });
 
-    it('respects typeset filter', () => {
-      expect(mintypecode('bb', 'fd')).toBe('f'); // bool+bool but only float allowed
+    it('accepts the typeset as an array', () => {
+      expect(mintypecode(['f', 'd'], ['f', 'd', 'D'])).toBe('d');
+      expect(mintypecode(['f', 'd'], ['f'])).toBe('f');
+    });
+
+    it('reads an empty-string element as a unicode code, which is outside the default typeset', () => {
+      expect(mintypecode(['', 'f'])).toBe('f');
+    });
+
+    it('throws when a matching code has no size ranking, as NumPy does', () => {
+      expect(() => mintypecode(['x'], 'x')).toThrow(/not a known type code/);
     });
   });
 
   describe('isscalar()', () => {
-    it('returns true for numbers', () => {
+    it('returns true for numbers, bigints, booleans, strings and Complex', () => {
       expect(isscalar(42)).toBe(true);
       expect(isscalar(3.14)).toBe(true);
+      expect(isscalar(5n)).toBe(true);
+      expect(isscalar(false)).toBe(true);
+      expect(isscalar('x')).toBe(true);
+      expect(isscalar(new Complex(1, 2))).toBe(true);
     });
 
     it('returns false for arrays and objects', () => {
       expect(isscalar([1, 2])).toBe(false);
       expect(isscalar(array([1, 2]))).toBe(false);
+      expect(isscalar(array(5))).toBe(false);
+      expect(isscalar({ re: 1, im: 2 })).toBe(false);
     });
   });
 
@@ -303,22 +377,35 @@ describe('Type Checking Functions', () => {
   });
 
   describe('isdtype()', () => {
-    it('identifies float types', () => {
-      expect(isdtype('float64', 'f')).toBe(true);
+    it('identifies kinds', () => {
+      expect(isdtype('float64', 'real floating')).toBe(true);
+      expect(isdtype('float16', 'real floating')).toBe(true);
+      expect(isdtype('int32', 'integral')).toBe(true);
+      expect(isdtype('uint8', 'signed integer')).toBe(false);
+      expect(isdtype('bool', 'bool')).toBe(true);
+      expect(isdtype('bool', 'numeric')).toBe(false);
+      expect(isdtype('complex64', 'complex floating')).toBe(true);
     });
 
-    it('identifies integer types', () => {
-      expect(isdtype('int32', 'i')).toBe(true);
+    it('accepts a dtype or an array of kinds', () => {
+      expect(isdtype('float32', 'float32')).toBe(true);
+      expect(isdtype('float32', ['float32', 'float64'])).toBe(true);
+      expect(isdtype('int8', ['float32', 'unsigned integer'])).toBe(false);
+      expect(isdtype('int8', [])).toBe(false);
     });
 
-    it('identifies bool type', () => {
-      expect(isdtype('bool', 'b')).toBe(true);
+    it('rejects the single-letter kinds and unknown names', () => {
+      expect(() => isdtype('float64', 'f')).toThrow(/not a known kind name/);
     });
   });
 
   describe('promote_types()', () => {
-    it('promotes int32 and float32', () => {
-      expect(promote_types('int32', 'float32')).toBeDefined();
+    it('promotes int32 and float32 to float64', () => {
+      expect(promote_types('int32', 'float32')).toBe('float64');
+      expect(promote_types('uint8', 'int8')).toBe('int16');
+      expect(promote_types('int64', 'uint64')).toBe('float64');
+      expect(promote_types('int16', 'float16')).toBe('float32');
+      expect(promote_types('complex64', 'float64')).toBe('complex128');
     });
   });
 
@@ -343,5 +430,16 @@ describe('Type Checking Functions', () => {
       const a = array([1, 2, 3]);
       expect(typeof isfortran(a)).toBe('boolean');
     });
+  });
+});
+
+describe('promoteDTypeSequence()', () => {
+  it('throws for an empty sequence', () => {
+    expect(() => promoteDTypeSequence([])).toThrow('need at least one dtype');
+  });
+
+  it('matches a pairwise promotion for one or two dtypes', () => {
+    expect(promoteDTypeSequence(['int8'])).toBe('int8');
+    expect(promoteDTypeSequence(['int8', 'uint8'])).toBe('int16');
   });
 });

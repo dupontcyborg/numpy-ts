@@ -640,7 +640,9 @@ result = np.isrealobj(arr)
 
       it('validates promote_types() for int and float', () => {
         const result = promote_types('int32', 'float32');
-        expect(result).toBe('float32');
+        const npResult = runNumPy("result = str(np.promote_types('int32', 'float32'))");
+        expect(result).toBe(npResult.value);
+        expect(result).toBe('float64');
       });
 
       it('validates promote_types() for different precisions', () => {

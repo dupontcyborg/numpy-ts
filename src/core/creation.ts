@@ -157,6 +157,18 @@ function containsComplex(data: unknown): boolean {
   return false;
 }
 
+// True when the data has at least one element and every element is a boolean. Empty data
+// stays float64, as in NumPy.
+function isAllBoolean(data: unknown): boolean {
+  let leaves = 0;
+  const visit = (v: unknown): boolean => {
+    if (Array.isArray(v)) return v.every(visit);
+    leaves++;
+    return typeof v === 'boolean';
+  };
+  return visit(data) && leaves > 0;
+}
+
 function flattenKeepBigInt(data: unknown): unknown[] {
   const result: unknown[] = [];
   function flatten(arr: unknown): void {
@@ -223,6 +235,8 @@ export function array(data: unknown, dtype?: DType): NDArrayCore {
       actualDtype = 'complex128';
     } else if (hasBigInt) {
       actualDtype = 'int64';
+    } else if (isAllBoolean(data)) {
+      actualDtype = 'bool';
     } else {
       actualDtype = DEFAULT_DTYPE;
     }

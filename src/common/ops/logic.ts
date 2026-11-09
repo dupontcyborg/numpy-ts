@@ -9,13 +9,14 @@
  * and return boolean arrays (dtype: 'bool').
  */
 
-import type { Complex } from '../complex';
+import { Complex } from '../complex';
 import {
   type DType,
   hasFloat16,
   isBigIntDType,
   isComplexDType,
   isIntegerDType,
+  isValidDType,
   mathResultDtype,
   promoteDTypes,
   type TypedArray,
@@ -1622,7 +1623,8 @@ export function real_if_close(a: ArrayStorage, tol: number = 100): ArrayStorage 
 }
 
 /**
- * Check if element is a scalar type
+ * Check if element is a scalar type: a number, bigint, boolean, string or Complex.
+ * Arrays, NDArrays (including 0-d), plain objects, null and undefined are not scalars.
  * @param val - Value to check
  * @returns true if scalar
  */
@@ -1631,7 +1633,8 @@ export function isscalar(val: unknown): boolean {
     typeof val === 'number' ||
     typeof val === 'bigint' ||
     typeof val === 'boolean' ||
-    typeof val === 'string'
+    typeof val === 'string' ||
+    val instanceof Complex
   );
 }
 
@@ -1647,53 +1650,73 @@ export function iterable(obj: unknown): boolean {
   return typeof (obj as Record<symbol, unknown>)[Symbol.iterator] === 'function';
 }
 
+const SIGNED_KIND: readonly DType[] = ['int8', 'int16', 'int32', 'int64'];
+const UNSIGNED_KIND: readonly DType[] = ['uint8', 'uint16', 'uint32', 'uint64'];
+const FLOAT_KIND: readonly DType[] = ['float16', 'float32', 'float64'];
+const COMPLEX_KIND: readonly DType[] = ['complex64', 'complex128'];
+const INTEGRAL_KIND: readonly DType[] = [...SIGNED_KIND, ...UNSIGNED_KIND];
+const ISDTYPE_KINDS = new Map<string, readonly DType[]>([
+  ['bool', ['bool']],
+  ['signed integer', SIGNED_KIND],
+  ['unsigned integer', UNSIGNED_KIND],
+  ['integral', INTEGRAL_KIND],
+  ['real floating', FLOAT_KIND],
+  ['complex floating', COMPLEX_KIND],
+  ['numeric', [...INTEGRAL_KIND, ...FLOAT_KIND, ...COMPLEX_KIND]],
+]);
+
 /**
- * Check if dtype meets specified criteria
+ * Check whether a dtype belongs to any of the given kinds. A kind is a NumPy kind name
+ * ('bool', 'signed integer', 'unsigned integer', 'integral', 'real floating',
+ * 'complex floating', 'numeric'), a dtype name that must match exactly, or an array of
+ * those. An unknown kind string throws a ValueError-style Error; a non-dtype first
+ * argument or a non-string kind throws a TypeError.
  * @param dtype - Dtype to check
- * @param kind - Kind of dtype ('b' bool, 'i' int, 'u' uint, 'f' float)
- * @returns true if dtype matches kind
+ * @param kind - Kind name, dtype name, or array of them (any match)
+ * @returns true if the dtype matches any kind
  */
-export function isdtype(dtype: DType, kind: string): boolean {
-  const kindMap: Record<string, DType[]> = {
-    b: ['bool'],
-    i: ['int8', 'int16', 'int32', 'int64'],
-    u: ['uint8', 'uint16', 'uint32', 'uint64'],
-    f: ['float32', 'float64'],
-  };
-
-  const matchingTypes = kindMap[kind];
-  if (!matchingTypes) {
-    return false;
+export function isdtype(dtype: DType, kind: string | readonly string[]): boolean {
+  if (typeof dtype !== 'string' || !isValidDType(dtype)) {
+    throw new TypeError(`dtype argument must be a NumPy dtype, but it is ${describeArg(dtype)}.`);
   }
+  const kinds: readonly unknown[] = Array.isArray(kind) ? kind : [kind];
+  let matched = false;
+  for (const k of kinds) {
+    if (typeof k !== 'string') {
+      throw new TypeError(
+        `kind argument must be comprised of NumPy dtypes or strings only, but is ${describeArg(k)}.`,
+      );
+    }
+    const members = ISDTYPE_KINDS.get(k);
+    if (members) {
+      if (members.includes(dtype)) matched = true;
+    } else if (isValidDType(k)) {
+      if (k === dtype) matched = true;
+    } else {
+      throw new Error(`kind argument is a string, but '${k}' is not a known kind name.`);
+    }
+  }
+  return matched;
+}
 
-  return matchingTypes.includes(dtype);
+function describeArg(v: unknown): string {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return 'an array';
+  return `a ${typeof v}${typeof v === 'string' ? ` ('${v}')` : ''}`;
 }
 
 /**
- * Find the dtype that can represent both input dtypes
+ * Find the dtype that can represent both input dtypes, following NumPy's promotion
+ * table (for example int32 with float32 gives float64, int64 with uint64 gives float64).
  * @param dtype1 - First dtype
  * @param dtype2 - Second dtype
  * @returns Promoted dtype
  */
 export function promote_types(dtype1: DType, dtype2: DType): DType {
-  // NumPy promotion hierarchy (from highest to lowest precedence)
-  const hierarchy: DType[] = [
-    'float64',
-    'float32',
-    'int64',
-    'int32',
-    'int16',
-    'int8',
-    'uint64',
-    'uint32',
-    'uint16',
-    'uint8',
-    'bool',
-  ];
-
-  const idx1 = hierarchy.indexOf(dtype1);
-  const idx2 = hierarchy.indexOf(dtype2);
-
-  // Return the one with higher precedence (lower index)
-  return idx1 <= idx2 ? dtype1 : dtype2;
+  for (const d of [dtype1, dtype2]) {
+    if (typeof d !== 'string' || !isValidDType(d)) {
+      throw new TypeError(`data type ${describeArg(d)} not understood`);
+    }
+  }
+  return promoteDTypes(dtype1, dtype2);
 }

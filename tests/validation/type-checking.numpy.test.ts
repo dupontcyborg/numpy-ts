@@ -134,10 +134,14 @@ result = str(np.min_scalar_type(-100))
       expect(result).toBe(npResult.value);
     });
 
-    it('returns float64 for floats (implementation detail)', () => {
-      // Note: NumPy may return float16 for small floats, but we use float64 for simplicity
+    it('validates min_scalar_type for a float', () => {
       const result = min_scalar_type(3.14);
-      expect(result).toBe('float64');
+
+      const npResult = runNumPy(`
+result = str(np.min_scalar_type(3.14))
+`);
+
+      expect(result).toBe(npResult.value);
     });
   });
 
