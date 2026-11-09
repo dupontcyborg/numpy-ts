@@ -6,6 +6,7 @@
  */
 
 import { Complex } from '../common/complex';
+import type { TypedArray } from '../common/dtype';
 import { NDArrayCore, rawOf } from '../common/ndarray-core';
 import { ArrayStorage, notAnNDArray } from '../common/storage';
 
@@ -13,11 +14,14 @@ import { ArrayStorage, notAnNDArray } from '../common/storage';
 export type { DType, TypedArray } from '../common/dtype';
 export { ArrayStorage, Complex, NDArrayCore };
 
+type ArrayLikeScalar = number | bigint | boolean;
+type NestedArray<T> = readonly (T | NestedArray<T>)[];
+
 /**
- * Input type for functions that accept arrays
- * Can be an NDArrayCore instance or nested arrays
+ * Input type for the few functions that take plain data as well as an NDArray: an NDArray, a
+ * scalar, a nested array of any depth, or a typed array. Every other function requires an NDArray.
  */
-export type ArrayLike = NDArrayCore | number[] | number[][] | number[][][] | number | bigint;
+export type ArrayLike = NDArrayCore | ArrayLikeScalar | NestedArray<ArrayLikeScalar> | TypedArray;
 
 /**
  * Convert input to ArrayStorage
