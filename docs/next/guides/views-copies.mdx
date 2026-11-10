@@ -129,16 +129,16 @@ const a = array([[1, 2, 3],
                  [7, 8, 9]]);
 
 // Slice out the first row (view)
-const row = a.get([0, ':']);
+const row = a.slice('0', ':');
 
 // Slice out the first column (view)
-const col = a.get([':', 0]);
+const col = a.slice(':', '1');
 
 // Modify through the row view
 row.set([1], 20);
 
 // Both the original and the column view see the change
-console.log(a.get([0, 1]).item());   // 20
+console.log(a.get([0, 1]));   // 20
 console.log(a.toArray());
 // [[1, 20, 3], [4, 5, 6], [7, 8, 9]]
 ```

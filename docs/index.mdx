@@ -137,8 +137,8 @@ numpy-ts mirrors the NumPy API as closely as possible. Most code translates dire
     const a = np.array([[1, 2], [3, 4]]);
     const b = np.linalg.inv(a);
     const c = np.dot(a, b);          // identity matrix
-    const d = np.sum(a, { axis: 0 }); // [4, 6]
-    const e = a.get([0, ':']);        // [1, 2]
+    const d = np.sum(a, 0);          // [4, 6]
+    const e = a.slice('0', ':');     // [1, 2]
     ```
   </Tab>
 </Tabs>
