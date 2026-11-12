@@ -145,30 +145,6 @@ console.log(a.strides); // [4, 1]
 
 ---
 
-### offset
-
-```typescript
-get offset(): number
-```
-
-Offset into the underlying data buffer, in elements. Nonzero for views created by slicing.
-
-| Property | Type | Description |
-|---|---|---|
-| `offset` | `number` | Element offset into `data`. |
-
-```typescript
-const a = np.arange(10);
-const b = a.slice('3:7');
-console.log(b.offset); // 3
-```
-
-<Note>
-The `offset` property is accessed via the internal storage object (`a.storage.offset`). On `NDArrayCore` it is not directly exposed as a top-level property but can be read from the storage.
-</Note>
-
----
-
 ### base
 
 ```typescript

@@ -27,7 +27,9 @@ const [di, dj] = np.diag_indices(3);
 
 // Use to set the diagonal of a matrix
 const a = np.zeros([3, 3]);
-a.iset([di, dj], 1);
+for (let k = 0; k < 3; k++) {
+  a.set([Number(di.get([k])), Number(dj.get([k]))], 1);
+}
 // array([[1, 0, 0],
 //        [0, 1, 0],
 //        [0, 0, 1]])
@@ -40,12 +42,12 @@ a.iset([di, dj], 1);
 Return the indices to access the main diagonal of a given array.
 
 ```typescript
-function diag_indices_from(a: ArrayLike): NDArray[]
+function diag_indices_from(a: NDArray): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Array whose diagonal indices are desired. Must be at least 2-D and have equal-length dimensions. |
+| `a` | `NDArray` | -- | Array whose diagonal indices are desired. Must be at least 2-D and have equal-length dimensions. |
 
 **Returns:** `NDArray[]` -- Tuple of index arrays that select the main diagonal of `arr`.
 
@@ -96,12 +98,12 @@ const [r, c] = np.tril_indices(3, 1);
 Return the indices for the lower triangle of a given array.
 
 ```typescript
-function tril_indices_from(a: ArrayLike, k?: number): NDArray[]
+function tril_indices_from(a: NDArray, k?: number): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. Must be at least 2-D. Uses the last two dimensions to determine the triangle. |
+| `a` | `NDArray` | -- | Input array. Must be at least 2-D. Uses the last two dimensions to determine the triangle. |
 | `k` | `number` | `0` | Diagonal offset. |
 
 **Returns:** `[NDArray, NDArray]` -- Row and column index arrays for the lower triangle.
@@ -153,12 +155,12 @@ const [r, c] = np.triu_indices(3, 1);
 Return the indices for the upper triangle of a given array.
 
 ```typescript
-function triu_indices_from(a: ArrayLike, k?: number): NDArray[]
+function triu_indices_from(a: NDArray, k?: number): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. Must be at least 2-D. Uses the last two dimensions to determine the triangle. |
+| `a` | `NDArray` | -- | Input array. Must be at least 2-D. Uses the last two dimensions to determine the triangle. |
 | `k` | `number` | `0` | Diagonal offset. |
 
 **Returns:** `[NDArray, NDArray]` -- Row and column index arrays for the upper triangle.
@@ -239,19 +241,19 @@ const grid = np.indices([2, 3]);
 Construct an open mesh from multiple sequences. This is useful for constructing index arrays for cross-indexing.
 
 ```typescript
-function ix_(...args: ArrayLike[]): NDArray[]
+function ix_(...args: NDArray[]): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `...args` | `ArrayLike[]` | -- | 1-D sequences. Each sequence is reshaped so that it broadcasts against the others. |
+| `...args` | `NDArray[]` | -- | 1-D sequences. Each sequence is reshaped so that it broadcasts against the others. |
 
 **Returns:** `NDArray[]` -- Tuple of N-D arrays with shapes `(len(a0), 1, ..., 1)`, `(1, len(a1), 1, ..., 1)`, etc.
 
 ```typescript
 import * as np from 'numpy-ts';
 
-const [iy, ix] = np.ix_([0, 2], [1, 3]);
+const [iy, ix] = np.ix_(np.array([0, 2]), np.array([1, 3]));
 // iy: array([[0], [2]])   -- shape [2, 1]
 // ix: array([[1, 3]])     -- shape [1, 2]
 
@@ -273,7 +275,7 @@ function fill_diagonal(a: NDArray, val: number, wrap?: boolean): void
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `NDArray` | -- | Array to modify. Must be at least 2-D. |
-| `val` | `number \| ArrayLike` | -- | Value(s) to write on the diagonal. If an array, values are repeated cyclically to fill the entire diagonal. |
+| `val` | `number` | -- | Value to write on the diagonal. |
 | `wrap` | `boolean` | `false` | For tall matrices (rows > cols), if `true`, the diagonal wraps after reaching the last column. |
 
 **Returns:** `void` -- The array `a` is modified in-place.
@@ -286,10 +288,4 @@ np.fill_diagonal(a, 5);
 // array([[5, 0, 0],
 //        [0, 5, 0],
 //        [0, 0, 5]])
-
-const b = np.zeros([3, 3]);
-np.fill_diagonal(b, [1, 2, 3]);
-// array([[1, 0, 0],
-//        [0, 2, 0],
-//        [0, 0, 3]])
 ```

@@ -8,12 +8,12 @@ description: "Element-wise rounding, floor, ceiling, and truncation functions."
 Round an array to the given number of decimals.
 
 ```typescript
-function around(a: ArrayLike, decimals?: number): NDArray
+function around(a: NDArray, decimals?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | - | Input array. |
+| `a` | `NDArray` | - | Input array. |
 | `decimals` | `number` | `0` | Number of decimal places to round to. `0` rounds to the nearest integer. Negative values round to powers of ten (e.g., `-1` rounds to the nearest 10). |
 
 **Returns:** `NDArray` -- Array with each element rounded to the given number of decimals.
@@ -52,12 +52,12 @@ const b = around(array([1.5, 2.5, 3.5]));
 Alias for [`around`](#around). Round an array to the given number of decimals.
 
 ```typescript
-function round(a: ArrayLike, decimals?: number): NDArray
+function round(a: NDArray, decimals?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | - | Input array. |
+| `a` | `NDArray` | - | Input array. |
 | `decimals` | `number` | `0` | Number of decimal places. |
 
 **Returns:** `NDArray` -- Rounded array.
@@ -89,12 +89,12 @@ const a = round(array([0.123, 4.567, 8.901]), 1);
 Return the ceiling of each element (smallest integer greater than or equal to each value).
 
 ```typescript
-function ceil(x: ArrayLike): NDArray
+function ceil(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise ceiling.
 
@@ -120,12 +120,12 @@ const a = ceil(array([1.1, 1.9, -1.1, -1.9]));
 Return the floor of each element (largest integer less than or equal to each value).
 
 ```typescript
-function floor(x: ArrayLike): NDArray
+function floor(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise floor.
 
@@ -151,12 +151,12 @@ const a = floor(array([1.1, 1.9, -1.1, -1.9]));
 Round to the nearest integer toward zero.
 
 ```typescript
-function fix(x: ArrayLike): NDArray
+function fix(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise value rounded toward zero (truncation toward zero).
 
@@ -182,12 +182,12 @@ const a = fix(array([2.7, -2.7, 0.5, -0.5]));
 Round to the nearest integer, element-wise.
 
 ```typescript
-function rint(x: ArrayLike): NDArray
+function rint(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise value rounded to the nearest integer.
 
@@ -213,12 +213,12 @@ const a = rint(array([1.2, 1.5, 1.8, 2.5]));
 Return the truncated value of each element (drop the fractional part).
 
 ```typescript
-function trunc(x: ArrayLike): NDArray
+function trunc(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise integer part. Equivalent to `fix`.
 

@@ -15,7 +15,7 @@ Return the index of the minimum value along an axis.
 
 ```typescript
 function argmin(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -23,7 +23,7 @@ function argmin(
 
 | Parameter | Type | Default | Description |
 |-|-|-|-|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number` | `undefined` | Axis along which to search. When `undefined`, operates on the flattened array. |
 | `keepdims` | `boolean` | `false` | If `true`, the reduced axis is retained as size 1. With full reduction (no `axis`), returns a shape-of-all-1s `int64` array. With axis reduction, the reduced axis is re-inserted as size 1. |
 
@@ -47,7 +47,7 @@ Return the index of the maximum value along an axis.
 
 ```typescript
 function argmax(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -55,7 +55,7 @@ function argmax(
 
 | Parameter | Type | Default | Description |
 |-|-|-|-|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number` | `undefined` | Axis along which to search. When `undefined`, operates on the flattened array. |
 | `keepdims` | `boolean` | `false` | If `true`, the reduced axis is retained as size 1. With full reduction (no `axis`), returns a shape-of-all-1s `int64` array. With axis reduction, the reduced axis is re-inserted as size 1. |
 
@@ -79,7 +79,7 @@ Compute the q-th percentile of the data along the specified axis.
 
 ```typescript
 function percentile(
-  a: ArrayLike,
+  a: NDArray,
   q: number,
   axis?: number,
   keepdims?: boolean
@@ -88,12 +88,12 @@ function percentile(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
-| `q` | `number \| number[]` | -- | Percentile(s) to compute, in the range `[0, 100]`. |
-| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute percentiles. |
+| `a` | `NDArray` | -- | Input array. |
+| `q` | `number` | -- | Percentile to compute, in the range `[0, 100]`. |
+| `axis` | `number` | `undefined` | Axis along which to compute percentiles. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 
-**Returns:** `number` for a single percentile over all axes, `NDArray` when computing multiple percentiles or along specific axes.
+**Returns:** `number` over all axes, `NDArray` when computing along a specific axis.
 
 ```typescript
 import { array, percentile } from 'numpy-ts';
@@ -101,7 +101,7 @@ import { array, percentile } from 'numpy-ts';
 const a = array([1, 2, 3, 4, 5]);
 
 percentile(a, 50);       // 3
-percentile(a, [25, 75]); // array([2, 4])
+percentile(a, 25);       // 2
 
 const b = array([[10, 20], [30, 40]]);
 percentile(b, 50, 0);   // array([20, 30])
@@ -117,7 +117,7 @@ Equivalent to `percentile` but with `q` in the range `[0, 1]` instead of `[0, 10
 
 ```typescript
 function quantile(
-  a: ArrayLike,
+  a: NDArray,
   q: number,
   axis?: number,
   keepdims?: boolean
@@ -126,12 +126,12 @@ function quantile(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
-| `q` | `number \| number[]` | -- | Quantile(s) to compute, in the range `[0, 1]`. |
-| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute quantiles. |
+| `a` | `NDArray` | -- | Input array. |
+| `q` | `number` | -- | Quantile to compute, in the range `[0, 1]`. |
+| `axis` | `number` | `undefined` | Axis along which to compute quantiles. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 
-**Returns:** `number` for a single quantile over all axes, `NDArray` when computing multiple quantiles or along specific axes.
+**Returns:** `number` over all axes, `NDArray` when computing along a specific axis.
 
 ```typescript
 import { array, quantile } from 'numpy-ts';
@@ -139,7 +139,7 @@ import { array, quantile } from 'numpy-ts';
 const a = array([1, 2, 3, 4, 5]);
 
 quantile(a, 0.5);          // 3
-quantile(a, [0.25, 0.75]); // array([2, 4])
+quantile(a, 0.25);         // 2
 
 const b = array([[10, 20], [30, 40]]);
 quantile(b, 0.5, 0);       // array([20, 30])
@@ -152,12 +152,12 @@ quantile(b, 0.5, 0);       // array([20, 30])
 Count the number of non-zero elements in the array.
 
 ```typescript
-function count_nonzero(a: ArrayLike, axis?: number | number[]): number | NDArray
+function count_nonzero(a: NDArray, axis?: number | number[]): number | NDArray
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to count non-zero values. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 

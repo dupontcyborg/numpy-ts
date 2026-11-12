@@ -41,7 +41,7 @@ import { zeros } from 'numpy-ts';
 import type { DType } from 'numpy-ts';
 
 function createBuffer(shape: number[], dtype: DType = 'float64') {
-  return zeros(shape, { dtype });
+  return zeros(shape, dtype);
 }
 
 createBuffer([3, 3], 'float32');  // OK
@@ -157,14 +157,15 @@ function describeArray(arr: NDArray): string {
 }
 ```
 
-You can also use the utility functions `isIntegerDType`, `isFloatDType`, and `isComplexDType`:
+Group dtype names into sets to check them at runtime:
 
 ```typescript
-import { isIntegerDType, isFloatDType, isComplexDType } from 'numpy-ts';
 import type { DType } from 'numpy-ts';
 
+const floatDTypes: readonly DType[] = ['float16', 'float32', 'float64'];
+
 function requireFloat(dtype: DType): void {
-  if (!isFloatDType(dtype)) {
+  if (!floatDTypes.includes(dtype)) {
     throw new Error(`Expected float dtype, got ${dtype}`);
   }
 }
@@ -266,6 +267,7 @@ const d = a.astype('int8');      // NDArray<'int8'>
 ```typescript
 const ints = zeros([3], 'int64');
 const x = ints.get([0]);   // bigint
+// @ts-expect-error bigint is not assignable to number
 const y: number = ints.get([0]); // ✗ compile error: bigint is not assignable to number
 
 const floats = zeros([3], 'float64');

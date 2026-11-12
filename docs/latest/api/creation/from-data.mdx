@@ -246,7 +246,7 @@ Importers from `numpy-ts` (the full API) are unaffected — that wrapper already
 Return coordinate matrices from coordinate vectors. Given N 1-D arrays, `meshgrid` returns N N-D arrays for vectorized evaluations of N-D scalar fields.
 
 ```typescript
-function meshgrid(...args: (ArrayLike | MeshgridOptions)[]): NDArray[]
+function meshgrid(...args: (NDArray | MeshgridOptions)[]): NDArray[]
 
 interface MeshgridOptions {
   indexing?: 'xy' | 'ij'; // default 'xy'
@@ -257,7 +257,7 @@ interface MeshgridOptions {
 
 |Name|Type|Default|Description|
 |-|-|-|-|
-|`...args`|`(ArrayLike \| MeshgridOptions)[]`|--|1-D arrays representing coordinates of a grid, optionally including a `MeshgridOptions` bag in any positional slot.|
+|`...args`|`(NDArray \| MeshgridOptions)[]`|--|1-D arrays representing coordinates of a grid, optionally including a `MeshgridOptions` bag in any positional slot.|
 |`indexing`|`'xy' \| 'ij'`|`'xy'`|Cartesian (`'xy'`) or matrix (`'ij'`) indexing of the output.|
 |`sparse`|`boolean`|`false`|If `true`, return open (sparse) grids — one axis populated, others size 1 — for memory-efficient broadcasting.|
 |`copy`|`boolean`|`true`|If `false`, return broadcast views instead of copying. Views are read-only-safe but share memory with the inputs.|

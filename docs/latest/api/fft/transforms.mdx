@@ -11,7 +11,7 @@ Compute the 1-D discrete Fourier Transform.
 
 ```typescript
 function fft(
-  a: ArrayLike,
+  a: NDArray,
   n?: number,
   axis?: number,
   norm?: 'backward' | 'ortho' | 'forward'
@@ -20,7 +20,7 @@ function fft(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array (real or complex). |
+| `a` | `NDArray` | -- | Input array (real or complex). |
 | `n` | `number` | `a.shape[axis]` | Length of the transformed axis. If shorter than the input, the input is truncated. If longer, it is zero-padded. |
 | `axis` | `number` | `-1` | Axis along which to compute the FFT. |
 | `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. `'backward'` applies no scaling on forward, `1/n` on inverse. `'ortho'` applies `1/sqrt(n)` to both. `'forward'` applies `1/n` on forward. |
@@ -43,7 +43,7 @@ Compute the 1-D inverse discrete Fourier Transform.
 
 ```typescript
 function ifft(
-  a: ArrayLike,
+  a: NDArray,
   n?: number,
   axis?: number,
   norm?: 'backward' | 'ortho' | 'forward'
@@ -52,7 +52,7 @@ function ifft(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array (typically complex, from `fft`). |
+| `a` | `NDArray` | -- | Input array (typically complex, from `fft`). |
 | `n` | `number` | `a.shape[axis]` | Length of the transformed axis. |
 | `axis` | `number` | `-1` | Axis along which to compute the IFFT. |
 | `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
@@ -76,7 +76,7 @@ Compute the 2-D discrete Fourier Transform. Equivalent to applying `fft` along t
 
 ```typescript
 function fft2(
-  a: ArrayLike,
+  a: NDArray,
   s?: [number, number],
   axes?: [number, number],
   norm?: 'backward' | 'ortho' | 'forward'
@@ -85,7 +85,7 @@ function fft2(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array (at least 2-D). |
+| `a` | `NDArray` | -- | Input array (at least 2-D). |
 | `s` | `[number, number]` | shape of `a` along `axes` | Shape of the output along the transform axes. Zero-pads or truncates as needed. |
 | `axes` | `[number, number]` | `[-2, -1]` | Axes over which to compute the 2-D FFT. |
 | `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
@@ -108,7 +108,7 @@ Compute the 2-D inverse discrete Fourier Transform.
 
 ```typescript
 function ifft2(
-  a: ArrayLike,
+  a: NDArray,
   s?: [number, number],
   axes?: [number, number],
   norm?: 'backward' | 'ortho' | 'forward'
@@ -117,7 +117,7 @@ function ifft2(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array (complex, from `fft2`). |
+| `a` | `NDArray` | -- | Input array (complex, from `fft2`). |
 | `s` | `[number, number]` | shape of `a` along `axes` | Shape of the output along the transform axes. |
 | `axes` | `[number, number]` | `[-2, -1]` | Axes over which to compute the 2-D IFFT. |
 | `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
@@ -132,7 +132,7 @@ Compute the N-dimensional discrete Fourier Transform.
 
 ```typescript
 function fftn(
-  a: ArrayLike,
+  a: NDArray,
   s?: number[],
   axes?: number[],
   norm?: 'backward' | 'ortho' | 'forward'
@@ -141,7 +141,7 @@ function fftn(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `s` | `number[]` | shape of `a` along `axes` | Shape of the output along the transform axes. |
 | `axes` | `number[]` | all axes | Axes over which to compute the FFT. |
 | `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
@@ -163,7 +163,7 @@ Compute the N-dimensional inverse discrete Fourier Transform.
 
 ```typescript
 function ifftn(
-  a: ArrayLike,
+  a: NDArray,
   s?: number[],
   axes?: number[],
   norm?: 'backward' | 'ortho' | 'forward'
@@ -172,7 +172,7 @@ function ifftn(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array (complex, from `fftn`). |
+| `a` | `NDArray` | -- | Input array (complex, from `fftn`). |
 | `s` | `number[]` | shape of `a` along `axes` | Shape of the output along the transform axes. |
 | `axes` | `number[]` | all axes | Axes over which to compute the IFFT. |
 | `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |

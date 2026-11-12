@@ -8,12 +8,12 @@ description: "Repeat and pad array contents."
 Construct an array by tiling `a` according to the repetition counts in `reps`. The result has the same dtype as `a`.
 
 ```typescript
-function tile(a: ArrayLike, reps: number | number[]): NDArray
+function tile(a: NDArray, reps: number | number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `reps` | `number \| number[]` | -- | Number of repetitions along each axis. A single integer repeats along all axes equally. An array specifies repetitions per axis (padded with 1s on the left when shorter than `a.ndim`). |
 
 **Returns:** `NDArray` -- The tiled array.
@@ -48,7 +48,7 @@ Repeat each element of an array a given number of times.
 
 ```typescript
 function repeat(
-  a: ArrayLike,
+  a: NDArray,
   repeats: number | number[],
   axis?: number
 ): NDArray
@@ -56,7 +56,7 @@ function repeat(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `repeats` | `number \| number[]` | -- | Number of repetitions for each element. If a single integer, all elements are repeated equally. If an array, its length must match the size of `a` (when `axis` is `undefined`) or the length of the specified axis. |
 | `axis` | `number` | `undefined` | Axis along which to repeat. If `undefined`, the array is flattened first and the result is 1-D. |
 
@@ -94,7 +94,7 @@ Pad an array with values along each dimension.
 
 ```typescript
 function pad(
-  arr: ArrayLike,
+  arr: NDArray,
   pad_width: PadWidthArg,
   mode?: 'constant' | 'edge' | 'linear_ramp' | 'maximum' | 'mean' | 'median' | 'minimum' | 'reflect' | 'symmetric' | 'wrap' | 'empty',
   constant_values?: PadValueArg
@@ -106,7 +106,7 @@ type PadValueArg = number | [number, number] | (number | [number, number])[];
 
 |Name|Type|Default|Description|
 |-|-|-|-|
-| `arr` | `ArrayLike` | -- | Input array. |
+| `arr` | `NDArray` | -- | Input array. |
 | `pad_width` | `PadWidthArg` | -- | Number of values padded to each edge. Accepts the full NumPy broadcast forms (see below). |
 | `mode` | `string` | `'constant'` | Padding mode. Only `'constant'` is currently supported; other modes throw. |
 | `constant_values` | `PadValueArg` | `0` | Fill value(s) when `mode` is `'constant'`. Same broadcast forms as `pad_width`. |

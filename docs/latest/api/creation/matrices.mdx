@@ -87,12 +87,12 @@ Extract a diagonal or construct a diagonal array.
 When given a 1-D array, returns a 2-D array with the input as its `k`-th diagonal. When given a 2-D array, extracts the `k`-th diagonal.
 
 ```typescript
-function diag(v: ArrayLike, k?: number): NDArray
+function diag(v: NDArray, k?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `v` | `ArrayLike` | - | Input array. If 1-D, used as a diagonal to build a 2-D matrix. If 2-D, the `k`-th diagonal is extracted. |
+| `v` | `NDArray` | - | Input array. If 1-D, used as a diagonal to build a 2-D matrix. If 2-D, the `k`-th diagonal is extracted. |
 | `k` | `number` | `0` | Diagonal index. `0` is the main diagonal. Positive is above, negative is below. |
 
 **Returns:** `NDArray` -- Extracted diagonal (1-D) or constructed diagonal matrix (2-D).
@@ -132,12 +132,12 @@ const d = diag(m);
 Create a diagonal matrix from a flattened input.
 
 ```typescript
-function diagflat(v: ArrayLike, k?: number): NDArray
+function diagflat(v: NDArray, k?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `v` | `ArrayLike` | - | Input array. It is flattened before being placed on the diagonal. |
+| `v` | `NDArray` | - | Input array. It is flattened before being placed on the diagonal. |
 | `k` | `number` | `0` | Diagonal offset. |
 
 **Returns:** `NDArray` -- 2-D array with the flattened `v` on the `k`-th diagonal.
@@ -215,12 +215,12 @@ const b = tri(3, 4, 1);
 Return the lower triangle of an array. Elements above the `k`-th diagonal are zeroed.
 
 ```typescript
-function tril(m: ArrayLike, k?: number): NDArray
+function tril(m: NDArray, k?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `m` | `ArrayLike` | - | Input array (must be at least 2-D). |
+| `m` | `NDArray` | - | Input array (must be at least 2-D). |
 | `k` | `number` | `0` | Diagonal above which to zero elements. `0` keeps the main diagonal. |
 
 **Returns:** `NDArray` -- Copy of `m` with elements above the `k`-th diagonal zeroed.
@@ -257,12 +257,12 @@ const a = tril(m);
 Return the upper triangle of an array. Elements below the `k`-th diagonal are zeroed.
 
 ```typescript
-function triu(m: ArrayLike, k?: number): NDArray
+function triu(m: NDArray, k?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `m` | `ArrayLike` | - | Input array (must be at least 2-D). |
+| `m` | `NDArray` | - | Input array (must be at least 2-D). |
 | `k` | `number` | `0` | Diagonal below which to zero elements. |
 
 **Returns:** `NDArray` -- Copy of `m` with elements below the `k`-th diagonal zeroed.
@@ -299,12 +299,12 @@ const a = triu(m);
 Generate a Vandermonde matrix. Column `j` of the output is `x**j` (when `increasing` is `true`) or `x**(N-1-j)` (the default).
 
 ```typescript
-function vander(x: ArrayLike, N?: number, increasing?: boolean): NDArray
+function vander(x: NDArray, N?: number, increasing?: boolean): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | 1-D input array. |
+| `x` | `NDArray` | - | 1-D input array. |
 | `N` | `number` | `x.length` | Number of columns in the output. |
 | `increasing` | `boolean` | `false` | If `true`, powers increase left to right. |
 

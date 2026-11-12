@@ -114,13 +114,13 @@ const [q, r] = np.polydiv([1, 0, 0, -1], [1, -1]);
 Least-squares polynomial fit of degree `deg` to data points `(x, y)`. Returns coefficients in descending degree order.
 
 ```typescript
-function polyfit(x: ArrayLike, y: ArrayLike, deg: number): NDArray
+function polyfit(x: NDArray, y: NDArray, deg: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | -- | x-coordinates of the sample points. |
-| `y` | `ArrayLike` | -- | y-coordinates of the sample points. |
+| `x` | `NDArray` | -- | x-coordinates of the sample points. |
+| `y` | `NDArray` | -- | y-coordinates of the sample points. |
 | `deg` | `number` | -- | Degree of the fitting polynomial. Must be less than the number of data points. |
 
 **Returns:** `NDArray` -- Polynomial coefficients, highest degree first.

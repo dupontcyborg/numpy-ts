@@ -53,14 +53,16 @@ function parseNpyHeader(bytes: Uint8Array): NpyMetadata
 |-|-|-|-|
 | `bytes` | `Uint8Array` | -- | Raw bytes of a `.npy` file. |
 
-**Returns:** `NpyHeader` -- Object with `{ descr, fortran_order, shape, version, headerLength }`.
+**Returns:** `NpyMetadata` -- Object with `{ version, header: { descr, fortran_order, shape }, dataOffset }`.
 
 ```typescript
-import { parseNpyHeader } from 'numpy-ts';
+import * as np from 'numpy-ts';
+import { parseNpyHeader, serializeNpy } from 'numpy-ts';
 
-const header = parseNpyHeader(buffer);
-console.log(header.shape);  // e.g. [100, 200]
-console.log(header.descr);  // e.g. '<f8'
+const buffer = serializeNpy(np.zeros([100, 200]));
+const meta = parseNpyHeader(buffer);
+console.log(meta.header.shape);  // [100, 200]
+console.log(meta.header.descr);  // '<f8'
 ```
 
 ---
@@ -424,7 +426,7 @@ Usage:
 import * as np from 'numpy-ts';
 
 // Load
-const arr = np.loadSync('weights.npy');
+const arr = np.loadNpySync('weights.npy');
 const data = np.loadNpzFileSync('dataset.npz');
 
 // Explicit .npy load/save
@@ -433,7 +435,7 @@ np.saveNpySync('output.npy', weights);
 
 // Save
 np.saveSync('output.npy', arr);
-np.saveNpzFileSync('output.npz', { x: xArr });
+np.saveNpzFileSync('output.npz', { x: arr });
 ```
 
 <Tip>

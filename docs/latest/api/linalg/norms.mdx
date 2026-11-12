@@ -11,7 +11,7 @@ Compute the norm of a matrix or vector. The behavior depends on the `ord` parame
 
 ```typescript
 function linalg.norm(
-  x: ArrayLike,
+  x: NDArray,
   ord?: number | 'fro' | 'nuc' | null,
   axis?: number | [number, number] | null,
   keepdims?: boolean
@@ -20,7 +20,7 @@ function linalg.norm(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | -- | Input array. |
+| `x` | `NDArray` | -- | Input array. |
 | `ord` | `number \| 'fro' \| 'nuc'` | `undefined` | Order of the norm. For vectors: any numeric value, `Infinity`, or `-Infinity`. For matrices: `1`, `-1`, `2`, `-2`, `Infinity`, `-Infinity`, `'fro'` (Frobenius), or `'nuc'` (nuclear). Default is Frobenius for matrices, 2-norm for vectors. |
 | `axis` | `number \| [number, number]` | `undefined` | Axis or axes along which to compute the norm. If `undefined`, the norm of the flattened array (vector) or the matrix norm is computed. |
 | `keepdims` | `boolean` | `false` | If `true`, the axes over which the norm is taken are left as size-1 dimensions. |
@@ -47,7 +47,7 @@ Compute a matrix norm. This is a convenience function equivalent to `linalg.norm
 
 ```typescript
 function linalg.matrix_norm(
-  x: ArrayLike,
+  x: NDArray,
   ord?: number | 'fro' | 'nuc',
   keepdims?: boolean
 ): number | NDArray
@@ -55,7 +55,7 @@ function linalg.matrix_norm(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | -- | Input matrix or batch of matrices. Last two dimensions are treated as the matrix. |
+| `x` | `NDArray` | -- | Input matrix or batch of matrices. Last two dimensions are treated as the matrix. |
 | `ord` | `number \| 'fro' \| 'nuc'` | `'fro'` | Matrix norm order. Supported values: `1`, `-1`, `2`, `-2`, `Infinity`, `-Infinity`, `'fro'`, `'nuc'`. |
 | `keepdims` | `boolean` | `false` | If `true`, the result has shape `[1, 1]` instead of being a scalar. |
 
@@ -84,7 +84,7 @@ Compute a vector norm. This is a convenience function for computing norms along 
 
 ```typescript
 function linalg.vector_norm(
-  x: ArrayLike,
+  x: NDArray,
   ord?: number | 'fro' | 'nuc',
   axis?: number | null,
   keepdims?: boolean
@@ -93,7 +93,7 @@ function linalg.vector_norm(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | -- | Input array. |
+| `x` | `NDArray` | -- | Input array. |
 | `ord` | `number` | `2` | Order of the norm (e.g., `1`, `2`, `Infinity`, `-Infinity`, `0`). |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute. If `undefined`, uses the flattened array. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as size-1 dimensions. |
@@ -121,14 +121,14 @@ Compute the condition number of a matrix. A large condition number indicates the
 
 ```typescript
 function linalg.cond(
-  a: ArrayLike,
+  a: NDArray,
   p?: number | 'fro' | 'nuc'
 ): number
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input matrix. |
+| `a` | `NDArray` | -- | Input matrix. |
 | `p` | `number \| 'fro' \| '-fro' \| 'inf' \| '-inf'` | `undefined` | Norm type used in the condition number computation. Default uses the 2-norm (ratio of largest to smallest singular value). |
 
 **Returns:** `number` -- The condition number.
@@ -152,12 +152,12 @@ console.log(np.linalg.cond(B));  // 1e10
 Compute the determinant of a square matrix.
 
 ```typescript
-function linalg.det(a: ArrayLike): number | NDArray | Complex
+function linalg.det(a: NDArray): number | NDArray | Complex
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input square matrix. |
+| `a` | `NDArray` | -- | Input square matrix. |
 
 **Returns:** `number` -- The determinant.
 
@@ -178,12 +178,12 @@ console.log(np.linalg.det(I));  // 1
 Compute the sign and natural logarithm of the determinant. This is more numerically stable than computing `det` directly for matrices with very large or very small determinants.
 
 ```typescript
-function linalg.slogdet(a: ArrayLike): { sign: number | NDArray; logabsdet: number | NDArray; }
+function linalg.slogdet(a: NDArray): { sign: number | NDArray; logabsdet: number | NDArray; }
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input square matrix or batch of matrices with shape `[..., n, n]`. |
+| `a` | `NDArray` | -- | Input square matrix or batch of matrices with shape `[..., n, n]`. |
 
 **Returns:** `{ sign, logabsdet }` -- For a single matrix, `sign` is `-1`, `0`, or `1` and `logabsdet` is the natural log of the absolute value of the determinant. The determinant is `sign * exp(logabsdet)`. For a batch input `[..., n, n]`, both `sign` and `logabsdet` are `NDArray` with shape `[...]`.
 
@@ -207,12 +207,12 @@ console.log(sign * Math.exp(logabsdet));  // -2
 Compute the rank of a matrix using SVD. Singular values below a threshold are treated as zero.
 
 ```typescript
-function linalg.matrix_rank(a: ArrayLike, tol?: number): number
+function linalg.matrix_rank(a: NDArray, tol?: number): number
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input matrix. |
+| `a` | `NDArray` | -- | Input matrix. |
 | `tol` | `number` | `undefined` | Threshold below which singular values are considered zero. Default is `max(M, N) * eps * max(sv)`. |
 
 **Returns:** `number` -- The effective rank.
@@ -237,7 +237,7 @@ Also available as `np.linalg.trace(...)`.
 
 ```typescript
 function trace(
-  a: ArrayLike,
+  a: NDArray,
   offset?: number,
   axis1?: number,
   axis2?: number
@@ -246,7 +246,7 @@ function trace(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `offset` | `number` | `0` | Offset of the diagonal from the main diagonal. Positive means above, negative means below. |
 | `axis1` | `number` | `0` | First axis of the 2-D sub-arrays from which the diagonals are taken. |
 | `axis2` | `number` | `1` | Second axis of the 2-D sub-arrays from which the diagonals are taken. |
@@ -272,7 +272,7 @@ Also available as `np.linalg.diagonal(...)`.
 
 ```typescript
 function diagonal(
-  a: ArrayLike,
+  a: NDArray,
   offset?: number,
   axis1?: number,
   axis2?: number
@@ -281,7 +281,7 @@ function diagonal(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array (must be at least 2-D). |
+| `a` | `NDArray` | -- | Input array (must be at least 2-D). |
 | `offset` | `number` | `0` | Offset of the diagonal from the main diagonal. |
 | `axis1` | `number` | `0` | First axis of the 2-D sub-array from which the diagonal is taken. |
 | `axis2` | `number` | `1` | Second axis of the 2-D sub-array from which the diagonal is taken. |
@@ -307,8 +307,8 @@ Also available as `np.linalg.cross(...)`.
 
 ```typescript
 function cross(
-  a: ArrayLike,
-  b: ArrayLike,
+  a: NDArray,
+  b: NDArray,
   axisa?: number,
   axisb?: number,
   axisc?: number,
@@ -318,8 +318,8 @@ function cross(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | First input array. Components along the cross-product axis must have length 2 or 3. |
-| `b` | `ArrayLike` | -- | Second input array. Components along the cross-product axis must have length 2 or 3. |
+| `a` | `NDArray` | -- | First input array. Components along the cross-product axis must have length 2 or 3. |
+| `b` | `NDArray` | -- | Second input array. Components along the cross-product axis must have length 2 or 3. |
 | `axisa` | `number` | `-1` | Axis of `a` that defines the vector(s). |
 | `axisb` | `number` | `-1` | Axis of `b` that defines the vector(s). |
 | `axisc` | `number` | `-1` | Axis of the result containing the cross product vector(s). |

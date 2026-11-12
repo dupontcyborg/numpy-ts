@@ -8,12 +8,12 @@ description: "Functions for converting arrays and numbers to strings: array2stri
 Return a string representation of an array with full control over formatting.
 
 ```typescript
-function array2string(a: ArrayLike, options?: { max_line_width?: number; precision?: number; suppress_small?: boolean; separator?: string; prefix?: string; suffix?: string; threshold?: number; edgeitems?: number; sign?: ' ' | '+' | '-'; floatmode?: 'fixed' | 'unique' | 'maxprec' | 'maxprec_equal'; }): string
+function array2string(a: NDArray, options?: { max_line_width?: number; precision?: number; suppress_small?: boolean; separator?: string; prefix?: string; suffix?: string; threshold?: number; edgeitems?: number; sign?: ' ' | '+' | '-'; floatmode?: 'fixed' | 'unique' | 'maxprec' | 'maxprec_equal'; }): string
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `options` | `{ max_line_width?: number; precision?: number; suppress_small?: boolean; separator?: string; prefix?: string; suffix?: string; threshold?: number; edgeitems?: number; sign?: ' ' \| '+' \| '-'; floatmode?: 'fixed' \| 'unique' \| 'maxprec' \| 'maxprec_equal'; }` | `undefined` | Formatting options. |
 
 **Returns:** `string` -- Formatted string representation of the array.
@@ -24,10 +24,10 @@ import { array, array2string } from 'numpy-ts';
 const a = array([[1.123456, 2.789], [3.14159, 4.0]]);
 
 array2string(a);
-// '[[1.123456, 2.789   ],\n [3.14159 , 4.      ]]'
+// '[[1.123456 2.789   ]\n [3.14159  4.      ]]'
 
-array2string(a, { precision: 2, suppress: true });
-// '[[1.12, 2.79],\n [3.14, 4.  ]]'
+array2string(a, { precision: 2, suppress_small: true });
+// '[[1.12 2.79]\n [3.14 4.  ]]'
 ```
 
 ---
@@ -38,7 +38,7 @@ Return the string representation of an array, including the `array(...)` wrapper
 
 ```typescript
 function array_repr(
-  a: ArrayLike,
+  a: NDArray,
   max_line_width?: number,
   precision?: number,
   suppress_small?: boolean
@@ -47,7 +47,7 @@ function array_repr(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `max_line_width` | `number` | `75` | Maximum number of characters per line. |
 | `precision` | `number` | `8` | Number of digits of precision for floating-point output. |
 | `suppress_small` | `boolean` | `false` | If `true`, numbers very close to zero are printed as `0.`. |
@@ -74,7 +74,7 @@ Return a string representation of the data in an array, without the `array(...)`
 
 ```typescript
 function array_str(
-  a: ArrayLike,
+  a: NDArray,
   max_line_width?: number,
   precision?: number
 ): string
@@ -82,7 +82,7 @@ function array_str(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `max_line_width` | `number` | `75` | Maximum number of characters per line. |
 | `precision` | `number` | `8` | Floating-point precision. |
 | `suppress_small` | `boolean` | `false` | If `true`, suppress small floating-point values. |
@@ -191,7 +191,7 @@ import { format_float_positional } from 'numpy-ts';
 format_float_positional(3.14);                   // '3.14'
 format_float_positional(3.14, 4);                // '3.1400'
 format_float_positional(3.14, 4, true, true, '-'); // '3.14'
-format_float_positional(3.14, undefined, true, true, 'k', true); // '+3.14'
+format_float_positional(3.14, undefined, true, true, 'k', '+'); // '+3.14'
 ```
 
 ---
@@ -229,9 +229,9 @@ function format_float_scientific(
 ```typescript
 import { format_float_scientific } from 'numpy-ts';
 
-format_float_scientific(1500.0);              // '1.5e+03'
+format_float_scientific(1500.0);              // '1.50000000e+03'
 format_float_scientific(0.00123, 2);          // '1.23e-03'
-format_float_scientific(1500.0, 3, true, 'k', true, 3); // '+1.500e+003'
+format_float_scientific(1500.0, 3, true, 'k', '+', null, 3); // '+1.500e+003'
 ```
 
 ---

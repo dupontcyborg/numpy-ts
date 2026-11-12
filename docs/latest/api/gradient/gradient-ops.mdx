@@ -11,7 +11,7 @@ The first difference is given by `out[i] = a[i+1] - a[i]` along the specified ax
 
 ```typescript
 function diff(
-  a: ArrayLike,
+  a: NDArray,
   n?: number,
   axis?: number,
   prepend?: ArrayLike,
@@ -21,7 +21,7 @@ function diff(
 
 |Name|Type|Default|Description|
 |-|-|-|-|
-|`a`|`ArrayLike`|--|Input array.|
+|`a`|`NDArray`|--|Input array.|
 |`n`|`number`|`1`|Number of times values are differenced. If zero, the input is returned as-is.|
 |`axis`|`number`|`-1`|Axis along which the difference is taken. Defaults to the last axis.|
 |`prepend`|`ArrayLike`|`undefined`|Values to prepend to `a` along `axis` before computing differences. A scalar broadcasts to size 1 along the diff axis with `a`'s shape on all other axes. An array must match `a`'s shape on every axis except `axis`.|
@@ -60,7 +60,7 @@ Compute the differences between consecutive elements of a flattened array, with 
 
 ```typescript
 function ediff1d(
-  a: ArrayLike,
+  a: NDArray,
   to_end?: number[] | null,
   to_begin?: number[] | null
 ): NDArray
@@ -68,7 +68,7 @@ function ediff1d(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. If multi-dimensional, it is flattened first. |
+| `a` | `NDArray` | -- | Input array. If multi-dimensional, it is flattened first. |
 | `to_end` | `number[] \| null` | `undefined` | Values to append at the end of the returned differences. |
 | `to_begin` | `number[] \| null` | `undefined` | Values to prepend at the beginning of the returned differences. |
 
@@ -100,7 +100,7 @@ Return the gradient of an N-dimensional array. The gradient is computed using se
 type GradientSpacingArg = number | number[] | NDArrayCore;
 
 function gradient(
-  f: ArrayLike,
+  f: NDArray,
   varargs?: number | GradientSpacingArg[],
   axis?: number | number[] | null
 ): NDArray | NDArray[]
@@ -108,7 +108,7 @@ function gradient(
 
 |Name|Type|Default|Description|
 |-|-|-|-|
-|`f`|`ArrayLike`|--|N-dimensional array containing samples of a scalar function.|
+|`f`|`NDArray`|--|N-dimensional array containing samples of a scalar function.|
 |`varargs`|`number \| GradientSpacingArg[]`|`1`|Spacing between sample points. A single scalar applies uniformly to every axis. A list provides one entry per axis (or per `axis` entry); each entry is either a scalar (uniform spacing) or a 1-D coordinate array of length `axisSize` (non-uniform). Mixable: `gradient(f, [coords, 2])`.|
 |`axis`|`number \| number[] \| null`|`undefined`|Axis or axes along which to compute the gradient.|
 

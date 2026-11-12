@@ -10,12 +10,12 @@ All trigonometric functions operate element-wise. Angles are in radians unless o
 Compute the sine, element-wise.
 
 ```typescript
-function sin(x: ArrayLike): NDArray
+function sin(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Angle in radians. |
+| `x` | `NDArray` | - | Angle in radians. |
 
 **Returns:** `NDArray` -- Sine of each element.
 
@@ -41,12 +41,12 @@ const a = sin(array([0, Math.PI / 2, Math.PI]));
 Compute the cosine, element-wise.
 
 ```typescript
-function cos(x: ArrayLike): NDArray
+function cos(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Angle in radians. |
+| `x` | `NDArray` | - | Angle in radians. |
 
 **Returns:** `NDArray` -- Cosine of each element.
 
@@ -72,12 +72,12 @@ const a = cos(array([0, Math.PI / 2, Math.PI]));
 Compute the tangent, element-wise.
 
 ```typescript
-function tan(x: ArrayLike): NDArray
+function tan(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Angle in radians. |
+| `x` | `NDArray` | - | Angle in radians. |
 
 **Returns:** `NDArray` -- Tangent of each element.
 
@@ -103,12 +103,12 @@ const a = tan(array([0, Math.PI / 4]));
 Compute the inverse sine, element-wise. Also available as the alias `asin`.
 
 ```typescript
-function arcsin(x: ArrayLike): NDArray
+function arcsin(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Values in the range `[-1, 1]`. |
+| `x` | `NDArray` | - | Values in the range `[-1, 1]`. |
 
 **Returns:** `NDArray` -- Angle in radians, in the range `[-pi/2, pi/2]`.
 
@@ -138,12 +138,12 @@ const a = arcsin(array([0, 0.5, 1]));
 Compute the inverse cosine, element-wise. Also available as the alias `acos`.
 
 ```typescript
-function arccos(x: ArrayLike): NDArray
+function arccos(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Values in the range `[-1, 1]`. |
+| `x` | `NDArray` | - | Values in the range `[-1, 1]`. |
 
 **Returns:** `NDArray` -- Angle in radians, in the range `[0, pi]`.
 
@@ -172,12 +172,12 @@ const a = arccos(array([1, 0, -1]));
 Compute the inverse tangent, element-wise. Also available as the alias `atan`.
 
 ```typescript
-function arctan(x: ArrayLike): NDArray
+function arctan(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input values. |
+| `x` | `NDArray` | - | Input values. |
 
 **Returns:** `NDArray` -- Angle in radians, in the range `[-pi/2, pi/2]`.
 
@@ -206,13 +206,13 @@ const a = arctan(array([0, 1, -1]));
 Compute the two-argument inverse tangent, element-wise. Returns the angle of the point `(x2, x1)` with the positive x-axis. Also available as the alias `atan2`.
 
 ```typescript
-function arctan2(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function arctan2(x1: NDArray, x2: NDArray | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | y-coordinates. |
-| `x2` | `ArrayLike \| number` | - | x-coordinates. |
+| `x1` | `NDArray` | - | y-coordinates. |
+| `x2` | `NDArray \| number` | - | x-coordinates. |
 
 **Returns:** `NDArray` -- Angle in radians, in the range `[-pi, pi]`.
 
@@ -242,13 +242,13 @@ const a = arctan2(array([1, 0, -1]), array([1, 1, 0]));
 Compute the hypotenuse `sqrt(x1**2 + x2**2)`, element-wise. Avoids overflow for large values.
 
 ```typescript
-function hypot(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function hypot(x1: NDArray, x2: NDArray | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | First leg of the triangle. |
-| `x2` | `ArrayLike \| number` | - | Second leg of the triangle. |
+| `x1` | `NDArray` | - | First leg of the triangle. |
+| `x2` | `NDArray \| number` | - | Second leg of the triangle. |
 
 **Returns:** `NDArray` -- Element-wise hypotenuse.
 
@@ -274,12 +274,12 @@ const a = hypot(array([3, 5]), array([4, 12]));
 Convert angles from radians to degrees. Equivalent to `rad2deg`.
 
 ```typescript
-function degrees(x: ArrayLike): NDArray
+function degrees(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Angles in radians. |
+| `x` | `NDArray` | - | Angles in radians. |
 
 **Returns:** `NDArray` -- Angles in degrees.
 
@@ -305,12 +305,12 @@ const a = degrees(array([0, Math.PI / 2, Math.PI]));
 Convert angles from degrees to radians. Equivalent to `deg2rad`.
 
 ```typescript
-function radians(x: ArrayLike): NDArray
+function radians(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Angles in degrees. |
+| `x` | `NDArray` | - | Angles in degrees. |
 
 **Returns:** `NDArray` -- Angles in radians.
 
@@ -336,12 +336,12 @@ const a = radians(array([0, 90, 180, 360]));
 Convert angles from degrees to radians. Equivalent to `radians`.
 
 ```typescript
-function deg2rad(x: ArrayLike): NDArray
+function deg2rad(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Angles in degrees. |
+| `x` | `NDArray` | - | Angles in degrees. |
 
 **Returns:** `NDArray` -- Angles in radians.
 
@@ -352,11 +352,11 @@ function deg2rad(x: ArrayLike): NDArray
 Convert angles from radians to degrees. Equivalent to `degrees`.
 
 ```typescript
-function rad2deg(x: ArrayLike): NDArray
+function rad2deg(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Angles in radians. |
+| `x` | `NDArray` | - | Angles in radians. |
 
 **Returns:** `NDArray` -- Angles in degrees.
