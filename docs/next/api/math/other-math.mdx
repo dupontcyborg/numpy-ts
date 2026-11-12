@@ -340,7 +340,7 @@ Unwrap by changing deltas between values to their `2*pi` complement. Useful for 
 ```typescript
 function unwrap(
   p: NDArray,
-  discont?: number,
+  discont?: number | null,
   axis?: number,
   period?: number
 ): NDArray
@@ -349,8 +349,8 @@ function unwrap(
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `p` | `NDArray` | - | Input array of phase angles. |
-| `discont` | `number` | `Math.PI` | Maximum discontinuity between consecutive values. Jumps larger than this are wrapped. |
-| `axis` | `number` | `-1` | Axis along which to unwrap. |
+| `discont` | `number \| null` | `period / 2` | Maximum discontinuity between consecutive values. Jumps larger than this are wrapped. `undefined` or `null` uses the default, so changing `period` changes the default. |
+| `axis` | `number` | `-1` | Axis along which to unwrap. Works on N-D arrays and non-contiguous views. |
 | `period` | `number` | `2 * Math.PI` | Wrapping period. |
 
 **Returns:** `NDArray` -- Unwrapped array.
@@ -362,7 +362,7 @@ import * as np from 'numpy-ts';
 // Phase angles with wrapping
 const phase = np.array([0, 1, 2, 3, -3, -2, -1, 0]);
 const unwrapped = np.unwrap(phase);
-// Discontinuities are removed
+// array([0, 1, 2, 3, 3.2832, 4.2832, 5.2832, 6.2832])
 ```
 
 ```typescript Core
@@ -377,7 +377,7 @@ const unwrapped = unwrap(phase);
 
 ### real
 
-Return the real part of each element. For real-valued arrays there is nothing to extract, so the input is handed back as a view.
+Return the real part of each element. For real-valued arrays there is nothing to extract, so the input itself is returned.
 
 ```typescript
 function real(x: NDArray): NDArray
@@ -390,7 +390,7 @@ function real(x: NDArray): NDArray
 **Returns:** `NDArray` -- The real part of each element.
 
 <Note>
-Changed in v1.7.0: a real-valued input now comes back as a view rather than a copy, matching NumPy. Writes to the result reach the input array. Complex input still allocates. Check `base` to tell the two apart -- it is set only when the result aliases.
+Changed in v1.7.0: a real-valued input now comes back as the same object rather than a copy, matching NumPy. Writes to the result reach the input array. Complex input returns a view of the real parts, so writes there reach the complex array too. A result aliases the input when it is the input itself or has a `base`.
 </Note>
 
 <CodeGroup>

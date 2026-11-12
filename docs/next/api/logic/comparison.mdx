@@ -159,15 +159,16 @@ const result = np.less_equal(np.array([1, 2, 3]), np.array([2, 2, 1]));
 Return `true` if all elements of two arrays are equal within a tolerance.
 
 ```typescript
-function allclose(a: NDArray, b: NDArray | number, rtol?: number, atol?: number): boolean
+function allclose(a: NDArray, b: NDArray | number, rtol?: number | NDArray, atol?: number | NDArray, equal_nan?: boolean): boolean
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `NDArray` | -- | First input array. |
 | `b` | `NDArray \| number` | -- | Second input array. |
-| `rtol` | `number` | `1e-5` | Relative tolerance. |
-| `atol` | `number` | `1e-8` | Absolute tolerance. |
+| `rtol` | `number \| NDArray` | `1e-5` | Relative tolerance. An array broadcasts against the inputs. |
+| `atol` | `number \| NDArray` | `1e-8` | Absolute tolerance. An array broadcasts against the inputs. |
+| `equal_nan` | `boolean` | `false` | If `true`, two `NaN` values are considered equal. |
 
 **Returns:** `boolean` -- `true` if `|a - b| <= atol + rtol * |b|` for all element pairs.
 
@@ -191,15 +192,15 @@ np.allclose(np.array([1.0, 1.1]), np.array([1.0, 1.0]), 0.2);
 Return a boolean array where each element is `true` if the corresponding elements of `a` and `b` are equal within a tolerance.
 
 ```typescript
-function isclose(a: NDArray, b: NDArray | number, rtol?: number, atol?: number): NDArray
+function isclose(a: NDArray, b: NDArray | number, rtol?: number | NDArray, atol?: number | NDArray, equal_nan?: boolean): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `NDArray` | -- | First input array. |
-| `b` | `NDArray` | -- | Second input array. |
-| `rtol` | `number` | `1e-5` | Relative tolerance. |
-| `atol` | `number` | `1e-8` | Absolute tolerance. |
+| `b` | `NDArray \| number` | -- | Second input array or scalar. |
+| `rtol` | `number \| NDArray` | `1e-5` | Relative tolerance. An array broadcasts against the inputs. |
+| `atol` | `number \| NDArray` | `1e-8` | Absolute tolerance. An array broadcasts against the inputs. |
 | `equal_nan` | `boolean` | `false` | If `true`, two `NaN` values are considered equal. |
 
 **Returns:** `NDArray` -- Boolean array of element-wise closeness results.

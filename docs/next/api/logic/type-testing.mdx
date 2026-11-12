@@ -221,7 +221,7 @@ np.isrealobj(np.array([1, 2], 'complex128'));
 
 ### isscalar
 
-Return `true` if the input is a scalar value (number, boolean, bigint, or string).
+Return `true` if the input is a scalar value (number, boolean, bigint, string, or `Complex`).
 
 ```typescript
 function isscalar(val: unknown): boolean
@@ -239,6 +239,7 @@ import * as np from 'numpy-ts';
 np.isscalar(3.14);      // true
 np.isscalar(true);       // true
 np.isscalar('hello');    // true
+np.isscalar(new np.Complex(1, 2)); // true
 np.isscalar([1, 2, 3]); // false
 np.isscalar(np.array([1])); // false
 ```
@@ -321,15 +322,15 @@ np.iterable(42);                  // false
 Test whether a dtype belongs to a specified kind or set of dtypes.
 
 ```typescript
-function isdtype(dtype: DType, kind: string): boolean
+function isdtype(dtype: DType, kind: string | readonly string[]): boolean
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `dtype` | `DType` | -- | The dtype to test. |
-| `kind` | `string` | -- | A dtype kind string (e.g., `'integral'`, `'real floating'`, `'numeric'`). |
+| `kind` | `string \| readonly string[]` | -- | A NumPy kind name (`'bool'`, `'signed integer'`, `'unsigned integer'`, `'integral'`, `'real floating'`, `'complex floating'`, `'numeric'`), a dtype name that must match exactly, or an array of these. Any match returns `true`. An unknown kind string throws an `Error`. |
 
-**Returns:** `boolean` -- `true` if `dtype` matches the specified kind.
+**Returns:** `boolean` -- `true` if `dtype` matches any of the specified kinds.
 
 ```typescript
 import * as np from 'numpy-ts';

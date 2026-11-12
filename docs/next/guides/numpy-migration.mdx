@@ -48,6 +48,10 @@ Shape arguments use **arrays** in numpy-ts, not separate arguments or tuples.
 Write `np.zeros([3, 3])`, not `np.zeros(3, 3)` or `np.zeros((3, 3))`.
 </Warning>
 
+<Note>
+Functions take `NDArray` inputs, not array-likes. Passing a plain array or a scalar where an `NDArray` is expected throws a `TypeError` that says to wrap it with `np.array(...)`, so `np.sum([1, 2, 3])` becomes `np.sum(np.array([1, 2, 3]))`. A few functions (take indices, where x/y, histogram and poly* families...) accept plain data on purpose.
+</Note>
+
 ## Arithmetic
 
 <CodeGroup>
@@ -281,7 +285,8 @@ await np.savetxt('out.csv', arr, { delimiter: ',' });
 | **Operator overloading** | `a + b`, `a * b` | `np.add(a, b)` or `a.add(b)` | JS does not support operator overloading |
 | **Shape arguments** | `reshape(3, 3)` or `reshape((3, 3))` | `reshape([3, 3])` | Always use an array, never separate args |
 | **Indexing** | `a[0:5, :]` | `a.slice('0:5', ':')` | String-based slicing |
-| **Keyword arguments** | `axis=0`, `keepdims=True` | Positional or options object | JS has no keyword args |
+| **Keyword arguments** | `axis=0`, `keepdims=True` | Positional: `np.sum(a, 0, true)` | JS has no keyword args; passing `{axis: 0}` in place of the axis throws a `TypeError` |
+| **Array inputs** | `np.sum([1, 2, 3])` | `np.sum(np.array([1, 2, 3]))` | Plain arrays and scalars throw a `TypeError`; wrap them with `np.array(...)` |
 | **`var` is reserved** | `np.var(a)` | `np.variance(a)` | `var` is a JS reserved word; `np.var` is also aliased but may conflict |
 | **Transpose** | `a.T` | `a.T` | Same syntax -- `.T` is a getter property |
 | **Array equality** | `a == b` (element-wise) | `np.equal(a, b)` or `np.array_equal(a, b)` | `==` compares object references in JS |

@@ -35,29 +35,29 @@ These operations return arrays that share data with the input. No memory is allo
 | `moveaxis` | Moves axes to new positions |
 | `squeeze` | Removes size-1 dimensions |
 | `expand_dims` | Adds a size-1 dimension |
-| `reshape` | New shape (if the array is C-contiguous) |
+| `reshape` | New shape (always for a C-contiguous array; otherwise whenever the existing strides can describe the new shape) |
 | `ravel` | Flattens to 1D (if the array is C-contiguous) |
 | `broadcast_to` | Broadcasts to a larger shape |
-| `real` | Real part of an array that is already real |
+| `real` | The input itself when it is already real, a view of the real parts for complex input |
 | `real_if_close` | Input that is already real |
 | `round` / `around` | Integer input with `decimals >= 0` |
 | `apply_along_axis` | The callback receives a view of each slice |
 
 <Note>
-`reshape` and `ravel` return views **only** when the source array is C-contiguous. If the array is not contiguous in memory (for example, after a transpose), these operations must allocate a copy.
+`ravel` returns a view only when the source array is C-contiguous. `reshape` returns a view whenever the existing strides can describe the new shape, which always holds for a C-contiguous array and sometimes for others (a transpose reshaped to its own shape, for example); otherwise it copies. A copy made by `reshape` never aliases the input, but, as in NumPy, it can still report `OWNDATA` as `false` because it is a view of its own new buffer.
 </Note>
 
 <Warning>
 The last four entries changed in v1.7.0 — they previously returned copies. Each one now matches NumPy, which returns a view in exactly these cases, but code that writes to the result (or to an `apply_along_axis` callback argument) will now see that write reach the input array. Call `.copy()` on the result if you relied on the old behavior.
 </Warning>
 
-Each of these falls back to allocating when it has real work to do: `real` and `real_if_close` on complex input, and `round` on floats or with `decimals < 0`. Rather than guessing from the dtype, check `base` — it is set on exactly the results that share the input's buffer:
+Each of these falls back to allocating when it has real work to do: `real_if_close` on complex input, and `round` on floats or with `decimals < 0`. Rather than guessing from the dtype, compare the result with the input and check `base` — a result aliases the input when it is the input itself or has a `base`:
 
 {/* typecheck-setup: import { real } from 'numpy-ts'; import type { NDArray } from 'numpy-ts'; declare const x: NDArray; */}
 
 ```typescript
 const r = real(x);
-if (r.base !== null) {
+if (r === x || r.base !== null) {
   // r aliases x; writing to r writes to x
 }
 ```
@@ -147,10 +147,10 @@ console.log(a.toArray());
 
 An array is **C-contiguous** when its elements are stored in row-major order with no gaps. Most freshly created arrays are C-contiguous. However, operations like `transpose` change the stride pattern without moving data, producing arrays that are no longer C-contiguous.
 
-This matters because `reshape` can only return a view when the data is already in the right memory order:
+This matters because `reshape` can only return a view when the existing strides can describe the new shape:
 
 ```typescript
-import { array, reshape, transpose } from 'numpy-ts';
+import { array, ravel, reshape, transpose } from 'numpy-ts';
 
 const a = array([[1, 2, 3], [4, 5, 6]]);
 console.log(a.flags.C_CONTIGUOUS); // true
@@ -163,9 +163,13 @@ console.log(b.flags.OWNDATA); // false (view)
 const t = transpose(a);
 console.log(t.flags.C_CONTIGUOUS); // false
 
-// reshape must copy because the data layout does not match the new shape
+// Flattening the transpose needs a different memory order, so reshape copies
 const c = reshape(t, [6]);
-console.log(c.flags.OWNDATA); // true (copy)
+c.set([0], 99);
+console.log(a.toArray()); // [[1, 2, 3], [4, 5, 6]] -- unchanged
+
+// ravel on a non-contiguous array also copies, and the copy owns its data
+console.log(ravel(t).flags.OWNDATA); // true
 ```
 
 <Tip>
@@ -205,7 +209,7 @@ If you pass an array to a function and want to prevent the function from modifyi
 | Question | Answer |
 |---|---|
 | Does slicing copy data? | No, slices are views |
-| Does `reshape` copy data? | Only if the array is not C-contiguous |
+| Does `reshape` copy data? | Only if the strides cannot describe the new shape (never for a C-contiguous array) |
 | Does `flatten` copy data? | Always |
 | Does `ravel` copy data? | Only if the array is not C-contiguous |
 | How do I check if an array is a view? | `arr.flags.OWNDATA === false` or `arr.base !== null` |

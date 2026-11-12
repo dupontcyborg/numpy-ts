@@ -31,7 +31,7 @@ function histogram(
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `a` | `ArrayLike` | -- | Input data (flattened). |
-| `bins` | `number \| ArrayLike` | `10` | If an integer, the number of equal-width bins. If an array, the bin edges (length `nbins + 1`). |
+| `bins` | `number \| ArrayLike \| BinStrategyString` | `10` | If an integer, the number of equal-width bins. If an array, the bin edges (length `nbins + 1`). If a string, a binning strategy such as `'auto'`, `'sturges'`, or `'sqrt'`. |
 | `range` | `[number, number]` | `undefined` | Lower and upper range of the bins. If `undefined`, uses `[min(a), max(a)]`. |
 | `density` | `boolean` | `false` | If `true`, the result is normalized so the integral over the range equals 1. |
 | `weights` | `ArrayLike` | `undefined` | Optional weights for each sample in `a`. |
@@ -133,7 +133,7 @@ Compute the bin edges for a histogram without computing the histogram itself. Us
 ```typescript
 function histogram_bin_edges(
   a: NDArray,
-  bins?: number | BinStrategyString,
+  bins?: number | BinStrategyString | NDArray,
   range?: [number, number],
   weights?: NDArray
 ): NDArray;
@@ -142,7 +142,7 @@ function histogram_bin_edges(
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `a` | `NDArray` | -- | Input data. |
-| `bins` | `number \| string` | `10` | Number of bins, or a string naming a binning strategy (e.g., `'auto'`, `'sturges'`, `'sqrt'`). |
+| `bins` | `number \| string \| NDArray` | `10` | Number of bins, a string naming a binning strategy (e.g., `'auto'`, `'sturges'`, `'sqrt'`), or an array of bin edges, which is returned as given. |
 | `range` | `[number, number]` | `undefined` | Lower and upper range of the bins. |
 | `weights` | `NDArray` | `undefined` | Optional sample weights used for automatic bin edge selection. |
 

@@ -20,7 +20,7 @@ Advanced indices always are broadcast and iterated as one:
 {/* typecheck: skip */}
 
 ```typescript
-x.vindex(ind_1, ..., ind_m)
+np.vindex(x, ind_1, ..., ind_m)
 // Equivalent to:
 // result[i_1, ..., i_M] == x[ind_1[i_1, ..., i_M], ind_2[i_1, ..., i_M],
 //                           ..., ind_N[i_1, ..., i_M]]
@@ -338,7 +338,7 @@ Put values into an array by matching indices along an axis.
 function put_along_axis(
   arr: NDArray,
   indices: NDArray,
-  values: NDArray,
+  values: NDArray | number | bigint | Complex,
   axis: number
 ): void
 ```
@@ -347,7 +347,7 @@ function put_along_axis(
 |------|------|---------|-------------|
 | `arr` | `NDArray` | -- | Destination array. Modified in-place. |
 | `indices` | `NDArray` | -- | Indices along `axis` where values are placed. |
-| `values` | `NDArray` | -- | Values to insert. Must be broadcastable to `indices`. |
+| `values` | `NDArray \| number \| bigint \| Complex` | -- | Values to insert. A scalar is broadcast to every position; an array must be broadcastable to `indices`. |
 | `axis` | `number` | -- | The axis along which to put values. |
 
 **Returns:** `void` -- The array `arr` is modified in-place.
