@@ -22,7 +22,9 @@ export function append(
   axis?: number,
 ): NDArrayCore {
   const valuesArr =
-    values instanceof NDArrayCore ? values : array(Array.isArray(values) ? values : [values]);
+    values instanceof NDArrayCore
+      ? values
+      : array(Array.isArray(values) || ArrayBuffer.isView(values) ? values : [values]);
 
   if (axis === undefined) {
     // Flatten both and concatenate. flatten() always copies, so the

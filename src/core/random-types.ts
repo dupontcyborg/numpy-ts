@@ -38,12 +38,16 @@ export interface Sampler<
 > {
   (...args: [...Req, ...Opt, size: SizeArg]): ArrayOf<F, R>;
   (...args: [...Req, ...Partial<Opt>, size?: undefined]): number;
+  // A size that may or may not be set, such as one forwarded from a caller's optional parameter.
+  (...args: [...Req, ...Partial<Opt>, size?: SizeArg]): ArrayOf<F, R> | number;
 }
 
 // Shape-from-arguments generators: no arguments gives a number, any dimensions give an array.
 export interface DimSampler<F extends ArrayFamily> {
   (): number;
   (...shape: [number, ...number[]]): ArrayOf<F, 'float64'>;
+  // A spread of unknown length, such as rand(...a.shape), may be empty.
+  (...shape: number[]): ArrayOf<F, 'float64'> | number;
 }
 
 export interface RandInt<F extends ArrayFamily> {
@@ -54,6 +58,12 @@ export interface RandInt<F extends ArrayFamily> {
     dtype?: D,
   ): ArrayOf<F, D>;
   (low: number, high?: number | null, size?: undefined, dtype?: DType): number;
+  <D extends DType = 'int64'>(
+    low: number,
+    high?: number | null,
+    size?: SizeArg,
+    dtype?: D,
+  ): ArrayOf<F, D> | number;
 }
 
 // Unlike the samplers, choice draws from an array, so the element dtype is not known statically.
@@ -70,6 +80,12 @@ export interface Choice<F extends ArrayFamily> {
     replace?: boolean,
     p?: RngArray | readonly number[],
   ): number;
+  (
+    a: number | RngArray,
+    size?: SizeArg,
+    replace?: boolean,
+    p?: RngArray | readonly number[],
+  ): ArrayOf<F> | number;
 }
 
 // Methods of a Generator returned by default_rng.

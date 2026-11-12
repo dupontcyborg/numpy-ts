@@ -32,14 +32,25 @@ export const MAX_NDIM = 64;
 /**
  * Rejects a shape whose dimensions are not non-negative integers. A NaN or fractional dimension
  * otherwise reaches the allocator as a NaN byte length, which exhausts the WASM heap and leaves
- * the process on the JS fallback for good.
+ * the process on the JS fallback for good. View-producing ops never allocate, so they call this
+ * themselves; reshape passes allowInferred to accept a single -1.
+ *
+ * @param shape - Dimensions to check
+ * @param allowInferred - Accept one -1 as an unknown dimension, as reshape does
  */
-function assertValidShape(shape: readonly number[]): void {
+export function assertValidShape(shape: readonly number[], allowInferred = false): void {
+  let inferred = false;
   for (let i = 0; i < shape.length; i++) {
     const d = shape[i]!;
+    if (allowInferred && d === -1) {
+      if (inferred) throw new Error('can only specify one unknown dimension');
+      inferred = true;
+      continue;
+    }
     if (!Number.isInteger(d) || d < 0) {
+      // String() rather than JSON.stringify, which throws on a bigint dimension.
       throw new TypeError(
-        `Invalid shape: dimensions must be non-negative integers, got ${JSON.stringify(shape)}`,
+        `Invalid shape: dimensions must be non-negative integers, got [${Array.from(shape, String).join(', ')}]`,
       );
     }
   }

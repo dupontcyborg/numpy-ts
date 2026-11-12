@@ -4,6 +4,37 @@ sidebarTitle: Changelog
 
 ---
 
+<Update label="Unreleased" description="next">
+
+## Unreleased
+
+Correctness release: calls that type-checked but silently did the wrong thing now either match NumPy or throw.
+
+### Breaking
+
+* **Functions that need an NDArray throw a `TypeError` for plain arrays and scalars** instead of returning empty or wrong results. Wrap the input with `np.array(...)`. Invalid shapes (negative, fractional or `NaN` dimensions, or more than one `-1` in `reshape`) throw as well.
+* **Boolean literals infer `bool`.** `np.array([true, false])` is a `bool` array, not `float64`.
+* **Joining functions promote dtypes.** `concatenate`, `stack`, `hstack`, `vstack`, `dstack`, `column_stack`, `append` and `block` use the promoted dtype of all inputs instead of the first input's dtype.
+* **`isin` and `in1d` no longer match `NaN` against `NaN`**, and `in1d` always returns a 1-D result.
+* **`isdtype(dtype, kind)` takes NumPy's kind names** (`'bool'`, `'signed integer'`, `'integral'`, ...) and throws for unknown kinds; the old `'b'`, `'i'`, `'u'`, `'f'` codes now throw.
+* **`typename` takes a type character code**, as in NumPy, so `typename('int8')` now throws.
+* **Plain `percentile` and `quantile` propagate `NaN`**, and an out-of-range `q` throws NumPy's error.
+* **Invalid or duplicate reduction axes throw** instead of returning a result.
+* **The options-object form `np.sum(a, { axis: 0 })` is rejected.** Use the positional form, `np.sum(a, 0, true)`.
+* **Array `toString` and repr output follows NumPy**, including non-contiguous arrays, summarization and float formatting. Code that parses printed output may need updating.
+
+### Fixed
+
+* `keepdims` works with no axis for every reduction, multi-axis `std`/`var` are correct, and reduction result types use `bigint` only for `int64`/`uint64`.
+* `unwrap` handles N-D input, views and `period`; `percentile`, `quantile` and the `nan*` variants accept an NDArray `q`.
+* `histogram_bin_edges` implements all eight bin strategies, and the histogram family accepts strategy names.
+* Views from free functions report `base` and `OWNDATA`; `format_float_positional`, `format_float_scientific` and `array_repr` follow NumPy.
+* `promote_types`, `result_type`, `can_cast`, `min_scalar_type`, `mintypecode` and `isscalar(Complex)` follow NumPy.
+* `isin` compares `uint64` with signed integers exactly.
+* A copying `reshape` no longer loses its data when its `base` is disposed, and `asfortranarray` frees its memory on `dispose()`.
+
+</Update>
+
 <Update label="v1.7.0" description="2026-08-30">
 
 ## numpy-ts v1.7.0

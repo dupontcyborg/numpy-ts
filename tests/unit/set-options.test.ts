@@ -30,6 +30,14 @@ import { castStorage } from '../../src/common/ops/shape';
 import { ArrayStorage } from '../../src/common/storage';
 
 describe('isin and in1d options', () => {
+  it('compares uint64 with signed integers exactly', () => {
+    const a = array([2n ** 62n + 1n, 5n, -3n], 'int64');
+    const b = array([2n ** 62n, 5n], 'uint64');
+    expect(isin(a, b).toArray()).toEqual([0, 1, 0]);
+    expect(isin(a, b, false, true).toArray()).toEqual([1, 0, 1]);
+    expect(isin(b, array([5, -3], 'int8')).toArray()).toEqual([0, 1]);
+  });
+
   it('inverts for bool, complex and empty inputs', () => {
     const flags = array([1, 0, 1], 'float64').astype('bool');
     expect(isin(flags, array([1], 'float64').astype('bool'), false, true).toArray()).toEqual([

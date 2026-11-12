@@ -7,17 +7,20 @@
 
 import {
   type DType,
+  effectiveDType,
   isComplexDType,
   isFloatDType,
   promoteDTypes,
   throwIfComplex,
   trueDivideResultDtype,
 } from '../common/dtype';
+import { normalizeAxisTuple } from '../common/internal/indexing';
 import * as arithmeticOps from '../common/ops/arithmetic';
 import * as reductionOps from '../common/ops/reduction';
 import * as shapeOps from '../common/ops/shape';
 import * as sortingOps from '../common/ops/sorting';
 import { checkAxis, notAnNDArray } from '../common/storage';
+import { wasmConfig } from '../common/wasm/config';
 import { asarray } from './creation';
 import {
   type ArrayLike,
@@ -168,7 +171,10 @@ function onesShape(ndim: number): number[] {
 /**
  * Reduce along multiple axes by repeatedly calling a single-axis reducer. Only valid for
  * reductions that compose (sum, prod, max, min, all, any and their nan variants).
- * Axes are processed in descending order so removing one does not shift the rest.
+ * Axes are processed in descending order so removing one does not shift the rest. A tuple
+ * naming every axis takes the no-axis path, so the scalar comes back with the same JS type
+ * and the keepdims array with the same dtype as a call without an axis; reducing one axis at
+ * a time would leave the last step reducing a widened accumulator array into a bigint.
  */
 function reduceMultiAxis<T>(
   s: ArrayStorage,
@@ -177,22 +183,15 @@ function reduceMultiAxis<T>(
   reduceFn: ReduceFn<T>,
 ): NDArrayCore | T {
   const ndim = s.ndim;
-  const normAxes = axes.map((ax) => (ax < 0 ? ndim + ax : ax));
+  const normAxes = normalizeAxisTuple(axes, ndim);
+  if (normAxes.length === ndim) return reduceAxes(s, undefined, keepdims, false, reduceFn);
   const sortedDesc = [...normAxes].sort((x, y) => y - x);
   const sortedAsc = [...normAxes].sort((x, y) => x - y);
 
+  // At least one axis is kept, so every step leaves an array.
   let current = s;
   for (const ax of sortedDesc) {
-    const r = reduceFn(current, ax, false);
-    if (!(r instanceof ArrayStorage)) {
-      if (keepdims) {
-        const out = ArrayStorage.zeros(onesShape(ndim), current.dtype);
-        out.iset(0, r as number | bigint | Complex);
-        return fromStorage(out);
-      }
-      return r as T;
-    }
-    current = r;
+    current = reduceFn(current, ax, false) as ArrayStorage;
   }
 
   if (keepdims) {
@@ -215,14 +214,7 @@ function reduceJointAxes<T>(
   reduceFn: ReduceFn<T>,
 ): NDArrayCore | T {
   const ndim = s.ndim;
-  const norm = axes.map((ax) => {
-    const n = ax < 0 ? ndim + ax : ax;
-    if (n < 0 || n >= ndim) {
-      throw new Error(`axis ${ax} is out of bounds for array of dimension ${ndim}`);
-    }
-    return n;
-  });
-  if (new Set(norm).size !== norm.length) throw new Error("duplicate value in 'axis'");
+  const norm = normalizeAxisTuple(axes, ndim);
   if (norm.length === ndim) return reduceAxes(s, undefined, keepdims, false, reduceFn);
 
   const sortedAsc = [...norm].sort((x, y) => x - y);
@@ -361,18 +353,18 @@ export function ptp(
 ): NDArrayCore | number | bigint | Complex {
   const ax = checkAxis(axis, true);
   const s = toStorage(a);
-  if (!Array.isArray(ax)) {
-    return reduceAxes(s, ax, keepdims, true, (st, x, kd) => reductionOps.ptp(st, x, kd));
+  // A tuple naming every axis is a full reduction and takes the no-axis path.
+  const full = Array.isArray(ax) && normalizeAxisTuple(ax, s.ndim).length === s.ndim;
+  if (!Array.isArray(ax) || full) {
+    return reduceAxes(s, full ? undefined : ax, keepdims, true, (st, x, kd) =>
+      reductionOps.ptp(st, x, kd),
+    );
   }
   // ptp does not compose under repeated reduction; compute as max - min across the axes.
   const kd = keepdims ?? false;
   const maxResult = reduceMultiAxis(s, ax, kd, (st, x, k) => reductionOps.max(st, x as number, k));
   const minResult = reduceMultiAxis(s, ax, kd, (st, x, k) => reductionOps.min(st, x as number, k));
-  if (typeof maxResult === 'number' && typeof minResult === 'number') return maxResult - minResult;
-  if (typeof maxResult === 'bigint' && typeof minResult === 'bigint') return maxResult - minResult;
-  if (maxResult instanceof Complex || minResult instanceof Complex) {
-    throw new Error('multi-axis ptp not supported for complex');
-  }
+  // At least one axis is kept, so both results are arrays.
   return fromStorage(
     arithmeticOps.subtract(
       toStorage(maxResult as NDArrayCore),
@@ -485,7 +477,9 @@ type QuantileOp = (
 
 /**
  * Shared body of percentile, quantile and their nan variants. A scalar q reduces directly. An
- * NDArray q gives q.shape followed by the reduced shape, one reduction per q value.
+ * NDArray q gives q.shape followed by the reduced shape. Each lane is sorted once and every q is
+ * interpolated from it with the same arithmetic as the single-q reduction, so the cost does not
+ * grow with the number of q values.
  */
 function quantileReduce(
   a: NDArrayCore,
@@ -493,6 +487,8 @@ function quantileReduce(
   axis: number | undefined,
   keepdims: boolean | undefined,
   op: QuantileOp,
+  scale: 1 | 100,
+  skipNaN: boolean,
 ): NDArrayCore | number {
   const reduceOne = (s: ArrayStorage, qv: number) =>
     reduceAxes(s, axis, keepdims, false, (st, ax, kd) => op(st, qv, ax as number | undefined, kd));
@@ -511,16 +507,94 @@ function quantileReduce(
   const outDtype = promoteDTypes(trueDivideResultDtype(a.dtype), trueDivideResultDtype(qs.dtype));
   const data = outDtype === 'float64' && isFloatDType(a.dtype) ? a.astype('float64') : a;
   const s = toStorage(data);
+  const ax = checkAxis(axis, false) as number | undefined;
+  const kd = keepdims ?? false;
+  const ndim = s.ndim;
+  const qv = Array.from({ length: qs.size }, (_, i) => Number(qs.iget(i)));
 
-  const results: (ArrayStorage | number)[] = [];
-  for (let i = 0; i < qs.size; i++) {
-    const r = reduceOne(s, Number(qs.iget(i)));
-    results.push(r instanceof NDArrayCore ? toStorage(r) : r);
+  // Running the scalar op on a one-element array raises the errors for bool or complex data and
+  // for a q out of range, in the order a reduction per q would raise them.
+  const probe = ArrayStorage.zeros([1], s.dtype);
+  op(probe, qv[0] ?? 0.5 * scale, undefined, false);
+  if (ax !== undefined && (ax < -ndim || ax >= ndim)) {
+    throw new Error(`axis ${ax} is out of bounds for array of dimension ${ndim}`);
   }
-  const probe = results[0] ?? (reduceOne(s, 0.5) as NDArrayCore | number);
-  const first = probe instanceof NDArrayCore ? toStorage(probe) : probe;
-  const innerShape = first instanceof ArrayStorage ? Array.from(first.shape) : [];
-  return fromStorage(reductionOps.stackQuantileResults(s, qs, results, innerShape));
+  for (let i = 1; i < qv.length; i++) op(probe, qv[i]!, undefined, false);
+  probe.dispose();
+
+  if (s.size === 0) {
+    const results: (ArrayStorage | number)[] = [];
+    for (const v of qv) {
+      const r = reduceOne(s, v);
+      results.push(r instanceof NDArrayCore ? toStorage(r) : r);
+    }
+    const first = results[0] ?? reduceOne(s, 0.5 * scale);
+    const innerShape = typeof first === 'number' ? [] : Array.from(first.shape);
+    return fromStorage(reductionOps.stackQuantileResults(s, qs, results, innerShape));
+  }
+
+  // Move the reduced axis last so each lane is one contiguous run of the sorted copy.
+  let lanes: ArrayStorage;
+  let innerShape: number[];
+  if (ax === undefined) {
+    lanes = shapeOps.ravel(s);
+    innerShape = kd ? onesShape(ndim) : [];
+  } else {
+    const norm = ax < 0 ? ax + ndim : ax;
+    const kept = [...Array(ndim).keys()].filter((i) => i !== norm);
+    lanes = shapeOps.transpose(s, [...kept, norm]);
+    innerShape = kd ? s.shape.map((d, i) => (i === norm ? 1 : d)) : kept.map((i) => s.shape[i]!);
+  }
+  const sorted = sortingOps.sort(lanes, -1);
+  const laneLen = lanes.shape[lanes.ndim - 1]!;
+  const numLanes = s.size / laneLen;
+  const src = sorted.data;
+  const srcOff = sorted.offset;
+  const checkNaN = isFloatDType(s.dtype);
+  // The float32 nanquantile kernel interpolates in float32 rather than float64. Where the single-q
+  // reduction would have used it (contiguous input at or above the kernel's size threshold of 32),
+  // every step is rounded to float32 the same way.
+  const viaF32Kernel =
+    skipNaN &&
+    effectiveDType(s.dtype) === 'float32' &&
+    ((ax === undefined && kd && ndim > 0) || s.isCContiguous) &&
+    s.size >= 32 * wasmConfig.thresholdMultiplier;
+  const f = viaF32Kernel ? Math.fround : (x: number) => x;
+
+  const out = ArrayStorage.empty([...Array.from(qs.shape), ...innerShape], outDtype);
+  const dst = out.data as Float64Array;
+  // Each value is rounded to the data's result dtype before it is stored in the output dtype,
+  // as the single-q reduction narrows before the results are stacked.
+  const narrowStorage = ArrayStorage.empty([1], trueDivideResultDtype(s.dtype));
+  const narrow = narrowStorage.data as Float64Array;
+  for (let lane = 0; lane < numLanes; lane++) {
+    const base = srcOff + lane * laneLen;
+    // NaNs sort last, so the lane's valid values are a prefix of it.
+    let valid = laneLen;
+    if (checkNaN) while (valid > 0 && Number.isNaN(src[base + valid - 1])) valid--;
+    const n = skipNaN ? valid : laneLen;
+    const isNaNLane = skipNaN ? valid === 0 : valid < laneLen;
+    for (let i = 0; i < qv.length; i++) {
+      let v = NaN;
+      if (!isNaNLane) {
+        const idx = f(f(qv[i]! / scale) * (n - 1));
+        const lower = Math.floor(idx);
+        const upper = Math.ceil(idx);
+        const lo = Number(src[base + lower]);
+        if (lower === upper) {
+          v = lo;
+        } else {
+          const frac = f(idx - lower);
+          v = f(f(lo * f(1 - frac)) + f(Number(src[base + upper]) * frac));
+        }
+      }
+      narrow[0] = v;
+      dst[i * numLanes + lane] = narrow[0]!;
+    }
+  }
+  sorted.dispose();
+  narrowStorage.dispose();
+  return fromStorage(out);
 }
 
 /**
@@ -533,7 +607,7 @@ export function percentile(
   axis?: number,
   keepdims?: boolean,
 ): NDArrayCore | number {
-  return quantileReduce(a, q, axis, keepdims, reductionOps.percentile);
+  return quantileReduce(a, q, axis, keepdims, reductionOps.percentile, 100, false);
 }
 
 /**
@@ -546,7 +620,7 @@ export function quantile(
   axis?: number,
   keepdims?: boolean,
 ): NDArrayCore | number {
-  return quantileReduce(a, q, axis, keepdims, reductionOps.quantile);
+  return quantileReduce(a, q, axis, keepdims, reductionOps.quantile, 1, false);
 }
 
 /**
@@ -825,7 +899,7 @@ export function nanquantile(
   axis?: number,
   keepdims?: boolean,
 ): NDArrayCore | number {
-  return quantileReduce(a, q, axis, keepdims, reductionOps.nanquantile);
+  return quantileReduce(a, q, axis, keepdims, reductionOps.nanquantile, 1, true);
 }
 
 /** Percentile ignoring NaN. An NDArray q gives q.shape followed by the reduced shape. */
@@ -835,5 +909,5 @@ export function nanpercentile(
   axis?: number,
   keepdims?: boolean,
 ): NDArrayCore | number {
-  return quantileReduce(a, q, axis, keepdims, reductionOps.nanpercentile);
+  return quantileReduce(a, q, axis, keepdims, reductionOps.nanpercentile, 100, true);
 }
