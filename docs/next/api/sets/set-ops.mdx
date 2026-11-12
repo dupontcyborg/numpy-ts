@@ -190,6 +190,10 @@ function in1d(
 
 **Returns:** `NDArray` -- Boolean array of the same length as `ar1` (flattened).
 
+<Note>
+Changed in v1.8.0: `NaN` no longer matches `NaN`, so `np.in1d(np.array([NaN, 3]), np.array([NaN]))` gives `[false, false]`. This matches NumPy, where `NaN` never compares equal to itself. Use `np.isnan` to find `NaN` entries explicitly.
+</Note>
+
 ```typescript
 import * as np from 'numpy-ts';
 
@@ -223,6 +227,10 @@ function isin(
 | `invert` | `boolean` | `false` | If `true`, return `true` where elements are *not* in `testElements`. |
 
 **Returns:** `NDArray` -- Boolean array with the same shape as `element`.
+
+<Note>
+Changed in v1.8.0: `NaN` no longer matches `NaN`, so `np.isin(np.array([NaN, 3]), np.array([NaN]))` gives `[false, false]`. This matches NumPy, where `NaN` never compares equal to itself. Use `np.isnan` to find `NaN` entries explicitly.
+</Note>
 
 ```typescript
 import * as np from 'numpy-ts';

@@ -266,9 +266,8 @@ const d = a.astype('int8');      // NDArray<'int8'>
 
 ```typescript
 const ints = zeros([3], 'int64');
-const x = ints.get([0]);   // bigint
-// @ts-expect-error bigint is not assignable to number
-const y: number = ints.get([0]); // ✗ compile error: bigint is not assignable to number
+const x = ints.get([0]);         // bigint
+const y = Number(ints.get([0])); // number; `const y: number = ints.get([0])` is a compile error
 
 const floats = zeros([3], 'float64');
 const z = floats.get([0]); // number

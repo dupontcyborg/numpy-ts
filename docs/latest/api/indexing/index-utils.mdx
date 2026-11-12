@@ -61,7 +61,7 @@ const coords = np.unravel_index(np.array([1, 3, 8]), [3, 3]);
 // Find the position of the max element in a 2D array
 const a = np.array([[1, 5, 3], [9, 2, 7]]);
 const maxIdx = np.argmax(a);
-const [row, col] = np.unravel_index(maxIdx, a.shape);
+const [row, col] = np.unravel_index(maxIdx, [...a.shape]);
 // row: array([1]), col: array([0])  -- max is at position [1, 0]
 ```
 
@@ -78,7 +78,7 @@ function iindex(a: NDArray, indices: NDArray | number[] | number[][], axis?: num
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `NDArray` | -- | Source array. |
-| `indices` | `NDArray \| number[] \| number[][]` | -- | Integer array of indices. The result has the same shape as `indices`. |
+| `indices` | `NDArray \| number[] \| number[][]` | -- | Integer array of indices. A nested or multi-dimensional index is flattened first, so the result is always 1-D along `axis`. |
 | `axis` | `number` | `undefined` | Axis along which to index. |
 
 **Returns:** `NDArray` -- Array of elements selected from `a` at the given flat indices.
@@ -90,10 +90,9 @@ const a = np.array([10, 20, 30, 40, 50]);
 np.iindex(a, [0, 2, 4]);
 // array([10, 30, 50])
 
-// Fancy indexing with a 2D index array
+// A 2D index array is flattened
 np.iindex(a, [[0, 1], [3, 4]]);
-// array([[10, 20],
-//        [40, 50]])
+// array([10, 20, 40, 50])
 ```
 
 ---

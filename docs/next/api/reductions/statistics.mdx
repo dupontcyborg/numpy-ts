@@ -373,5 +373,5 @@ import { array, trapezoid } from 'numpy-ts';
 
 trapezoid(array([1, 2, 3]));                  // 4  (area under [1,2,3] with dx=1)
 trapezoid(array([1, 2, 3]), undefined, 0.5);  // 2  (dx=0.5)
-trapezoid(array([1, 2, 3]), array([0, 1, 4])); // 8.5 (non-uniform spacing)
+trapezoid(array([1, 2, 3]), array([0, 1, 4])); // 9  (non-uniform spacing)
 ```

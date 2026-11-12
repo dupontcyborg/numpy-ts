@@ -154,6 +154,10 @@ function typename(char: string): string
 
 **Returns:** `string` -- A descriptive string for the type code.
 
+<Note>
+Changed in v1.8.0: `typename` takes a type character code, as in NumPy, and throws for anything else. `typename('int8')` used to return `'int8'` and now throws; pass `'b'` instead.
+</Note>
+
 ```typescript
 import { typename } from 'numpy-ts';
 
