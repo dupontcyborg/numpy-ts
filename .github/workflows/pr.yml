@@ -61,6 +61,9 @@ jobs:
       - name: Type check
         run: pnpm run typecheck
 
+      - name: Type check docs snippets
+        run: pnpm run docs:typecheck
+
       - name: Zig dead code check
         run: pnpm run report:zig-dead-code
 
