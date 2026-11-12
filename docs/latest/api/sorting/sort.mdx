@@ -8,12 +8,12 @@ description: "Sort arrays, compute sort indices, perform partial sorts, and sort
 Return a sorted copy of an array along the given axis.
 
 ```typescript
-function sort(a: ArrayLike, axis?: number): NDArray
+function sort(a: NDArray, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number` | `-1` | Axis along which to sort. Default is `-1` (last axis). Use `null` to sort the flattened array. |
 | `kind` | `string` | `'quicksort'` | Sorting algorithm. Accepted values: `'quicksort'`, `'mergesort'`, `'heapsort'`, `'stable'`. `'stable'` and `'mergesort'` both use a stable sort. |
 
@@ -45,12 +45,12 @@ np.sort(b);
 Return the indices that would sort an array along the given axis.
 
 ```typescript
-function argsort(a: ArrayLike, axis?: number): NDArray
+function argsort(a: NDArray, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number` | `-1` | Axis along which to sort. |
 | `kind` | `string` | `'quicksort'` | Sorting algorithm (`'quicksort'`, `'mergesort'`, `'heapsort'`, `'stable'`). |
 
@@ -74,12 +74,12 @@ const indices = np.argsort(a);
 Perform an indirect stable sort using a sequence of keys. The last key is the primary sort key, the second-to-last is the secondary key, and so on.
 
 ```typescript
-function lexsort(keys: ArrayLike[]): NDArray
+function lexsort(keys: NDArray[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `keys` | `ArrayLike[]` | -- | Sequence of arrays to sort by. The last array is the primary sort key. All arrays must have the same length. |
+| `keys` | `NDArray[]` | -- | Sequence of arrays to sort by. The last array is the primary sort key. All arrays must have the same length. |
 
 **Returns:** `NDArray` -- Array of indices that sort the data lexicographically.
 
@@ -87,8 +87,8 @@ function lexsort(keys: ArrayLike[]): NDArray
 import * as np from 'numpy-ts';
 
 // Sort by last name (primary), then first name (secondary)
-const first = [1, 2, 1, 2];   // secondary key
-const last  = [10, 10, 20, 20]; // primary key
+const first = np.array([1, 2, 1, 2]);   // secondary key
+const last  = np.array([10, 10, 20, 20]); // primary key
 
 const indices = np.lexsort([first, last]);
 // array([0, 1, 2, 3])
@@ -102,12 +102,12 @@ const indices = np.lexsort([first, last]);
 Rearrange elements such that the element at the `kth` position is where it would be in a fully sorted array. Elements before `kth` are all smaller, and elements after are all larger, but neither partition is necessarily sorted internally.
 
 ```typescript
-function partition(a: ArrayLike, kth: number, axis?: number): NDArray
+function partition(a: NDArray, kth: number, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `kth` | `number \| number[]` | -- | Index or indices of elements to partition around. |
 | `axis` | `number` | `-1` | Axis along which to partition. |
 
@@ -130,12 +130,12 @@ console.log(p.item(3)); // 2
 Return indices that would partition an array. The element at the `kth` index in the returned order is in its final sorted position.
 
 ```typescript
-function argpartition(a: ArrayLike, kth: number, axis?: number): NDArray
+function argpartition(a: NDArray, kth: number, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `kth` | `number \| number[]` | -- | Index or indices to partition around. |
 | `axis` | `number` | `-1` | Axis along which to partition. |
 
@@ -156,12 +156,12 @@ const indices = np.argpartition(a, 2);
 Sort an array by real part first, then by imaginary part for ties. Always returns a complex-typed result.
 
 ```typescript
-function sort_complex(a: ArrayLike): NDArray
+function sort_complex(a: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. If not complex, it is cast to complex first. |
+| `a` | `NDArray` | -- | Input array. If not complex, it is cast to complex first. |
 
 **Returns:** `NDArray` -- Sorted complex array.
 
