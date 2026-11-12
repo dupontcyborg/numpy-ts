@@ -29,7 +29,7 @@ The `.npy` format stores a single array with its dtype and shape metadata.
 <Tabs>
   <Tab title="File-based (Node / Bun / Deno)">
 ```typescript
-import { array, save, load } from 'numpy-ts';
+import { array, save, loadNpy } from 'numpy-ts';
 
 const a = array([[1, 2, 3], [4, 5, 6]]);
 
@@ -37,7 +37,7 @@ const a = array([[1, 2, 3], [4, 5, 6]]);
 await save('matrix.npy', a);
 
 // Load from disk
-const loaded = await load('matrix.npy');
+const loaded = await loadNpy('matrix.npy');
 console.log(loaded.shape); // [2, 3]
 ```
 
@@ -82,7 +82,7 @@ The `.npz` format stores multiple named arrays in a single ZIP archive. `savez_c
 <Tabs>
   <Tab title="File-based (Node / Bun / Deno)">
 ```typescript
-import { array, zeros, savez, savez_compressed, load } from 'numpy-ts';
+import { array, zeros, savez, savez_compressed, loadNpzFile } from 'numpy-ts';
 
 const weights = array([[0.1, 0.2], [0.3, 0.4]]);
 const biases = zeros([2]);
@@ -94,7 +94,7 @@ await savez('model.npz', { weights, biases });
 await savez_compressed('model_compressed.npz', { weights, biases });
 
 // Load returns an object with a Map of arrays
-const result = await load('model.npz');
+const result = await loadNpzFile('model.npz');
 const w = result.arrays.get('weights');
 const b = result.arrays.get('biases');
 ```
@@ -272,9 +272,9 @@ np.save('from_python.npy', np.array([[1, 2], [3, 4]]))
 
 ```typescript
 // TypeScript
-import { load } from 'numpy-ts';
+import { loadNpy } from 'numpy-ts';
 
-const arr = await load('from_python.npy');
+const arr = await loadNpy('from_python.npy');
 console.log(arr.toArray()); // [[1, 2], [3, 4]]
 ```
 

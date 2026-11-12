@@ -223,7 +223,7 @@ np.linalg.det(A);            // Determinant: -2
 np.linalg.eig(A);            // Eigenvalues and eigenvectors
 np.linalg.svd(A);            // Singular value decomposition
 np.linalg.norm(u);           // Vector norm: 3.741...
-np.linalg.solve(A, u.reshape([2, 1]));  // Solve Ax = b
+np.linalg.solve(A, np.array([1, 2]).reshape([2, 1]));  // Solve Ax = b
 ```
 
 ## Random numbers

@@ -28,8 +28,8 @@ const c = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
 You can also specify a dtype explicitly:
 
 ```typescript
-const ints = np.array([1, 2, 3], { dtype: 'int32' });
-const floats = np.array([1, 2, 3], { dtype: 'float32' });
+const ints = np.array([1, 2, 3], 'int32');
+const floats = np.array([1, 2, 3], 'float32');
 ```
 
 <Tip>
@@ -118,12 +118,12 @@ a.base;        // null  -- a owns its data
 
 ### `toString()`
 
-Returns a summary string with shape and dtype:
+Returns the NumPy-style `array_str` text:
 
 ```typescript
 const a = np.array([[1, 2], [3, 4]]);
 a.toString();
-// "NDArray(shape=[2,2], dtype=float64)"
+// "[[1. 2.]\n [3. 4.]]"
 ```
 
 ### `array2string()`
@@ -133,8 +133,8 @@ For NumPy-style formatted output, use the `array2string` function:
 ```typescript
 const a = np.array([[1, 2, 3], [4, 5, 6]]);
 console.log(np.array2string(a));
-// array([[1, 2, 3],
-//        [4, 5, 6]])
+// [[1. 2. 3.]
+//  [4. 5. 6.]]
 ```
 
 ### `array_repr()` and `array_str()`
@@ -142,8 +142,8 @@ console.log(np.array2string(a));
 {/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const a: NDArray; */}
 
 ```typescript
-np.array_repr(a);  // "array([[1, 2, 3],\n       [4, 5, 6]])"
-np.array_str(a);   // "[[1, 2, 3],\n [4, 5, 6]]"
+np.array_repr(a);  // "array([[1., 2., 3.],\n       [4., 5., 6.]])"
+np.array_str(a);   // "[[1. 2. 3.]\n [4. 5. 6.]]"
 ```
 
 ## Converting back to JavaScript
@@ -194,7 +194,7 @@ a.item(1, 1);     // 40  (row 1, col 1)
 The `data` property gives you direct access to the underlying `TypedArray`:
 
 ```typescript
-const a = np.array([1, 2, 3], { dtype: 'float32' });
+const a = np.array([1, 2, 3], 'float32');
 a.data;            // Float32Array [1, 2, 3]
 a.data.buffer;     // The underlying ArrayBuffer
 ```
@@ -215,7 +215,7 @@ for (const val of a) {
 
 const m = np.array([[1, 2], [3, 4]]);
 for (const row of m) {
-  console.log(row.toArray());  // [1, 2] then [3, 4]
+  console.log((row as np.NDArray).toArray());  // [1, 2] then [3, 4]
 }
 ```
 
