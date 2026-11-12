@@ -57,7 +57,7 @@ function functionName(a: NDArray, axis?: number, keepdims?: boolean): NDArray | 
 |---|---|---|---|
 | `a` | `NDArray` | -- | Input array. |
 | `axis` | `number` | `undefined` | Axis along which to operate. When `undefined`, operates on the flattened array. |
-| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. With no `axis`, the result is an `NDArray` of shape `[1, ..., 1]` (one 1 per input dimension) instead of a scalar. |
 
 **Return type** -- What the function returns (scalar when reducing all axes, `NDArray` when reducing along a single axis).
 

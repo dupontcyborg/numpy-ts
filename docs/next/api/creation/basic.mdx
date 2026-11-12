@@ -157,7 +157,7 @@ function array(data: NestedArray | TypedArray, dtype?: DType): NDArray
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `data` | `NestedArray \| TypedArray` | - | Input data. Can be a nested JS array, a `TypedArray`, or an existing `NDArray`. |
-| `dtype` | `DType` | inferred | Data type. Inferred from `data` if omitted. |
+| `dtype` | `DType` | inferred | Data type. Inferred from `data` if omitted: `bool` for booleans, `float64` for numbers, `int64` for bigints, `complex128` for `Complex` values. |
 
 **Returns:** `NDArray` -- An ndarray constructed from the input data.
 

@@ -47,7 +47,7 @@ function sum(
 |-|-|-|-|
 | `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to sum. When `undefined`, sums over the flattened array. |
-| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. With no `axis`, the result has shape `[1, ..., 1]` instead of being a scalar. |
 | `opts` | `ReductionOpts` | `undefined` | Optional `where` mask, `initial` value, and/or `dtype` cast. See [ReductionOpts](#reductionopts). |
 
 **Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.

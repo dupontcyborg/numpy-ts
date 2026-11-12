@@ -714,14 +714,14 @@ Median along an axis. See [median](..//reductions/statistics).
 ### percentile
 
 ```typescript
-percentile(q: number, axis?: number, keepdims?: boolean): NDArray | number
+percentile(q: number | NDArray, axis?: number, keepdims?: boolean): NDArray | number
 ```
 Compute the q-th percentile (0--100). See [percentile](..//reductions/statistics).
 
 ### quantile
 
 ```typescript
-quantile(q: number, axis?: number, keepdims?: boolean): NDArray | number
+quantile(q: number | NDArray, axis?: number, keepdims?: boolean): NDArray | number
 ```
 Compute the q-th quantile (0--1). See [quantile](..//reductions/statistics).
 
@@ -840,14 +840,14 @@ Cumulative product treating NaNs as one. See [nancumprod](..//reductions/basic).
 ### nanpercentile
 
 ```typescript
-nanpercentile(q: number, axis?: number, keepdims?: boolean): NDArray | number
+nanpercentile(q: number | NDArray, axis?: number, keepdims?: boolean): NDArray | number
 ```
 Percentile ignoring NaNs. See [nanpercentile](..//reductions/statistics).
 
 ### nanquantile
 
 ```typescript
-nanquantile(q: number, axis?: number, keepdims?: boolean): NDArray | number
+nanquantile(q: number | NDArray, axis?: number, keepdims?: boolean): NDArray | number
 ```
 Quantile ignoring NaNs. See [nanquantile](..//reductions/statistics).
 

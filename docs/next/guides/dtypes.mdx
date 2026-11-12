@@ -334,7 +334,7 @@ These result-dtype rules — unary math promotion, reduction accumulator widenin
 Boolean arrays store `0` (false) and `1` (true) as `uint8` values. They participate in arithmetic as integers:
 
 ```typescript
-const mask = np.array([true, false, true, false], 'bool');
+const mask = np.array([true, false, true, false]);  // inferred as 'bool'
 mask.toArray();  // [1, 0, 1, 0]
 
 // Sum counts the number of true values
