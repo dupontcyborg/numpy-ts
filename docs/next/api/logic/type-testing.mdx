@@ -332,6 +332,10 @@ function isdtype(dtype: DType, kind: string | readonly string[]): boolean
 
 **Returns:** `boolean` -- `true` if `dtype` matches any of the specified kinds.
 
+<Note>
+Changed in v1.8.0: `kind` takes NumPy's kind names, and an unknown kind throws. The old single-letter codes `'b'`, `'i'`, `'u'` and `'f'` now throw; use `'bool'`, `'signed integer'`, `'unsigned integer'` and `'real floating'`.
+</Note>
+
 ```typescript
 import * as np from 'numpy-ts';
 

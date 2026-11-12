@@ -8,6 +8,10 @@ noindex: true
 
 These functions reduce an array along one or more axes, returning either a scalar (when all axes are reduced) or an `NDArray` with fewer dimensions.
 
+<Note>
+Changed in v1.8.0: an `axis` that is out of bounds, not an integer, or repeated now throws, as in NumPy. `sum(a, [0, 0])` and `sum(a, [0, -2])` on a 2-D array throw "duplicate value in 'axis'" instead of returning a result, and `max(a, 1.5)` throws instead of returning `NaN`s. This applies to every reduction that takes an `axis`.
+</Note>
+
 ---
 
 ### ReductionOpts
