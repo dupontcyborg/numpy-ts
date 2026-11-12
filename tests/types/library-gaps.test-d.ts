@@ -114,6 +114,10 @@ const ca1 = core.atleast_1d(mat);
 type _coreAtleast1 = Expect<Equal<typeof ca1, NDArrayCore>>;
 const ca2 = core.atleast_2d(mat, mat);
 type _coreAtleast2 = Expect<Equal<typeof ca2, NDArrayCore[]>>;
+// A spread may hold a single array, which comes back unwrapped.
+declare const spreadArrs: NDArray[];
+const as1 = np.atleast_1d(...spreadArrs);
+type _atleastSpread = Expect<Equal<typeof as1, NDArray | NDArray[]>>;
 
 // ── reductions: an explicit axis with keepdims true yields an array ─────────
 const k1 = np.sum(f64, 0, true);
@@ -159,6 +163,20 @@ const rch = main.random.choice(f64, 3);
 type _choice = Expect<Equal<typeof rch, NDArray>>;
 const rch0 = main.random.choice(5);
 type _choice0 = Expect<Equal<typeof rch0, number>>;
+// Spread dimensions and a forwarded optional size may or may not produce an array.
+const rnSpread = main.random.rand(...f64.shape);
+type _randSpread = Expect<Equal<typeof rnSpread, NDArray<'float64'> | number>>;
+declare const maybeSize: number[] | undefined;
+const rnoMaybe = main.random.normal(0, 1, maybeSize);
+type _normalMaybe = Expect<Equal<typeof rnoMaybe, NDArray<'float64'> | number>>;
+const rrMaybe = main.random.random(maybeSize);
+type _randomMaybe = Expect<Equal<typeof rrMaybe, NDArray<'float64'> | number>>;
+const riMaybe = main.random.randint(0, 10, maybeSize);
+type _randintMaybe = Expect<Equal<typeof riMaybe, NDArray<'int64'> | number>>;
+const rchMaybe = main.random.choice(5, maybeSize);
+type _choiceMaybe = Expect<Equal<typeof rchMaybe, NDArray | number>>;
+const crnoMaybe = core.random.normal(0, 1, maybeSize);
+type _coreNormalMaybe = Expect<Equal<typeof crnoMaybe, NDArrayCore<'float64'> | number>>;
 // @ts-expect-error a plain array population must be wrapped with np.array
 main.random.choice([1, 2, 3], 2);
 const rng = main.random.default_rng(1);

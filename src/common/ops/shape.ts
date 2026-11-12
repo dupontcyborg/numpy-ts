@@ -16,7 +16,7 @@ import {
 import { expandEllipsis } from '../internal/indexing';
 import { stridedScatterFrom } from '../internal/strided-copy';
 import { normalizeSlice, parseSlice } from '../slicing';
-import { ArrayStorage, computeStrides } from '../storage';
+import { ArrayStorage, assertValidShape, computeStrides } from '../storage';
 import { wasmRepeat } from '../wasm/repeat';
 import { wasmRoll } from '../wasm/roll';
 import { wasmTile2D } from '../wasm/tile';
@@ -133,6 +133,7 @@ export function sliceKeepDim(storage: ArrayStorage, ...slices: string[]): ArrayS
  * Returns a view if array is C-contiguous, otherwise copies data
  */
 export function reshape(storage: ArrayStorage, newShape: readonly number[]): ArrayStorage {
+  assertValidShape(newShape, true);
   const size = storage.size;
   const dtype = storage.dtype;
 

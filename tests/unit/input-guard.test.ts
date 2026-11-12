@@ -10,9 +10,11 @@ import {
   add,
   append,
   apply_along_axis,
+  arange,
   array,
   array_equal,
   bincount,
+  broadcast_to,
   byteswap,
   compress,
   convolve,
@@ -32,6 +34,7 @@ import {
   isin,
   item,
   ix_,
+  meshgrid,
   fft as npFft,
   ones,
   ones_like,
@@ -45,6 +48,7 @@ import {
   random,
   ravel_multi_index,
   require,
+  reshape,
   roots,
   searchsorted,
   select,
@@ -88,6 +92,9 @@ describe('non-NDArray input guard', () => {
     ['array_equal', () => array_equal(bad([1, 2]), bad([1, 3]))],
     ['isin', () => isin(array([1, 2, 3]), bad([2, 3]))],
     ['compress', () => compress(bad([true, false]), array([1, 2]))],
+    ['meshgrid', () => meshgrid(bad([1, 2, 3]), bad([4, 5]))],
+    ['meshgrid mixed', () => meshgrid(array([1, 2, 3]), bad([4, 5]))],
+    ['core meshgrid', () => core.meshgrid(bad([1, 2, 3]), bad([4, 5]))],
   ])('%s throws a TypeError for a plain array', (_name, call) => {
     expect(call).toThrow(TypeError);
     expect(call).toThrow(/np\.array/);
@@ -274,6 +281,8 @@ describe('plain-array forms that must keep working', () => {
     put(c, [0, 2], [5, 6]);
     expect(c.toArray()).toEqual([5, 2, 6]);
     expect(append(array([1, 2]), [3, 4]).toArray()).toEqual([1, 2, 3, 4]);
+    expect(append(array([1, 2]), new Float64Array([3, 4]), 0).toArray()).toEqual([1, 2, 3, 4]);
+    expect(() => append(array([[1, 2]]), new Float64Array([3, 4]), 0)).toThrow();
   });
 
   it('diff prepend and sum where take plain values', () => {
@@ -307,6 +316,28 @@ describe('invalid shape guard', () => {
 
   it('rejects a shape passed as an array to rand, which takes separate sizes', () => {
     expect(() => random.rand(bad([5, 5]))).toThrow(TypeError);
+  });
+
+  it('zeros reports a bigint dimension instead of failing to serialize it', () => {
+    expect(() => zeros(bad([2n]))).toThrow(/non-negative integers, got \[2\]/);
+  });
+
+  it('reshape rejects invalid dimensions and more than one -1', () => {
+    const a = arange(6);
+    expect(() => reshape(a, [-1, -1])).toThrow(/one unknown dimension/);
+    expect(() => reshape(a, [-2, -3])).toThrow(TypeError);
+    expect(() => reshape(a, [2.5, 2.4])).toThrow(TypeError);
+    expect(() => reshape(a, [2, Number.NaN])).toThrow(TypeError);
+    expect(() => a.reshape(-2, -3)).toThrow(TypeError);
+    expect(reshape(a, [-1, 3]).shape).toEqual([2, 3]);
+    expect(reshape(a, [3, -1]).shape).toEqual([3, 2]);
+  });
+
+  it('broadcast_to rejects invalid dimensions', () => {
+    const a = arange(6);
+    expect(() => broadcast_to(a, [2.5, 6])).toThrow(TypeError);
+    expect(() => broadcast_to(a, [-1, 6])).toThrow(TypeError);
+    expect(broadcast_to(a, [2, 6]).shape).toEqual([2, 6]);
   });
 
   it('still allocates valid shapes, including empty and scalar ones', () => {
