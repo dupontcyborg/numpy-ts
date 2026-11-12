@@ -19,7 +19,7 @@ import {
 import { type DType, NDArrayCore } from '../common/ndarray-core';
 import * as advancedOps from '../common/ops/advanced';
 import * as shapeOps from '../common/ops/shape';
-import { ArrayStorage } from '../common/storage';
+import { ArrayStorage, notAnNDArray } from '../common/storage';
 import { wasmAllFinite } from '../common/wasm/all_finite';
 import { assertNDArray, toStorage } from './types';
 
@@ -1086,7 +1086,11 @@ export function meshgrid(...args: (NDArrayCore | MeshgridOptions)[]): NDArrayCor
   for (const arg of args) {
     if (arg instanceof NDArrayCore) {
       arrays.push(arg);
-    } else if (arg && typeof arg === 'object') {
+    } else if (Array.isArray(arg) || ArrayBuffer.isView(arg) || typeof arg !== 'object') {
+      // Anything that is not an NDArray would otherwise be read as an options object and dropped.
+      // An undefined options argument is still allowed.
+      if (arg !== undefined) throw notAnNDArray(arg);
+    } else if (arg) {
       if ('indexing' in arg && arg.indexing) indexing = arg.indexing;
       if ('sparse' in arg && arg.sparse !== undefined) sparse = arg.sparse;
       if ('copy' in arg && arg.copy !== undefined) copy = arg.copy;
