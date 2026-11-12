@@ -5,6 +5,7 @@
  * imported independently for optimal tree-shaking.
  */
 
+import { normalizeAxisTuple } from '../common/internal/indexing';
 import * as reductionOps from '../common/ops/reduction';
 import * as sortingOps from '../common/ops/sorting';
 import { checkAxis } from '../common/storage';
@@ -117,8 +118,7 @@ export function extract(condition: NDArrayCore, a: NDArrayCore): NDArrayCore {
 export function count_nonzero(a: NDArrayCore, axis?: number | number[]): NDArrayCore | number {
   const ax = checkAxis(axis, true);
   if (Array.isArray(ax)) {
-    const ndim = toStorage(a).ndim;
-    const normAxes = ax.map((x) => (x < 0 ? ndim + x : x));
+    const normAxes = normalizeAxisTuple(ax, toStorage(a).ndim);
     const sortedDesc = [...normAxes].sort((x, y) => y - x);
     let current: ArrayStorage = toStorage(a);
     // Only the first axis counts non-zeros; the counts that remain are summed over the rest.

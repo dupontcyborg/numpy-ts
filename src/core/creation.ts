@@ -632,14 +632,16 @@ export function asfortranarray(a: NDArrayCore | unknown, dtype?: DType): NDArray
   const st = toStorage(arr);
   if (memoryOrder(st.shape, st.strides).f) return arr;
   // A C-ordered copy of the transpose has exactly the buffer layout a Fortran-ordered copy needs.
-  const packed = shapeOps.transpose(st).copy();
+  const transposed = shapeOps.transpose(st);
+  const packed = transposed.copy();
+  transposed.dispose();
   const strides: number[] = [];
   let step = 1;
   for (const dim of st.shape) {
     strides.push(step);
     step *= dim;
   }
-  return fromStorage(
+  const result = fromStorage(
     ArrayStorage.fromDataShared(
       packed.data,
       [...st.shape],
@@ -649,6 +651,9 @@ export function asfortranarray(a: NDArrayCore | unknown, dtype?: DType): NDArray
       packed.wasmRegion,
     ),
   );
+  // The result took its own reference to the region, so this one would only keep it alive past dispose.
+  packed.dispose();
+  return result;
 }
 
 function atLeast1d(arr: NDArrayCore): NDArrayCore {

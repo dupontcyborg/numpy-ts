@@ -80,12 +80,14 @@ export function fromStorageView(storage: ArrayStorage, original: NDArrayCore): N
 export function fromStorageReshaped(storage: ArrayStorage, original: NDArrayCore): NDArrayCore {
   const source = toStorage(original);
   if (storage.data === source.data) return fromStorageView(storage, original);
-  const copied = new ArrayStorage(
+  // The hidden base shares the copy's region, so it must hold its own reference: disposing either
+  // one must not free memory the other still reads.
+  const copied = ArrayStorage.fromDataShared(
     storage.data,
-    source.shape,
+    [...source.shape],
+    storage.dtype,
     computeStrides(source.shape),
     storage.offset,
-    storage.dtype,
     storage.wasmRegion,
   );
   return NDArrayCore.fromStorage(storage, NDArrayCore.fromStorage(copied));

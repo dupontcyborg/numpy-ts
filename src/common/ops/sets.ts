@@ -2,7 +2,14 @@
  * Set operations
  */
 
-import { type DType, isComplexDType, isFloatDType, promoteDTypes, type TypedArray } from '../dtype';
+import {
+  type DType,
+  isComplexDType,
+  isFloatDType,
+  isIntegerDType,
+  promoteDTypes,
+  type TypedArray,
+} from '../dtype';
 import { widenToF64 } from '../internal/dtype-loops';
 import { ArrayStorage } from '../storage';
 import { castStorage, concatenate, ravel } from './shape';
@@ -765,6 +772,21 @@ function exactMembership(a1: ArrayStorage, a2: ArrayStorage): Uint8Array {
   return out;
 }
 
+/**
+ * Exact membership for integer inputs whose common dtype is float64, which happens when uint64
+ * meets a signed integer. Float64 cannot hold every value of either side, and NumPy compares
+ * these exactly, so the values are compared as bigints instead.
+ */
+function bigintMembership(a1: ArrayStorage, a2: ArrayStorage): Uint8Array {
+  const d1 = a1.data;
+  const d2 = a2.data;
+  const seen = new Set<bigint>();
+  for (let i = 0; i < a2.size; i++) seen.add(BigInt(d2[a2.offset + i]!));
+  const out = new Uint8Array(a1.size);
+  for (let i = 0; i < a1.size; i++) if (seen.has(BigInt(d1[a1.offset + i]!))) out[i] = 1;
+  return out;
+}
+
 /** Whether each element of the flat a1 occurs in the flat a2, following NumPy's method choice. */
 function membership(
   a1: ArrayStorage,
@@ -773,10 +795,16 @@ function membership(
   invert: boolean,
 ): Uint8Array {
   const dtype = promoteDTypes(a1.dtype, a2.dtype);
+  const sortMethod = assumeUnique && usesSortMethod(a1, a2);
+  if (!sortMethod && dtype === 'float64' && isIntegerDType(a1.dtype) && isIntegerDType(a2.dtype)) {
+    const found = bigintMembership(a1, a2);
+    if (invert) for (let i = 0; i < found.length; i++) found[i] = found[i]! ^ 1;
+    return found;
+  }
   const c1 = castStorage(a1, dtype);
   const c2 = castStorage(a2, dtype);
   let found: Uint8Array;
-  if (assumeUnique && usesSortMethod(a1, a2)) {
+  if (sortMethod) {
     const joined = concatenate([c1, c2], 0);
     const order = stableOrder(joined);
     const eq = positionEquals(joined);
