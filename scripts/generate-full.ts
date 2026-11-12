@@ -281,7 +281,8 @@ export function intersect1d(
       name,
       (jsDoc: string) => `${jsDoc}
 export function ${name}(a: NDArrayCore): NDArray;
-export function ${name}(...arrays: NDArrayCore[]): NDArray[];
+export function ${name}(a: NDArrayCore, b: NDArrayCore, ...rest: NDArrayCore[]): NDArray[];
+export function ${name}(...arrays: NDArrayCore[]): NDArray | NDArray[];
 export function ${name}(...arrays: NDArrayCore[]): NDArray | NDArray[] {
   const r = core.${name}(...arrays);
   return Array.isArray(r) ? r.map(up) : up(r);
@@ -1580,7 +1581,7 @@ import type {
   TrueDivide,
 } from '../common/dtype-promotion';
 import { Complex } from '../common/complex';
-import { ArrayStorage } from '../common/storage';
+import { ArrayStorage, notAnNDArray } from '../common/storage';
 import { NDArrayCore } from '../common/ndarray-core';
 import * as core from '${coreImportPath}';
 

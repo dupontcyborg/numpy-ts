@@ -254,7 +254,8 @@ export function resize(a: NDArrayCore, new_shape: readonly number[]): NDArrayCor
 
 /** Ensure array has at least 1 dimension; one argument returns an array, several return a list */
 export function atleast_1d(a: NDArrayCore): NDArrayCore;
-export function atleast_1d(...arrays: NDArrayCore[]): NDArrayCore[];
+export function atleast_1d(a: NDArrayCore, b: NDArrayCore, ...rest: NDArrayCore[]): NDArrayCore[];
+export function atleast_1d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[];
 export function atleast_1d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[] {
   const result = shapeOps
     .atleast1d(arrays.map((a) => toStorage(a)))
@@ -264,7 +265,8 @@ export function atleast_1d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[
 
 /** Ensure array has at least 2 dimensions; one argument returns an array, several return a list */
 export function atleast_2d(a: NDArrayCore): NDArrayCore;
-export function atleast_2d(...arrays: NDArrayCore[]): NDArrayCore[];
+export function atleast_2d(a: NDArrayCore, b: NDArrayCore, ...rest: NDArrayCore[]): NDArrayCore[];
+export function atleast_2d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[];
 export function atleast_2d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[] {
   const result = shapeOps
     .atleast2d(arrays.map((a) => toStorage(a)))
@@ -274,7 +276,8 @@ export function atleast_2d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[
 
 /** Ensure array has at least 3 dimensions; one argument returns an array, several return a list */
 export function atleast_3d(a: NDArrayCore): NDArrayCore;
-export function atleast_3d(...arrays: NDArrayCore[]): NDArrayCore[];
+export function atleast_3d(a: NDArrayCore, b: NDArrayCore, ...rest: NDArrayCore[]): NDArrayCore[];
+export function atleast_3d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[];
 export function atleast_3d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[] {
   const result = shapeOps
     .atleast3d(arrays.map((a) => toStorage(a)))

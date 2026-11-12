@@ -20,7 +20,7 @@ import { widenGatherToF64, widenToF64 } from '../internal/dtype-loops';
 import { expandEllipsis, precomputeAxisOffsets } from '../internal/indexing';
 import { buildOffsets, stepStore, stridedCopyInto } from '../internal/strided-copy';
 import { parseSlice } from '../slicing';
-import { ArrayStorage, computeStrides } from '../storage';
+import { ArrayStorage, assertValidShape, computeStrides } from '../storage';
 import { wasmTakeAlongAxis2D } from '../wasm/gather';
 import { wasmIndices } from '../wasm/indices';
 import { wasmUnravelIndex } from '../wasm/unravel_index';
@@ -31,6 +31,7 @@ import { slice as storageSlice, transpose as storageTranspose } from './shape';
  * Returns a read-only view on the original array
  */
 export function broadcast_to(storage: ArrayStorage, targetShape: readonly number[]): ArrayStorage {
+  assertValidShape(targetShape);
   const shape = storage.shape;
   const ndim = shape.length;
   const targetNdim = targetShape.length;

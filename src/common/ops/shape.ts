@@ -18,7 +18,7 @@ import {
 import { expandEllipsis } from '../internal/indexing';
 import { stridedScatterFrom } from '../internal/strided-copy';
 import { normalizeSlice, parseSlice } from '../slicing';
-import { ArrayStorage, computeStrides, memoryOrder } from '../storage';
+import { ArrayStorage, assertValidShape, computeStrides, memoryOrder } from '../storage';
 import { wasmRepeat } from '../wasm/repeat';
 import { wasmRoll } from '../wasm/roll';
 import { wasmTile2D } from '../wasm/tile';
@@ -185,6 +185,7 @@ function attemptNoCopyReshape(
  * Returns a view when the layout allows it, otherwise copies data
  */
 export function reshape(storage: ArrayStorage, newShape: readonly number[]): ArrayStorage {
+  assertValidShape(newShape, true);
   const size = storage.size;
   const dtype = storage.dtype;
 

@@ -2578,7 +2578,8 @@ export function resize<D extends DType>(
 
 /** Ensure array has at least 1 dimension; one argument returns an array, several return a list */
 export function atleast_1d(a: NDArrayCore): NDArray;
-export function atleast_1d(...arrays: NDArrayCore[]): NDArray[];
+export function atleast_1d(a: NDArrayCore, b: NDArrayCore, ...rest: NDArrayCore[]): NDArray[];
+export function atleast_1d(...arrays: NDArrayCore[]): NDArray | NDArray[];
 export function atleast_1d(...arrays: NDArrayCore[]): NDArray | NDArray[] {
   const r = core.atleast_1d(...arrays);
   return Array.isArray(r) ? r.map(up) : up(r);
@@ -2586,7 +2587,8 @@ export function atleast_1d(...arrays: NDArrayCore[]): NDArray | NDArray[] {
 
 /** Ensure array has at least 2 dimensions; one argument returns an array, several return a list */
 export function atleast_2d(a: NDArrayCore): NDArray;
-export function atleast_2d(...arrays: NDArrayCore[]): NDArray[];
+export function atleast_2d(a: NDArrayCore, b: NDArrayCore, ...rest: NDArrayCore[]): NDArray[];
+export function atleast_2d(...arrays: NDArrayCore[]): NDArray | NDArray[];
 export function atleast_2d(...arrays: NDArrayCore[]): NDArray | NDArray[] {
   const r = core.atleast_2d(...arrays);
   return Array.isArray(r) ? r.map(up) : up(r);
@@ -2594,7 +2596,8 @@ export function atleast_2d(...arrays: NDArrayCore[]): NDArray | NDArray[] {
 
 /** Ensure array has at least 3 dimensions; one argument returns an array, several return a list */
 export function atleast_3d(a: NDArrayCore): NDArray;
-export function atleast_3d(...arrays: NDArrayCore[]): NDArray[];
+export function atleast_3d(a: NDArrayCore, b: NDArrayCore, ...rest: NDArrayCore[]): NDArray[];
+export function atleast_3d(...arrays: NDArrayCore[]): NDArray | NDArray[];
 export function atleast_3d(...arrays: NDArrayCore[]): NDArray | NDArray[] {
   const r = core.atleast_3d(...arrays);
   return Array.isArray(r) ? r.map(up) : up(r);
