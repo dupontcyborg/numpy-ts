@@ -9,12 +9,12 @@ noindex: true
 Return elements chosen from `x` or `y` depending on a condition. When called with only a condition, returns the indices of non-zero elements (equivalent to `nonzero`).
 
 ```typescript
-function where(condition: ArrayLike, x?: ArrayLike, y?: ArrayLike): NDArray | NDArray[]
+function where(condition: NDArray, x?: ArrayLike, y?: ArrayLike): NDArray | NDArray[]
 ```
 
 |Name|Type|Default|Description|
 |-|-|-|-|
-|`condition`|`ArrayLike`|--|Boolean or numeric array. Where `true` (non-zero), yield `x`; otherwise yield `y`.|
+|`condition`|`NDArray`|--|Boolean or numeric array. Where `true` (non-zero), yield `x`; otherwise yield `y`.|
 |`x`|`ArrayLike`|`undefined`|Values where condition is `true`. Scalars and array-likes accepted. Required if `y` is provided.|
 |`y`|`ArrayLike`|`undefined`|Values where condition is `false`. Scalars and array-likes accepted. Required if `x` is provided.|
 
@@ -48,12 +48,12 @@ const indices = np.where(np.array([0, 1, 0, 1, 1]));
 Return the indices of non-zero elements. For an N-dimensional array, returns a tuple of N arrays, one for each dimension.
 
 ```typescript
-function nonzero(a: ArrayLike): NDArray[]
+function nonzero(a: NDArray): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 
 **Returns:** `NDArray[]` -- Tuple of arrays, one per dimension, containing the indices of non-zero elements.
 
@@ -78,12 +78,12 @@ const [rows, cols] = np.nonzero(b);
 Find the indices of non-zero elements, returned as a 2D array where each row is the index tuple of a non-zero element.
 
 ```typescript
-function argwhere(a: ArrayLike): NDArray
+function argwhere(a: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 
 **Returns:** `NDArray` -- 2D array of shape `(N, a.ndim)` where `N` is the number of non-zero elements. Each row is the multi-dimensional index of a non-zero element.
 
@@ -103,12 +103,12 @@ const result = np.argwhere(a);
 Return indices of non-zero elements in the flattened version of the array.
 
 ```typescript
-function flatnonzero(a: ArrayLike): NDArray
+function flatnonzero(a: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 
 **Returns:** `NDArray` -- 1D array of indices into the flattened array where elements are non-zero.
 
@@ -128,13 +128,13 @@ const result = np.flatnonzero(a);
 Find indices where elements should be inserted to maintain sorted order. The input array `a` must be sorted in ascending order.
 
 ```typescript
-function searchsorted(a: ArrayLike, v: ArrayLike, side?: 'left' | 'right'): NDArray
+function searchsorted(a: NDArray, v: NDArray, side?: 'left' | 'right'): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Sorted 1D input array. |
-| `v` | `ArrayLike` | -- | Values to insert. |
+| `a` | `NDArray` | -- | Sorted 1D input array. |
+| `v` | `NDArray` | -- | Values to insert. |
 | `side` | `'left' \| 'right'` | `'left'` | If `'left'`, the index of the first suitable location is returned. If `'right'`, the last suitable location is returned. |
 
 **Returns:** `NDArray` -- Indices of insertion points.
@@ -144,13 +144,13 @@ import * as np from 'numpy-ts';
 
 const a = np.array([1, 2, 3, 4, 5]);
 
-np.searchsorted(a, 3);
-// 2 (insert before index 2 to keep sorted)
+np.searchsorted(a, np.array([3]));
+// array([2]) (insert before index 2 to keep sorted)
 
-np.searchsorted(a, 3, 'right');
-// 3 (insert after existing 3)
+np.searchsorted(a, np.array([3]), 'right');
+// array([3]) (insert after existing 3)
 
-np.searchsorted(a, [0, 3, 6]);
+np.searchsorted(a, np.array([0, 3, 6]));
 // array([0, 2, 5])
 ```
 
@@ -161,13 +161,13 @@ np.searchsorted(a, [0, 3, 6]);
 Return elements of an array where a condition is `true`. Equivalent to `a[condition]` on the flattened array.
 
 ```typescript
-function extract(condition: ArrayLike, a: ArrayLike): NDArray
+function extract(condition: NDArray, a: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `condition` | `ArrayLike` | -- | Boolean array. Must be broadcastable to the shape of `a`. |
-| `a` | `ArrayLike` | -- | Input array. |
+| `condition` | `NDArray` | -- | Boolean array. Must be broadcastable to the shape of `a`. |
+| `a` | `NDArray` | -- | Input array. |
 
 **Returns:** `NDArray` -- 1D array of elements from `a` where `condition` is `true`.
 
@@ -188,12 +188,12 @@ const result = np.extract(condition, a);
 Count the number of non-zero elements in the array.
 
 ```typescript
-function count_nonzero(a: ArrayLike, axis?: number | number[]): number | NDArray
+function count_nonzero(a: NDArray, axis?: number | number[]): number | NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis along which to count. If `undefined`, counts over the entire array. |
 
 **Returns:** `number` when no axis is specified. `NDArray` when counting along specific axes.

@@ -233,19 +233,19 @@ Generate a random sample from a given 1-D array or from `range(a)` when `a` is a
 
 ```typescript
 function choice(
-  a: number | ArrayLike,
+  a: number | NDArray,
   size?: number | number[],
   replace?: boolean,
-  p?: ArrayLike
+  p?: NDArray
 ): NDArray | number
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `number \| ArrayLike` | -- | If `number`, sample from `0..a-1`; otherwise sample from the provided values. |
+| `a` | `number \| NDArray` | -- | If `number`, sample from `0..a-1`; otherwise sample from the provided values. |
 | `size` | `number \| number[]` | `undefined` | Output shape. |
 | `replace` | `boolean` | `true` | Whether sampling is with replacement. |
-| `p` | `ArrayLike` | `undefined` | Optional probabilities for each entry in `a`. |
+| `p` | `NDArray` | `undefined` | Optional probabilities for each entry in `a`. |
 
 ---
 
@@ -254,12 +254,12 @@ function choice(
 Randomly permute a sequence or return a permuted range.
 
 ```typescript
-function permutation(x: number | ArrayLike): NDArray
+function permutation(x: number | NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `number \| ArrayLike` | -- | If `number`, permute `0..x-1`; otherwise permute the input values. |
+| `x` | `number \| NDArray` | -- | If `number`, permute `0..x-1`; otherwise permute the input values. |
 
 ---
 
@@ -268,9 +268,9 @@ function permutation(x: number | ArrayLike): NDArray
 Shuffle an array in place along the first axis.
 
 ```typescript
-function shuffle(x: ArrayLike): void
+function shuffle(x: NDArray): void
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | -- | Array to shuffle in place. |
+| `x` | `NDArray` | -- | Array to shuffle in place. |

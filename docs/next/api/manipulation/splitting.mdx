@@ -10,7 +10,7 @@ Split an array into multiple equal-length sub-arrays along an axis. When `indice
 
 ```typescript
 function split(
-  a: ArrayLike,
+  a: NDArray,
   indicesOrSections: number | number[],
   axis?: number
 ): NDArray[]
@@ -18,7 +18,7 @@ function split(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `indicesOrSections` | `number \| number[]` | -- | If an integer N, split into N equal parts. If an array of indices, split at those positions. |
 | `axis` | `number` | `0` | Axis along which to split. |
 
@@ -50,7 +50,7 @@ Split an array into multiple sub-arrays. Unlike `split`, `array_split` allows sp
 
 ```typescript
 function array_split(
-  a: ArrayLike,
+  a: NDArray,
   indicesOrSections: number | number[],
   axis?: number
 ): NDArray[]
@@ -58,7 +58,7 @@ function array_split(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `indicesOrSections` | `number \| number[]` | -- | If an integer N, split into N parts (first `size % N` sections get one extra element). If an array of indices, split at those positions. |
 | `axis` | `number` | `0` | Axis along which to split. |
 
@@ -84,14 +84,14 @@ Split an array horizontally (column-wise). For 1-D arrays, splits along axis 0. 
 
 ```typescript
 function hsplit(
-  a: ArrayLike,
+  a: NDArray,
   indicesOrSections: number | number[]
 ): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array with at least 1 dimension. |
+| `a` | `NDArray` | -- | Input array with at least 1 dimension. |
 | `indicesOrSections` | `number \| number[]` | -- | Number of equal splits or array of split indices. |
 
 **Returns:** `NDArray[]` -- List of sub-arrays.
@@ -121,14 +121,14 @@ Split an array vertically (row-wise) along axis 0. The input must have at least 
 
 ```typescript
 function vsplit(
-  a: ArrayLike,
+  a: NDArray,
   indicesOrSections: number | number[]
 ): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array with at least 2 dimensions. |
+| `a` | `NDArray` | -- | Input array with at least 2 dimensions. |
 | `indicesOrSections` | `number \| number[]` | -- | Number of equal splits or array of split indices. |
 
 **Returns:** `NDArray[]` -- List of sub-arrays.
@@ -158,14 +158,14 @@ Split an array depth-wise (along the third axis). The input must have at least 3
 
 ```typescript
 function dsplit(
-  ary: ArrayLike,
+  ary: NDArray,
   indices_or_sections: number | number[]
 ): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `ary` | `ArrayLike` | -- | Input array with at least 3 dimensions. |
+| `ary` | `NDArray` | -- | Input array with at least 3 dimensions. |
 | `indices_or_sections` | `number \| number[]` | -- | Number of equal splits or array of split indices. |
 
 **Returns:** `NDArray[]` -- List of sub-arrays.
@@ -188,12 +188,12 @@ console.log(back.shape);   // [2, 3, 2]
 Unstack an array along an axis, producing a list of arrays each with one fewer dimension. This is the inverse of `stack`.
 
 ```typescript
-function unstack(a: ArrayLike, axis?: number): NDArray[]
+function unstack(a: NDArray, axis?: number): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number` | `0` | Axis along which to unstack. |
 
 **Returns:** `NDArray[]` -- List of sub-arrays with the specified axis removed.

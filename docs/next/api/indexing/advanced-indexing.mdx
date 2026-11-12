@@ -33,25 +33,25 @@ const m = np.array([
   [4, 5, 6],
   [7, 8, 9],
 ]);
-m.vindex([0, 1, 2, 2], [0, 0, 1, 2]);
+np.vindex(m, [0, 1, 2, 2], [0, 0, 1, 2]);
 // [1, 4, 8, 9]
 
 const ind = np.array([[0, 1], [1, 2]]);
-m.vindex(ind);
-// Equivalent to m.vindex(ind, ':')
+np.vindex(m, ind);
+// Equivalent to np.vindex(m, ind, ':')
 // [[[1, 2, 3],
 //   [4, 5, 6]],
 //  [[4, 5, 6],
 //   [7, 8, 9]]]
 
-m.vindex(ind, ind);
+np.vindex(m, ind, ind);
 // [[1, 5],
 //  [5, 9]]
 
-m.vindex('1:2', ind);
-// [[[4], [5]], [[5, 6]]]
-// shape (2, 2, 1)
-// note the first dimension is now the last; NumPy would give shape (1, 2, 2)
+np.vindex(m, '1:2', ind);
+// [[[4, 5],
+//   [5, 6]]]
+// shape (1, 2, 2), matching NumPy
 ```
 
 Normally `vindex` is called with `NDArray` or `number[]` objects, but you can also freely mix in any of the arguments `slice` accepts. The order of dimensions in the result matches [NumPy's behaviour](https://numpy.org/doc/stable/user/basics.indexing.html#combining-advanced-and-basic-indexing): if the advanced indices are contiguous, they replace in place; otherwise they are transposed to be the first dimensions.
@@ -64,18 +64,18 @@ Take elements from an array along an axis. The output preserves the shape of `in
 
 ```typescript
 function take(
-  a: ArrayLike,
+  a: NDArray,
   indices: ArrayLike,
   axis?: number
 ): NDArray
 
-type ArrayLike = NDArrayCore | number | bigint | number[] | number[][] | number[][][];
+type NDArray = NDArrayCore | number | bigint | number[] | number[][] | number[][][];
 ```
 
 |-|-|-|-|
 | Name | Type | Default | Description |
 |-|-|-|-|
-| `a` | `ArrayLike` | -- | Source array. |
+| `a` | `NDArray` | -- | Source array. |
 | `indices` | `ArrayLike` | -- | Indices of the values to extract. Accepts NDArrays of any rank, nested `number[]`/`number[][]`/`number[][][]`, or a scalar. |
 | `axis` | `number` | `undefined` | Axis along which to select values. When `undefined`, the input array is flattened before indexing. |
 
@@ -144,13 +144,13 @@ np.put(a, [1, 3], [10, 20]);
 Construct an array from an index array and a list of arrays to choose from.
 
 ```typescript
-function choose(a: ArrayLike, choices: ArrayLike[]): NDArray
+function choose(a: NDArray, choices: NDArray[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Index array. Each value selects which array in `choices` to take the corresponding element from. |
-| `choices` | `ArrayLike[]` | -- | List of arrays to choose from. All must be broadcastable to the same shape. |
+| `a` | `NDArray` | -- | Index array. Each value selects which array in `choices` to take the corresponding element from. |
+| `choices` | `NDArray[]` | -- | List of arrays to choose from. All must be broadcastable to the same shape. |
 
 **Returns:** `NDArray` -- Array formed by picking elements from `choices` according to `a`.
 
@@ -175,13 +175,13 @@ np.choose(idx, choices);
 Return selected slices of an array along a given axis.
 
 ```typescript
-function compress(condition: ArrayLike, a: ArrayLike, axis?: number): NDArray
+function compress(condition: NDArray, a: NDArray, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `condition` | `ArrayLike` | -- | Boolean array selecting which entries to keep. Its length must match the size of `a` along the given axis. |
-| `a` | `ArrayLike` | -- | Array from which to extract. |
+| `condition` | `NDArray` | -- | Boolean array selecting which entries to keep. Its length must match the size of `a` along the given axis. |
+| `a` | `NDArray` | -- | Array from which to extract. |
 | `axis` | `number` | `undefined` | Axis along which to operate. When `undefined`, the array is flattened first. |
 
 **Returns:** `NDArray` -- Array containing only the slices of `a` where `condition` is true.
@@ -191,11 +191,11 @@ import * as np from 'numpy-ts';
 
 const a = np.array([[1, 2], [3, 4], [5, 6]]);
 
-np.compress([true, false, true], a, 0);
+np.compress(np.array([true, false, true]), a, 0);
 // array([[1, 2],
 //        [5, 6]])
 
-np.compress([true, false], a, 1);
+np.compress(np.array([true, false]), a, 1);
 // array([[1],
 //        [3],
 //        [5]])
@@ -306,13 +306,13 @@ np.putmask(a, np.array([true, false, true, false, true]), [10, 20, 30]);
 Take values from an array by matching indices along an axis.
 
 ```typescript
-function take_along_axis(arr: ArrayLike, indices: ArrayLike, axis: number): NDArray
+function take_along_axis(arr: NDArray, indices: NDArray, axis: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `arr` | `ArrayLike` | -- | Source array. |
-| `indices` | `ArrayLike` | -- | Indices to take along each slice of `arr`. Must have the same number of dimensions as `arr`. |
+| `arr` | `NDArray` | -- | Source array. |
+| `indices` | `NDArray` | -- | Indices to take along each slice of `arr`. Must have the same number of dimensions as `arr`. |
 | `axis` | `number` | -- | The axis to take along. |
 
 **Returns:** `NDArray` -- Array of values gathered from `arr` at the given indices along `axis`.
@@ -337,8 +337,8 @@ Put values into an array by matching indices along an axis.
 ```typescript
 function put_along_axis(
   arr: NDArray,
-  indices: ArrayLike,
-  values: ArrayLike,
+  indices: NDArray,
+  values: NDArray,
   axis: number
 ): void
 ```
@@ -346,8 +346,8 @@ function put_along_axis(
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `arr` | `NDArray` | -- | Destination array. Modified in-place. |
-| `indices` | `ArrayLike` | -- | Indices along `axis` where values are placed. |
-| `values` | `ArrayLike` | -- | Values to insert. Must be broadcastable to `indices`. |
+| `indices` | `NDArray` | -- | Indices along `axis` where values are placed. |
+| `values` | `NDArray` | -- | Values to insert. Must be broadcastable to `indices`. |
 | `axis` | `number` | -- | The axis along which to put values. |
 
 **Returns:** `void` -- The array `arr` is modified in-place.
@@ -369,13 +369,13 @@ np.put_along_axis(a, idx, 99, 1);
 Copy values from one array to another.
 
 ```typescript
-function copyto(dst: NDArray, src: ArrayLike | number | bigint): void
+function copyto(dst: NDArray, src: NDArray | number | bigint): void
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `dst` | `NDArray` | -- | Destination array. Modified in-place. |
-| `src` | `ArrayLike \| number \| bigint` | -- | Source array or scalar. Must be broadcastable to `dst`. |
+| `src` | `NDArray \| number \| bigint` | -- | Source array or scalar. Must be broadcastable to `dst`. |
 
 **Returns:** `void` -- The array `dst` is modified in-place.
 
@@ -394,12 +394,12 @@ np.copyto(dst, np.array([1, 2, 3]));
 Broadcast an array to a new shape without copying data.
 
 ```typescript
-function broadcast_to(a: ArrayLike, shape: number[]): NDArray
+function broadcast_to(a: NDArray, shape: number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | The array to broadcast. |
+| `a` | `NDArray` | -- | The array to broadcast. |
 | `shape` | `number[]` | -- | Target shape. Must be compatible with the input shape under NumPy broadcasting rules. |
 
 **Returns:** `NDArray` -- A read-only view of the original array with the given shape.
@@ -421,12 +421,12 @@ const b = np.broadcast_to(a, [3, 3]);
 Broadcast any number of arrays against each other.
 
 ```typescript
-function broadcast_arrays(...arrays: ArrayLike[]): NDArray[]
+function broadcast_arrays(...arrays: NDArray[]): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `...arrays` | `ArrayLike[]` | -- | Arrays to broadcast. |
+| `...arrays` | `NDArray[]` | -- | Arrays to broadcast. |
 
 **Returns:** `NDArray[]` -- List of arrays with the same shape, broadcast from the inputs.
 

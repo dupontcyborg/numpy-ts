@@ -132,26 +132,26 @@ Compute the bin edges for a histogram without computing the histogram itself. Us
 
 ```typescript
 function histogram_bin_edges(
-  a: ArrayLike,
+  a: NDArray,
   bins?: number | BinStrategyString,
   range?: [number, number],
-  weights?: ArrayLike
+  weights?: NDArray
 ): NDArray;
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input data. |
+| `a` | `NDArray` | -- | Input data. |
 | `bins` | `number \| string` | `10` | Number of bins, or a string naming a binning strategy (e.g., `'auto'`, `'sturges'`, `'sqrt'`). |
 | `range` | `[number, number]` | `undefined` | Lower and upper range of the bins. |
-| `weights` | `ArrayLike` | `undefined` | Optional sample weights used for automatic bin edge selection. |
+| `weights` | `NDArray` | `undefined` | Optional sample weights used for automatic bin edge selection. |
 
 **Returns:** `NDArray` of bin edges with length `nbins + 1`.
 
 ```typescript
-import { histogram_bin_edges } from 'numpy-ts';
+import { array, histogram_bin_edges } from 'numpy-ts';
 
-const edges = histogram_bin_edges([1, 2, 3, 4, 5], 5);
+const edges = histogram_bin_edges(array([1, 2, 3, 4, 5]), 5);
 // array([1, 1.8, 2.6, 3.4, 4.2, 5])
 ```
 
@@ -223,25 +223,25 @@ Cross-correlation of two 1-dimensional sequences.
 
 ```typescript
 function correlate(
-  a: ArrayLike,
-  v: ArrayLike,
+  a: NDArray,
+  v: NDArray,
   mode?: 'valid' | 'same' | 'full'
 ): NDArray;
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | First input sequence. |
-| `v` | `ArrayLike` | -- | Second input sequence. |
+| `a` | `NDArray` | -- | First input sequence. |
+| `v` | `NDArray` | -- | Second input sequence. |
 | `mode` | `'valid' \| 'same' \| 'full'` | `'valid'` | `'valid'`: only where the sequences fully overlap. `'same'`: output length equals the longer input. `'full'`: full cross-correlation. |
 
 **Returns:** `NDArray` containing the cross-correlation result.
 
 ```typescript
-import { correlate } from 'numpy-ts';
+import { array, correlate } from 'numpy-ts';
 
-correlate([1, 2, 3], [0, 1, 0.5]);           // array([3.5])  (valid)
-correlate([1, 2, 3], [0, 1, 0.5], 'full');   // array([0.5, 2, 3.5, 3, 0])
+correlate(array([1, 2, 3]), array([0, 1, 0.5]));           // array([3.5])  (valid)
+correlate(array([1, 2, 3]), array([0, 1, 0.5]), 'full');   // array([0.5, 2, 3.5, 3, 0])
 ```
 
 ---
@@ -252,25 +252,25 @@ Discrete, linear convolution of two 1-dimensional sequences.
 
 ```typescript
 function convolve(
-  a: ArrayLike,
-  v: ArrayLike,
+  a: NDArray,
+  v: NDArray,
   mode?: 'valid' | 'same' | 'full'
 ): NDArray;
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | First input sequence. |
-| `v` | `ArrayLike` | -- | Second input sequence. |
+| `a` | `NDArray` | -- | First input sequence. |
+| `v` | `NDArray` | -- | Second input sequence. |
 | `mode` | `'valid' \| 'same' \| 'full'` | `'full'` | `'valid'`: only where the sequences fully overlap. `'same'`: output length equals the longer input. `'full'`: full convolution. |
 
 **Returns:** `NDArray` containing the convolution result.
 
 ```typescript
-import { convolve } from 'numpy-ts';
+import { array, convolve } from 'numpy-ts';
 
-convolve([1, 2, 3], [0, 1, 0.5]);           // array([0, 1, 2.5, 4, 1.5])  (full)
-convolve([1, 2, 3], [0, 1, 0.5], 'same');   // array([1, 2.5, 4])
+convolve(array([1, 2, 3]), array([0, 1, 0.5]));           // array([0, 1, 2.5, 4, 1.5])  (full)
+convolve(array([1, 2, 3]), array([0, 1, 0.5]), 'same');   // array([1, 2.5, 4])
 ```
 
 ---
@@ -281,8 +281,8 @@ Estimate a covariance matrix.
 
 ```typescript
 function cov(
-  m: ArrayLike,
-  y?: ArrayLike,
+  m: NDArray,
+  y?: NDArray,
   rowvar?: boolean,
   bias?: boolean,
   ddof?: number
@@ -291,8 +291,8 @@ function cov(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `m` | `ArrayLike` | -- | A 1-D or 2-D array of variables and observations. Each row represents a variable; each column an observation (when `rowvar=true`). |
-| `y` | `ArrayLike` | `undefined` | Additional set of variables and observations. Same form as `m`. |
+| `m` | `NDArray` | -- | A 1-D or 2-D array of variables and observations. Each row represents a variable; each column an observation (when `rowvar=true`). |
+| `y` | `NDArray` | `undefined` | Additional set of variables and observations. Same form as `m`. |
 | `rowvar` | `boolean` | `true` | If `true`, each row is a variable. If `false`, each column is a variable. |
 | `bias` | `boolean` | `false` | If `false`, normalize by `N - 1` (unbiased). If `true`, normalize by `N`. |
 | `ddof` | `number` | `undefined` | Override the default degrees of freedom. If provided, `bias` is ignored and the normalization factor is `N - ddof`. |
@@ -319,16 +319,16 @@ Return Pearson correlation coefficients.
 
 ```typescript
 function corrcoef(
-  x: ArrayLike,
-  y?: ArrayLike,
+  x: NDArray,
+  y?: NDArray,
   rowvar?: boolean
 ): NDArray;
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `x` | `ArrayLike` | -- | A 1-D or 2-D array of variables and observations. |
-| `y` | `ArrayLike` | `undefined` | Additional set of variables and observations. |
+| `x` | `NDArray` | -- | A 1-D or 2-D array of variables and observations. |
+| `y` | `NDArray` | `undefined` | Additional set of variables and observations. |
 | `rowvar` | `boolean` | `true` | If `true`, each row is a variable. If `false`, each column is a variable. |
 
 **Returns:** `NDArray` -- the correlation coefficient matrix, with values in `[-1, 1]`.
@@ -352,8 +352,8 @@ Integrate along the given axis using the composite trapezoidal rule.
 
 ```typescript
 function trapezoid(
-  y: ArrayLike,
-  x?: ArrayLike,
+  y: NDArray,
+  x?: NDArray,
   dx?: number,
   axis?: number
 ): number | NDArray | Complex;
@@ -361,8 +361,8 @@ function trapezoid(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `y` | `ArrayLike` | -- | Input array of values to integrate. |
-| `x` | `ArrayLike` | `undefined` | Sample points corresponding to `y`. If `undefined`, spacing is assumed uniform with interval `dx`. |
+| `y` | `NDArray` | -- | Input array of values to integrate. |
+| `x` | `NDArray` | `undefined` | Sample points corresponding to `y`. If `undefined`, spacing is assumed uniform with interval `dx`. |
 | `dx` | `number` | `1` | Spacing between sample points when `x` is not provided. |
 | `axis` | `number` | `undefined` | Axis along which to integrate. |
 
