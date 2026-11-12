@@ -318,9 +318,9 @@ Floating-point reductions **preserve the input's float width** rather than alway
 
 ```typescript
 const a = np.array([[1, 2, 3], [4, 5, 6]], 'float32');
-np.mean(a, 0).dtype;   // 'float32'  (was 'float64' before v1.6.0)
-np.std(a, 0).dtype;    // 'float32'
-np.median(a, 0).dtype; // 'float32'
+(np.mean(a, 0) as np.NDArray).dtype;   // 'float32'  (was 'float64' before v1.6.0)
+(np.std(a, 0) as np.NDArray).dtype;    // 'float32'
+(np.median(a, 0) as np.NDArray).dtype; // 'float32'
 ```
 
 <Warning>
