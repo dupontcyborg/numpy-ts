@@ -11,12 +11,12 @@ All hyperbolic functions operate element-wise.
 Compute the hyperbolic sine, element-wise.
 
 ```typescript
-function sinh(x: ArrayLike): NDArray
+function sinh(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise `sinh(x) = (exp(x) - exp(-x)) / 2`.
 
@@ -42,12 +42,12 @@ const a = sinh(array([0, 1, -1]));
 Compute the hyperbolic cosine, element-wise.
 
 ```typescript
-function cosh(x: ArrayLike): NDArray
+function cosh(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise `cosh(x) = (exp(x) + exp(-x)) / 2`.
 
@@ -73,12 +73,12 @@ const a = cosh(array([0, 1, -1]));
 Compute the hyperbolic tangent, element-wise.
 
 ```typescript
-function tanh(x: ArrayLike): NDArray
+function tanh(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise `tanh(x) = sinh(x) / cosh(x)`.
 
@@ -104,12 +104,12 @@ const a = tanh(array([0, 1, -1]));
 Compute the inverse hyperbolic sine, element-wise. Also available as the alias `asinh`.
 
 ```typescript
-function arcsinh(x: ArrayLike): NDArray
+function arcsinh(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise `arcsinh(x) = ln(x + sqrt(x**2 + 1))`.
 
@@ -139,12 +139,12 @@ const a = arcsinh(array([0, 1, -1]));
 Compute the inverse hyperbolic cosine, element-wise. Also available as the alias `acosh`.
 
 ```typescript
-function arccosh(x: ArrayLike): NDArray
+function arccosh(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. All values must be `>= 1`. |
+| `x` | `NDArray` | - | Input array. All values must be `>= 1`. |
 
 **Returns:** `NDArray` -- Element-wise `arccosh(x) = ln(x + sqrt(x**2 - 1))`.
 
@@ -174,12 +174,12 @@ const a = arccosh(array([1, 2, 10]));
 Compute the inverse hyperbolic tangent, element-wise. Also available as the alias `atanh`.
 
 ```typescript
-function arctanh(x: ArrayLike): NDArray
+function arctanh(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. All values must be in the range `(-1, 1)`. |
+| `x` | `NDArray` | - | Input array. All values must be in the range `(-1, 1)`. |
 
 **Returns:** `NDArray` -- Element-wise `arctanh(x) = 0.5 * ln((1+x) / (1-x))`.
 

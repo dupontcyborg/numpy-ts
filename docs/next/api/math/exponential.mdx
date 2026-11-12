@@ -11,12 +11,12 @@ All functions in this section are element-wise unary operations unless noted oth
 Compute the exponential `e**x` for each element.
 
 ```typescript
-function exp(x: ArrayLike): NDArray
+function exp(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array (exponents). |
+| `x` | `NDArray` | - | Input array (exponents). |
 
 **Returns:** `NDArray` -- Element-wise `e**x`.
 
@@ -27,7 +27,7 @@ import * as np from 'numpy-ts';
 const a = np.exp(np.array([0, 1, 2]));
 // array([1, 2.71828..., 7.38906...])
 
-const b = np.exp(np.array([np.log(2)]));
+const b = np.exp(np.array([Math.log(2)]));
 // array([2])
 ```
 
@@ -45,12 +45,12 @@ const a = exp(array([0, 1, 2]));
 Compute `2**x` for each element.
 
 ```typescript
-function exp2(x: ArrayLike): NDArray
+function exp2(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array (exponents). |
+| `x` | `NDArray` | - | Input array (exponents). |
 
 **Returns:** `NDArray` -- Element-wise `2**x`.
 
@@ -76,12 +76,12 @@ const a = exp2(array([0, 1, 2, 3, 8]));
 Compute `exp(x) - 1` for each element. More accurate than `exp(x) - 1` for small values of `x`.
 
 ```typescript
-function expm1(x: ArrayLike): NDArray
+function expm1(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise `e**x - 1`.
 
@@ -108,12 +108,12 @@ const a = expm1(array([1e-10, 0, 1]));
 Natural logarithm, element-wise. The natural log is the inverse of the exponential function: if `y = exp(x)`, then `x = log(y)`.
 
 ```typescript
-function log(x: ArrayLike): NDArray
+function log(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. Values must be positive. |
+| `x` | `NDArray` | - | Input array. Values must be positive. |
 
 **Returns:** `NDArray` -- Element-wise natural logarithm (base e).
 
@@ -139,12 +139,12 @@ const a = log(array([1, Math.E, Math.E ** 2]));
 Base-2 logarithm, element-wise.
 
 ```typescript
-function log2(x: ArrayLike): NDArray
+function log2(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. Values must be positive. |
+| `x` | `NDArray` | - | Input array. Values must be positive. |
 
 **Returns:** `NDArray` -- Element-wise base-2 logarithm.
 
@@ -170,12 +170,12 @@ const a = log2(array([1, 2, 4, 8, 256]));
 Base-10 logarithm, element-wise.
 
 ```typescript
-function log10(x: ArrayLike): NDArray
+function log10(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. Values must be positive. |
+| `x` | `NDArray` | - | Input array. Values must be positive. |
 
 **Returns:** `NDArray` -- Element-wise base-10 logarithm.
 
@@ -201,12 +201,12 @@ const a = log10(array([1, 10, 100, 1000]));
 Natural logarithm of `1 + x`, element-wise. More accurate than `log(1 + x)` for small values of `x`.
 
 ```typescript
-function log1p(x: ArrayLike): NDArray
+function log1p(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. Values must be greater than `-1`. |
+| `x` | `NDArray` | - | Input array. Values must be greater than `-1`. |
 
 **Returns:** `NDArray` -- Element-wise `ln(1 + x)`.
 
@@ -235,13 +235,13 @@ Logarithm of the sum of exponentiations: `log(exp(x1) + exp(x2))`. Useful for co
 This is a **binary** operation.
 
 ```typescript
-function logaddexp(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function logaddexp(x1: NDArray, x2: NDArray | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | First input array. |
-| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+| `x1` | `NDArray` | - | First input array. |
+| `x2` | `NDArray \| number` | - | Second input array or scalar. |
 
 **Returns:** `NDArray` -- Element-wise `log(exp(x1) + exp(x2))`.
 
@@ -273,13 +273,13 @@ Logarithm base 2 of the sum of exponentiations: `log2(2**x1 + 2**x2)`.
 This is a **binary** operation.
 
 ```typescript
-function logaddexp2(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function logaddexp2(x1: NDArray, x2: NDArray | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | First input array. |
-| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+| `x1` | `NDArray` | - | First input array. |
+| `x2` | `NDArray \| number` | - | Second input array or scalar. |
 
 **Returns:** `NDArray` -- Element-wise `log2(2**x1 + 2**x2)`.
 

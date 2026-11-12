@@ -146,30 +146,6 @@ console.log(a.strides); // [4, 1]
 
 ---
 
-### offset
-
-```typescript
-get offset(): number
-```
-
-Offset into the underlying data buffer, in elements. Nonzero for views created by slicing.
-
-| Property | Type | Description |
-|---|---|---|
-| `offset` | `number` | Element offset into `data`. |
-
-```typescript
-const a = np.arange(10);
-const b = a.slice('3:7');
-console.log(b.offset); // 3
-```
-
-<Note>
-The `offset` property is accessed via the internal storage object (`a.storage.offset`). On `NDArrayCore` it is not directly exposed as a top-level property but can be read from the storage.
-</Note>
-
----
-
 ### base
 
 ```typescript
@@ -617,7 +593,7 @@ arr[i] = val  // Set element(s) at index i.
 |---|---|
 | `arr[i]` | 1D: returns scalar at index `i`. ND: returns a view of the slice along axis 0. |
 | `arr[-1]` | Negative indices supported (same as NumPy). |
-| `arr[i][j]` | Chaining works naturally — each slice is itself a bracketed NDArray. |
+| `arr[i][j]` | Chaining works at runtime, but each level is typed as a union, so TypeScript rejects it. Use `arr.get([i, j])` instead. |
 | `arr[i] = val` | Sets element(s) at index `i` (see notes below). |
 
 ```typescript
@@ -632,15 +608,15 @@ v[-1];   // 40
 v[2] = 99;
 v[2];    // 99
 
-// 2D — row slices and chaining
+// 2D — row slices
 const m = array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
 m[0];        // NDArray [1, 2, 3]
-m[0][1];     // 2
-m[-1][2];    // 9
+m.get([0, 1]);   // 2
+m.get([-1, 2]);  // 9
 
-// 3D — deep chaining
+// 3D
 const t = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
-t[1][0][1];  // 6
+t.get([1, 0, 1]);  // 6
 ```
 
 <Tip>

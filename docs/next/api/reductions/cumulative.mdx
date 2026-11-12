@@ -20,14 +20,14 @@ Also exported as `cumulative_sum` for compatibility with the newer NumPy naming 
 
 ```typescript
 function cumsum(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number
 ): NDArray;
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number` | `undefined` | Axis along which to compute the cumulative sum. When `undefined`, the input is flattened before computing. |
 | `dtype` | `DType` | `undefined` | Desired output dtype. If `undefined`, the dtype is inferred from the input. |
 
@@ -57,14 +57,14 @@ Also exported as `cumulative_prod` for compatibility with the newer NumPy naming
 
 ```typescript
 function cumprod(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number
 ): NDArray;
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number` | `undefined` | Axis along which to compute the cumulative product. When `undefined`, the input is flattened before computing. |
 | `dtype` | `DType` | `undefined` | Desired output dtype. If `undefined`, the dtype is inferred from the input. |
 

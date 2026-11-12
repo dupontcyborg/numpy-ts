@@ -9,12 +9,12 @@ noindex: true
 Return a string representation of an array with full control over formatting.
 
 ```typescript
-function array2string(a: ArrayLike, options?: { max_line_width?: number; precision?: number; suppress_small?: boolean; separator?: string; prefix?: string; suffix?: string; threshold?: number; edgeitems?: number; sign?: ' ' | '+' | '-'; floatmode?: 'fixed' | 'unique' | 'maxprec' | 'maxprec_equal'; }): string
+function array2string(a: NDArray, options?: { max_line_width?: number; precision?: number; suppress_small?: boolean; separator?: string; prefix?: string; suffix?: string; threshold?: number; edgeitems?: number; sign?: ' ' | '+' | '-'; floatmode?: 'fixed' | 'unique' | 'maxprec' | 'maxprec_equal'; }): string
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `options` | `{ max_line_width?: number; precision?: number; suppress_small?: boolean; separator?: string; prefix?: string; suffix?: string; threshold?: number; edgeitems?: number; sign?: ' ' \| '+' \| '-'; floatmode?: 'fixed' \| 'unique' \| 'maxprec' \| 'maxprec_equal'; }` | `undefined` | Formatting options. |
 
 **Returns:** `string` -- Formatted string representation of the array.
@@ -25,21 +25,21 @@ import { array, array2string } from 'numpy-ts';
 const a = array([[1.123456, 2.789], [3.14159, 4.0]]);
 
 array2string(a);
-// '[[1.123456, 2.789   ],\n [3.14159 , 4.      ]]'
+// '[[1.123456 2.789   ]\n [3.14159  4.      ]]'
 
-array2string(a, { precision: 2, suppress: true });
-// '[[1.12, 2.79],\n [3.14, 4.  ]]'
+array2string(a, { precision: 2, suppress_small: true });
+// '[[1.12 2.79]\n [3.14 4.  ]]'
 ```
 
 ---
 
 ### array_repr
 
-Return the string representation of an array, including the `array(...)` wrapper, dtype, and shape information. This is what `toString()` uses internally.
+Return the string representation of an array, including the `array(...)` wrapper and a `dtype=` suffix for dtypes other than float64, int64, complex128, and bool.
 
 ```typescript
 function array_repr(
-  a: ArrayLike,
+  a: NDArray,
   max_line_width?: number,
   precision?: number,
   suppress_small?: boolean
@@ -48,12 +48,12 @@ function array_repr(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `max_line_width` | `number` | `75` | Maximum number of characters per line. |
 | `precision` | `number` | `8` | Number of digits of precision for floating-point output. |
 | `suppress_small` | `boolean` | `false` | If `true`, numbers very close to zero are printed as `0.`. |
 
-**Returns:** `string` -- A string like `array([[1, 2], [3, 4]])`.
+**Returns:** `string` -- A string like `array([[1., 2.], [3., 4.]])`.
 
 ```typescript
 import { array, array_repr } from 'numpy-ts';
@@ -61,10 +61,10 @@ import { array, array_repr } from 'numpy-ts';
 const a = array([[1, 2], [3, 4]]);
 
 array_repr(a);
-// 'array([[1, 2],\n       [3, 4]])'
+// 'array([[1., 2.],\n       [3., 4.]])'
 
 array_repr(a, 40, 2);
-// 'array([[1, 2],\n       [3, 4]])'
+// 'array([[1., 2.],\n       [3., 4.]])'
 ```
 
 ---
@@ -75,7 +75,7 @@ Return a string representation of the data in an array, without the `array(...)`
 
 ```typescript
 function array_str(
-  a: ArrayLike,
+  a: NDArray,
   max_line_width?: number,
   precision?: number
 ): string
@@ -83,7 +83,7 @@ function array_str(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `max_line_width` | `number` | `75` | Maximum number of characters per line. |
 | `precision` | `number` | `8` | Floating-point precision. |
 | `suppress_small` | `boolean` | `false` | If `true`, suppress small floating-point values. |
@@ -96,7 +96,7 @@ import { array, array_str } from 'numpy-ts';
 const a = array([1.5, 2.5, 3.5]);
 
 array_str(a);
-// '[1.5, 2.5, 3.5]'
+// '[1.5 2.5 3.5]'
 ```
 
 ---
@@ -278,8 +278,8 @@ import { array, set_printoptions } from 'numpy-ts';
 set_printoptions({ precision: 2, suppress: true });
 
 const a = array([0.000123, 1.23456, 789.0]);
-console.log(a);
-// array([0.  , 1.23, 789. ])
+console.log(a.toString());
+// [  0.     1.23 789.  ]
 
 // Reset to defaults
 set_printoptions({ precision: 8, suppress: false });
@@ -308,10 +308,10 @@ const a = array([1.23456789, 2.3456789]);
 
 const ctx = printoptions({ precision: 2 });
 ctx.enter();
-console.log(a);
-// array([1.23, 2.35])
+console.log(a.toString());
+// [1.23 2.35]
 
 ctx.exit();
-console.log(a);
-// array([1.23456789, 2.3456789 ])
+console.log(a.toString());
+// [1.23456789 2.3456789 ]
 ```

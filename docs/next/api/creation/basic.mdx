@@ -356,12 +356,12 @@ const a = asfortranarray([[1, 2], [3, 4]]);
 Return an array that satisfies requirements. In numpy-ts, requirements like `'C'`, `'F'`, `'A'`, `'W'`, `'O'`, `'E'` are mostly no-ops.
 
 ```typescript
-function require(a: ArrayLike, dtype?: DType, _requirements?: string | string[]): NDArray
+function require(a: NDArray, dtype?: DType, _requirements?: string | string[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | - | Input array. |
+| `a` | `NDArray` | - | Input array. |
 | `dtype` | `DType` | `undefined` | Desired data type. A cast is performed if needed. |
 | `_requirements` | `string \| string[]` | `undefined` | Memory layout requirements (e.g., `['C']`). Mostly no-ops in numpy-ts. |
 
@@ -391,12 +391,12 @@ const b = require(a, 'float32');
 Return a deep copy of an array.
 
 ```typescript
-function copy(a: ArrayLike): NDArray
+function copy(a: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | - | Input array to copy. |
+| `a` | `NDArray` | - | Input array to copy. |
 
 **Returns:** `NDArray` -- A copy of the input array. Modifications to the copy do not affect the original.
 
@@ -424,12 +424,12 @@ const b = copy(a);
 Return an array of zeros with the same shape and dtype as a given array.
 
 ```typescript
-function zeros_like(a: ArrayLike, dtype?: DType): NDArray
+function zeros_like(a: NDArray, dtype?: DType): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | - | Reference array. |
+| `a` | `NDArray` | - | Reference array. |
 | `dtype` | `DType` | `a.dtype` | Override data type. |
 
 **Returns:** `NDArray` -- Array of zeros matching the shape (and optionally dtype) of `a`.
@@ -459,12 +459,12 @@ const b = zeros_like(a);
 Return an array of ones with the same shape and dtype as a given array.
 
 ```typescript
-function ones_like(a: ArrayLike, dtype?: DType): NDArray
+function ones_like(a: NDArray, dtype?: DType): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | - | Reference array. |
+| `a` | `NDArray` | - | Reference array. |
 | `dtype` | `DType` | `a.dtype` | Override data type. |
 
 **Returns:** `NDArray` -- Array of ones matching the shape of `a`.
@@ -494,12 +494,12 @@ const b = ones_like(a);
 Return an uninitialized array with the same shape and dtype as a given array.
 
 ```typescript
-function empty_like(a: ArrayLike, dtype?: DType): NDArray
+function empty_like(a: NDArray, dtype?: DType): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | - | Reference array. |
+| `a` | `NDArray` | - | Reference array. |
 | `dtype` | `DType` | `a.dtype` | Override data type. |
 
 **Returns:** `NDArray` -- Uninitialized array (zero-filled in practice) matching the shape of `a`.
@@ -528,12 +528,12 @@ const b = empty_like(a);
 Return a filled array with the same shape and dtype as a given array.
 
 ```typescript
-function full_like(a: ArrayLike, fill_value: number | bigint | boolean, dtype?: DType): NDArray
+function full_like(a: NDArray, fill_value: number | bigint | boolean, dtype?: DType): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | - | Reference array. |
+| `a` | `NDArray` | - | Reference array. |
 | `fill_value` | `number \| bigint \| boolean` | - | Fill value. |
 | `dtype` | `DType` | `a.dtype` | Override data type. |
 
