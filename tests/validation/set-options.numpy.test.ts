@@ -47,7 +47,7 @@ describe('NumPy Validation: set function options', { timeout: 120_000 }, () => {
             );
             expectSame(
               in1d(a, b, false, invert),
-              runNumPy(`${py}result = np.in1d(a, b, invert=${flag})`),
+              runNumPy(`${py}result = np.isin(np.ravel(a), np.ravel(b), invert=${flag})`),
               `in1d invert=${flag} ${label}`,
             );
           }
@@ -90,7 +90,11 @@ describe('NumPy Validation: set function options', { timeout: 120_000 }, () => {
         (a, b, au) => isin(a, b, au, true),
         'np.isin(a, b, assume_unique=True, invert=True)',
       ],
-      ['in1d', (a, b, au) => in1d(a, b, au), 'np.in1d(a, b, assume_unique=True)'],
+      [
+        'in1d',
+        (a, b, au) => in1d(a, b, au),
+        'np.isin(np.ravel(a), np.ravel(b), assume_unique=True)',
+      ],
       ['setdiff1d', (a, b, au) => setdiff1d(a, b, au), 'np.setdiff1d(a, b, assume_unique=True)'],
       ['setxor1d', (a, b, au) => setxor1d(a, b, au), 'np.setxor1d(a, b, assume_unique=True)'],
       [
