@@ -16,6 +16,8 @@ a[::2, 1:3]
 a[2]            # integer index, reduces dimension
 ```
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const a: NDArray; */}
+
 ```typescript TypeScript (numpy-ts)
 a.slice('0:5')
 a.slice('0:5', ':')

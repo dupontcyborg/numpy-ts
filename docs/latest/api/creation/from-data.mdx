@@ -234,6 +234,8 @@ const b = fromstring('1.5,2.5,3.5', 'float64', -1, ',');
 <Warning>
 **Breaking change in v1.4.0 for `numpy-ts/core` consumers.** `core/meshgrid` previously had no options and effectively used `'ij'` indexing. The new default is `'xy'` (NumPy-compatible). If you relied on the old behavior, pass `{ indexing: 'ij' }` explicitly:
 
+{/* typecheck: skip */}
+
 ```typescript
 meshgrid(x, y, { indexing: 'ij' })
 ```

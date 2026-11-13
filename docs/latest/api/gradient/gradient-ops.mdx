@@ -132,7 +132,7 @@ np.gradient(a, 0.5);
 
 // 2-D gradient returns [dy, dx]
 const mat = np.array([[1, 2, 4], [3, 6, 10]]);
-const [gy, gx] = np.gradient(mat) as NDArray[];
+const [gy, gx] = np.gradient(mat) as np.NDArray[];
 // gy: array([[2, 4, 6], [2, 4, 6]])     -- gradient along axis 0
 // gx: array([[1, 1.5, 2], [3, 3.5, 4]]) -- gradient along axis 1
 

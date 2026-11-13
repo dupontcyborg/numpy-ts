@@ -65,6 +65,8 @@ result.toArray();
 
 To broadcast along the **columns** instead, reshape the vector to a column:
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const matrix: NDArray; */}
+
 ```typescript
 const col = np.array([10, 20]).reshape(2, 1);  // shape [2, 1]
 
