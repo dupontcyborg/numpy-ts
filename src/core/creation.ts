@@ -19,9 +19,9 @@ import {
 import { type DType, NDArrayCore } from '../common/ndarray-core';
 import * as advancedOps from '../common/ops/advanced';
 import * as shapeOps from '../common/ops/shape';
-import { ArrayStorage } from '../common/storage';
+import { ArrayStorage, notAnNDArray } from '../common/storage';
 import { wasmAllFinite } from '../common/wasm/all_finite';
-import { toStorage } from './types';
+import { assertNDArray, toStorage } from './types';
 
 // Re-export types
 export type { DType, TypedArray } from '../common/dtype';
@@ -556,6 +556,7 @@ export function asarray(a: NDArrayCore | unknown, dtype?: DType): NDArrayCore {
  * Return array of zeros with the same shape and dtype as input
  */
 export function zeros_like(a: NDArrayCore, dtype?: DType): NDArrayCore {
+  assertNDArray(a);
   return zeros(Array.from(a.shape), dtype ?? (a.dtype as DType));
 }
 
@@ -563,6 +564,7 @@ export function zeros_like(a: NDArrayCore, dtype?: DType): NDArrayCore {
  * Return array of ones with the same shape and dtype as input
  */
 export function ones_like(a: NDArrayCore, dtype?: DType): NDArrayCore {
+  assertNDArray(a);
   return ones(Array.from(a.shape), dtype ?? (a.dtype as DType));
 }
 
@@ -570,6 +572,7 @@ export function ones_like(a: NDArrayCore, dtype?: DType): NDArrayCore {
  * Return empty array with the same shape and dtype as input
  */
 export function empty_like(a: NDArrayCore, dtype?: DType): NDArrayCore {
+  assertNDArray(a);
   return empty(Array.from(a.shape), dtype ?? (a.dtype as DType));
 }
 
@@ -581,6 +584,7 @@ export function full_like(
   fill_value: number | bigint | boolean,
   dtype?: DType,
 ): NDArrayCore {
+  assertNDArray(a);
   return full(Array.from(a.shape), fill_value, dtype ?? (a.dtype as DType));
 }
 
@@ -588,6 +592,7 @@ export function full_like(
  * Deep copy of array
  */
 export function copy(a: NDArrayCore): NDArrayCore {
+  assertNDArray(a);
   return a.copy();
 }
 
@@ -657,6 +662,7 @@ export function require(
   dtype?: DType,
   _requirements?: string | string[],
 ): NDArrayCore {
+  assertNDArray(a);
   let result = a;
   if (dtype && dtype !== a.dtype) {
     result = result.astype(dtype);
@@ -682,6 +688,7 @@ function flattenCore(a: NDArrayCore): NDArrayCore {
 }
 
 export function diag(v: NDArrayCore, k: number = 0): NDArrayCore {
+  assertNDArray(v);
   const shape = v.shape;
   const data = v.data;
   const dtype = v.dtype as DType;
@@ -757,6 +764,7 @@ export function diag(v: NDArrayCore, k: number = 0): NDArrayCore {
 }
 
 export function diagflat(v: NDArrayCore, k: number = 0): NDArrayCore {
+  assertNDArray(v);
   // Flatten v first, then create diagonal matrix
   const flat = flattenCore(v);
   const result = diag(flat, k);
@@ -806,6 +814,7 @@ export function tri(
 }
 
 export function tril(m: NDArrayCore, k: number = 0): NDArrayCore {
+  assertNDArray(m);
   const shape = m.shape;
   if (shape.length < 2) {
     throw new Error('Input must be at least 2-D');
@@ -845,6 +854,7 @@ export function tril(m: NDArrayCore, k: number = 0): NDArrayCore {
 }
 
 export function triu(m: NDArrayCore, k: number = 0): NDArrayCore {
+  assertNDArray(m);
   const shape = m.shape;
   if (shape.length < 2) {
     throw new Error('Input must be at least 2-D');
@@ -1076,7 +1086,11 @@ export function meshgrid(...args: (NDArrayCore | MeshgridOptions)[]): NDArrayCor
   for (const arg of args) {
     if (arg instanceof NDArrayCore) {
       arrays.push(arg);
-    } else if (arg && typeof arg === 'object') {
+    } else if (Array.isArray(arg) || ArrayBuffer.isView(arg) || typeof arg !== 'object') {
+      // Anything that is not an NDArray would otherwise be read as an options object and dropped.
+      // An undefined options argument is still allowed.
+      if (arg !== undefined) throw notAnNDArray(arg);
+    } else if (arg) {
       if ('indexing' in arg && arg.indexing) indexing = arg.indexing;
       if ('sparse' in arg && arg.sparse !== undefined) sparse = arg.sparse;
       if ('copy' in arg && arg.copy !== undefined) copy = arg.copy;

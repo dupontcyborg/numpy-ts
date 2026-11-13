@@ -30,6 +30,49 @@ import { getSharedMemory, type WasmRegion, wasmMalloc } from './wasm/runtime';
 export const MAX_NDIM = 64;
 
 /**
+ * Rejects a shape whose dimensions are not non-negative integers. A NaN or fractional dimension
+ * otherwise reaches the allocator as a NaN byte length, which exhausts the WASM heap and leaves
+ * the process on the JS fallback for good. View-producing ops never allocate, so they call this
+ * themselves; reshape passes allowInferred to accept a single -1.
+ *
+ * @param shape - Dimensions to check
+ * @param allowInferred - Accept one -1 as an unknown dimension, as reshape does
+ */
+export function assertValidShape(shape: readonly number[], allowInferred = false): void {
+  let inferred = false;
+  for (let i = 0; i < shape.length; i++) {
+    const d = shape[i]!;
+    if (allowInferred && d === -1) {
+      if (inferred) throw new Error('can only specify one unknown dimension');
+      inferred = true;
+      continue;
+    }
+    if (!Number.isInteger(d) || d < 0) {
+      // String() rather than JSON.stringify, which throws on a bigint dimension.
+      throw new TypeError(
+        `Invalid shape: dimensions must be non-negative integers, got [${Array.from(shape, String).join(', ')}]`,
+      );
+    }
+  }
+}
+
+/**
+ * The TypeError thrown when a function that needs an NDArray receives anything else, such as a
+ * plain array or a scalar. Shared so the core wrappers and the shared ops report it identically.
+ */
+export function notAnNDArray(a: unknown): TypeError {
+  return new TypeError(
+    `Expected an NDArray, got ${describeInput(a)}. Wrap plain arrays and scalars with np.array(...).`,
+  );
+}
+
+function describeInput(a: unknown): string {
+  if (Array.isArray(a)) return 'a plain array';
+  if (a === null) return 'null';
+  return typeof a === 'object' ? (a.constructor?.name ?? 'an object') : typeof a;
+}
+
+/**
  * Internal storage for NDArray data
  * Manages the underlying TypedArray and metadata
  */
@@ -504,6 +547,7 @@ export class ArrayStorage {
    */
   static zeros(shape: readonly number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
     // MAX_NDIM check happens in the ArrayStorage constructor below.
+    assertValidShape(shape);
     const size = shape.reduce((a, b) => a * b, 1);
     const isComplex = isComplexDType(dtype);
 
@@ -543,6 +587,7 @@ export class ArrayStorage {
    * @internal
    */
   static empty(shape: readonly number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
+    assertValidShape(shape);
     const size = shape.reduce((a, b) => a * b, 1);
     const isComplex = isComplexDType(dtype);
     const Constructor = getTypedArrayConstructor(dtype);
@@ -568,6 +613,7 @@ export class ArrayStorage {
    * Create storage with ones
    */
   static ones(shape: readonly number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
+    assertValidShape(shape);
     const size = shape.reduce((a, b) => a * b, 1);
     const isComplex = isComplexDType(dtype);
 

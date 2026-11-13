@@ -6,6 +6,7 @@
  */
 
 import type { NDArrayCore } from '../../src/common/ndarray-core';
+import type { ArrayStorage } from '../../src/common/storage';
 import type * as coreEntry from '../../src/core';
 import * as core from '../../src/core/index';
 import * as np from '../../src/full/index';
@@ -113,6 +114,10 @@ const ca1 = core.atleast_1d(mat);
 type _coreAtleast1 = Expect<Equal<typeof ca1, NDArrayCore>>;
 const ca2 = core.atleast_2d(mat, mat);
 type _coreAtleast2 = Expect<Equal<typeof ca2, NDArrayCore[]>>;
+// A spread may hold a single array, which comes back unwrapped.
+declare const spreadArrs: NDArray[];
+const as1 = np.atleast_1d(...spreadArrs);
+type _atleastSpread = Expect<Equal<typeof as1, NDArray | NDArray[]>>;
 
 // ── reductions: an explicit axis with keepdims true yields an array ─────────
 const k1 = np.sum(f64, 0, true);
@@ -158,6 +163,22 @@ const rch = main.random.choice(f64, 3);
 type _choice = Expect<Equal<typeof rch, NDArray>>;
 const rch0 = main.random.choice(5);
 type _choice0 = Expect<Equal<typeof rch0, number>>;
+// Spread dimensions and a forwarded optional size may or may not produce an array.
+const rnSpread = main.random.rand(...f64.shape);
+type _randSpread = Expect<Equal<typeof rnSpread, NDArray<'float64'> | number>>;
+declare const maybeSize: number[] | undefined;
+const rnoMaybe = main.random.normal(0, 1, maybeSize);
+type _normalMaybe = Expect<Equal<typeof rnoMaybe, NDArray<'float64'> | number>>;
+const rrMaybe = main.random.random(maybeSize);
+type _randomMaybe = Expect<Equal<typeof rrMaybe, NDArray<'float64'> | number>>;
+const riMaybe = main.random.randint(0, 10, maybeSize);
+type _randintMaybe = Expect<Equal<typeof riMaybe, NDArray<'int64'> | number>>;
+const rchMaybe = main.random.choice(5, maybeSize);
+type _choiceMaybe = Expect<Equal<typeof rchMaybe, NDArray | number>>;
+const crnoMaybe = core.random.normal(0, 1, maybeSize);
+type _coreNormalMaybe = Expect<Equal<typeof crnoMaybe, NDArrayCore<'float64'> | number>>;
+// @ts-expect-error a plain array population must be wrapped with np.array
+main.random.choice([1, 2, 3], 2);
 const rng = main.random.default_rng(1);
 const g1 = rng.random([2]);
 type _rngRandom = Expect<Equal<typeof g1, NDArray<'float64'>>>;
@@ -208,3 +229,150 @@ type _linQrRaw = Expect<Equal<typeof linQrRaw, { h: NDArray; tau: NDArray }>>;
 const linEig = main.linalg.eig(f64);
 type _linEig = Expect<Equal<typeof linEig, { w: NDArray; v: NDArray }>>;
 main.linalg.inv(f64).T.sum();
+
+// ── fft takes NDArray and NDArrayCore, not plain arrays or raw storage ──────
+main.fft.fft(f64);
+main.fft.fft(mat);
+main.fft.fftshift(f64, 0);
+core.fft.fft(mat);
+core.fft.fft(f64);
+core.fft.ifftshift(mat);
+// @ts-expect-error a plain array must be wrapped with np.array
+main.fft.fft([1, 2, 3]);
+// @ts-expect-error a plain array must be wrapped with np.array
+core.fft.rfft([1, 2, 3]);
+// @ts-expect-error raw storage is internal
+main.fft.fft(f64.storage);
+// @ts-expect-error raw storage is internal
+core.fft.fft(mat.storage);
+
+// ── core random: an NDArrayCore when size is given, a number otherwise ──────
+const crr = core.random.random([2, 3]);
+type _coreRandom = Expect<Equal<typeof crr, NDArrayCore<'float64'>>>;
+const crr0 = core.random.random();
+type _coreRandom0 = Expect<Equal<typeof crr0, number>>;
+const crn = core.random.randn(2, 3);
+type _coreRandn = Expect<Equal<typeof crn, NDArrayCore<'float64'>>>;
+const crn0 = core.random.randn();
+type _coreRandn0 = Expect<Equal<typeof crn0, number>>;
+const cno = core.random.normal(0, 1, [4]);
+type _coreNormal = Expect<Equal<typeof cno, NDArrayCore<'float64'>>>;
+const cnoSkip = core.random.normal(undefined, undefined, 5);
+type _coreNormalSkip = Expect<Equal<typeof cnoSkip, NDArrayCore<'float64'>>>;
+const cno0 = core.random.normal(0, 1);
+type _coreNormal0 = Expect<Equal<typeof cno0, number>>;
+const cpo = core.random.poisson(3, 5);
+type _corePoisson = Expect<Equal<typeof cpo, NDArrayCore<'int64'>>>;
+const cpo0 = core.random.poisson(3);
+type _corePoisson0 = Expect<Equal<typeof cpo0, number>>;
+const cri = core.random.randint(0, 10, [3]);
+type _coreRandint = Expect<Equal<typeof cri, NDArrayCore<'int64'>>>;
+const cri32 = core.random.randint(0, 10, [3], 'int32');
+type _coreRandint32 = Expect<Equal<typeof cri32, NDArrayCore<'int32'>>>;
+const cri0 = core.random.randint(10);
+type _coreRandint0 = Expect<Equal<typeof cri0, number>>;
+const cch = core.random.choice(mat, 3);
+type _coreChoice = Expect<Equal<typeof cch, NDArrayCore>>;
+const cch0 = core.random.choice(5);
+type _coreChoice0 = Expect<Equal<typeof cch0, number>>;
+const cchP = core.random.choice(mat, 3, true, [0.2, 0.8]);
+type _coreChoiceP = Expect<Equal<typeof cchP, NDArrayCore>>;
+const cpm = core.random.permutation(mat);
+type _corePermutation = Expect<Equal<typeof cpm, NDArrayCore>>;
+const cmn = core.random.multinomial(5, [0.5, 0.5], 3);
+type _coreMultinomial = Expect<Equal<typeof cmn, NDArrayCore<'int64'>>>;
+const cdi = core.random.dirichlet(mat, 2);
+type _coreDirichlet = Expect<Equal<typeof cdi, NDArrayCore<'float64'>>>;
+const cmv = core.random.multivariate_normal([0, 0], mat);
+type _coreMvn = Expect<Equal<typeof cmv, NDArrayCore<'float64'>>>;
+const crng = core.random.default_rng(1);
+const cg1 = crng.random([2]);
+type _coreRngRandom = Expect<Equal<typeof cg1, NDArrayCore<'float64'>>>;
+const cg0 = crng.random();
+type _coreRngRandom0 = Expect<Equal<typeof cg0, number>>;
+const cgi = crng.integers(0, 10, [2]);
+type _coreRngIntegers = Expect<Equal<typeof cgi, NDArrayCore<'int64'>>>;
+const cgb = crng.binomial(10, 0.5, 3);
+type _coreRngBinomial = Expect<Equal<typeof cgb, NDArrayCore<'int64'>>>;
+const cgc = crng.choice(mat, 2, false);
+type _coreRngChoice = Expect<Equal<typeof cgc, NDArrayCore>>;
+const cgc0 = crng.choice(4);
+type _coreRngChoice0 = Expect<Equal<typeof cgc0, number>>;
+const cgp = crng.permutation(mat);
+type _coreRngPermutation = Expect<Equal<typeof cgp, NDArrayCore>>;
+type _coreShuffle = Expect<Equal<ReturnType<typeof core.random.shuffle>, void>>;
+
+// ── random inputs are NDArray or plain number arrays, not raw storage ───────
+declare const storage: ArrayStorage;
+main.random.multinomial(5, f64);
+main.random.multinomial(5, [0.5, 0.5]);
+main.random.dirichlet(f64);
+main.random.dirichlet([1, 2]);
+main.random.multivariate_normal(f64, f64);
+main.random.multivariate_normal(
+  [0, 0],
+  [
+    [1, 0],
+    [0, 1],
+  ],
+);
+main.random.choice(f64, 2, true, f64);
+main.random.permutation(f64);
+main.random.shuffle(f64);
+core.random.multinomial(5, mat);
+core.random.multivariate_normal(mat, mat);
+core.random.choice(f64, 2, true, mat);
+core.random.shuffle(f64);
+// @ts-expect-error raw storage is internal
+main.random.multinomial(5, storage);
+// @ts-expect-error raw storage is internal
+main.random.dirichlet(storage);
+// @ts-expect-error raw storage is internal
+main.random.multivariate_normal(storage, [[1]]);
+// @ts-expect-error raw storage is internal
+main.random.choice(storage, 2);
+// @ts-expect-error raw storage is internal
+main.random.choice(f64, 2, true, storage);
+// @ts-expect-error raw storage is internal
+main.random.permutation(storage);
+// @ts-expect-error raw storage is internal
+main.random.shuffle(storage);
+// @ts-expect-error raw storage is internal
+core.random.multinomial(5, storage);
+// @ts-expect-error raw storage is internal
+core.random.dirichlet(storage);
+// @ts-expect-error raw storage is internal
+core.random.multivariate_normal([0, 0], storage);
+// @ts-expect-error raw storage is internal
+core.random.choice(storage, 2);
+// @ts-expect-error raw storage is internal
+core.random.choice(mat, 2, true, storage);
+// @ts-expect-error raw storage is internal
+core.random.permutation(storage);
+// @ts-expect-error raw storage is internal
+core.random.shuffle(storage);
+// @ts-expect-error raw storage is internal
+crng.choice(storage, 2);
+// @ts-expect-error a plain array population must be wrapped with np.array
+core.random.choice([1, 2, 3], 2);
+// @ts-expect-error a plain array population must be wrapped with np.array
+crng.permutation([1, 2, 3]);
+
+// ── ArrayLike accepts boolean, typed and nested plain data ──────────────────
+main.place(f64, [true, false], [1, 2]);
+main.putmask(f64, [[true, false]], 1);
+main.putmask(f64, new Uint8Array([1, 0]), new Float64Array([1, 2]));
+main.take(f64, new Int32Array([0]));
+main.take(f64, [[[[0]]]]);
+main.select([[true, false]], [[1, 2]], 0);
+main.where(f64 as NDArrayCore, true, false);
+main.append(f64, [true, false]);
+main.diff(f64, 1, -1, new Float64Array([0]));
+main.bincount(new Int32Array([0, 1]), new Float64Array([1, 1]));
+main.digitize(new Float64Array([1, 2]), [1.5]);
+main.histogram([1, 2, 3], new Float64Array([0, 2, 4]));
+core.take(f64, new Int32Array([0]));
+// @ts-expect-error strings are not array-like data
+main.take(f64, ['a']);
+// @ts-expect-error objects are not array-like data
+main.bincount({ length: 2 });

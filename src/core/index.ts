@@ -471,13 +471,20 @@ import type { DType } from '../common/dtype';
 import { NDArrayCore as NDArrayCoreClass } from '../common/ndarray-core';
 import * as randomOps from '../common/ops/random';
 import type { ArrayStorage } from '../common/storage';
+import type { CoreArrays, RandomApi, RngArray } from './random-types';
+import { toStorage } from './types';
 
-// Helper to wrap ArrayStorage results in NDArrayCore
-function wrapResult<T>(result: T): T | NDArrayCoreClass {
+// Wraps an ArrayStorage result as an NDArrayCore and leaves scalars alone.
+function wrapResult(result: unknown): unknown {
   if (result && typeof result === 'object' && '_data' in result && '_shape' in result) {
     return NDArrayCoreClass.fromStorage(result as unknown as ArrayStorage);
   }
   return result;
+}
+
+// Core random accepts an NDArrayCore wherever the ops take an ArrayStorage.
+function unwrapStorage<T>(x: NDArrayCoreClass | T): T | ArrayStorage {
+  return x instanceof NDArrayCoreClass ? x.storage : x;
 }
 
 export const random = {
@@ -488,10 +495,7 @@ export const random = {
   get_bit_generator: randomOps.get_bit_generator,
   set_bit_generator: randomOps.set_bit_generator,
   default_rng: (seedValue?: number) => {
-    type ArrayLike = NDArrayCoreClass | ArrayStorage;
     const gen = randomOps.default_rng(seedValue);
-    const unwrap = (x: number | ArrayLike): number | ArrayStorage =>
-      x instanceof NDArrayCoreClass ? x.storage : (x as number | ArrayStorage);
     return {
       random: (size?: number | number[]) => wrapResult(gen.random(size)),
       integers: (low: number, high?: number, size?: number | number[]) =>
@@ -502,21 +506,22 @@ export const random = {
       uniform: (low?: number, high?: number, size?: number | number[]) =>
         wrapResult(gen.uniform(low, high, size)),
       choice: (
-        a: number | ArrayLike,
+        a: number | RngArray,
         size?: number | number[],
         replace?: boolean,
-        p?: ArrayLike | number[],
+        p?: RngArray | number[],
       ) =>
         wrapResult(
           gen.choice(
-            unwrap(a),
+            unwrapStorage(a) as number | ArrayStorage,
             size,
             replace,
-            p instanceof NDArrayCoreClass ? p.storage : (p as ArrayStorage | number[] | undefined),
+            unwrapStorage(p) as ArrayStorage | number[] | undefined,
           ),
         ),
-      permutation: (x: number | ArrayLike) => wrapResult(gen.permutation(unwrap(x))),
-      shuffle: (x: ArrayLike) => gen.shuffle(x instanceof NDArrayCoreClass ? x.storage : x),
+      permutation: (x: number | RngArray) =>
+        wrapResult(gen.permutation(unwrapStorage(x) as number | ArrayStorage)),
+      shuffle: (x: RngArray) => gen.shuffle(unwrapStorage(x) as ArrayStorage),
       exponential: (scale?: number, size?: number | number[]) =>
         wrapResult(gen.exponential(scale, size)),
       poisson: (lam?: number, size?: number | number[]) => wrapResult(gen.poisson(lam, size)),
@@ -602,44 +607,56 @@ export const random = {
   zipf: (a: number, size?: number | number[]) => wrapResult(randomOps.zipf(a, size)),
 
   // Multivariate distributions
-  multinomial: (n: number, pvals: number[] | ArrayStorage, size?: number | number[]) =>
-    wrapResult(randomOps.multinomial(n, pvals, size)),
+  multinomial: (n: number, pvals: RngArray | number[], size?: number | number[]) =>
+    wrapResult(randomOps.multinomial(n, unwrapStorage(pvals) as number[] | ArrayStorage, size)),
   multivariate_normal: (
-    mean: number[] | ArrayStorage,
-    cov: number[][] | ArrayStorage,
+    mean: RngArray | number[],
+    cov: RngArray | number[][],
     size?: number | number[],
     check_valid?: 'warn' | 'raise' | 'ignore',
     tol?: number,
-  ) => wrapResult(randomOps.multivariate_normal(mean, cov, size, check_valid, tol)),
-  dirichlet: (alpha: number[] | ArrayStorage, size?: number | number[]) =>
-    wrapResult(randomOps.dirichlet(alpha, size)),
+  ) =>
+    wrapResult(
+      randomOps.multivariate_normal(
+        unwrapStorage(mean) as number[] | ArrayStorage,
+        unwrapStorage(cov) as number[][] | ArrayStorage,
+        size,
+        check_valid,
+        tol,
+      ),
+    ),
+  dirichlet: (alpha: RngArray | number[], size?: number | number[]) =>
+    wrapResult(randomOps.dirichlet(unwrapStorage(alpha) as number[] | ArrayStorage, size)),
   vonmises: (mu: number, kappa: number, size?: number | number[]) =>
     wrapResult(randomOps.vonmises(mu, kappa, size)),
 
   // Sequence operations
   choice: (
-    a: number | ArrayStorage,
+    a: number | RngArray,
     size?: number | number[],
     replace?: boolean,
-    p?: ArrayStorage | number[],
-  ) => wrapResult(randomOps.choice(a, size, replace, p)),
-  permutation: (x: number | ArrayStorage) => wrapResult(randomOps.permutation(x)),
-  shuffle: (x: NDArrayCoreClass | ArrayStorage) =>
-    randomOps.shuffle(x instanceof NDArrayCoreClass ? x.storage : x),
-};
+    p?: RngArray | number[],
+  ) =>
+    wrapResult(
+      randomOps.choice(
+        unwrapStorage(a) as number | ArrayStorage,
+        size,
+        replace,
+        unwrapStorage(p) as ArrayStorage | number[] | undefined,
+      ),
+    ),
+  permutation: (x: number | RngArray) =>
+    wrapResult(randomOps.permutation(unwrapStorage(x) as number | ArrayStorage)),
+  shuffle: (x: RngArray) => randomOps.shuffle(unwrapStorage(x) as ArrayStorage),
+} as RandomApi<CoreArrays>;
 
 // FFT Namespace (core.fft)
 
 import * as fftOps from '../common/ops/fft';
 
-// Type alias for array inputs
-type ArrayInput = NDArrayCoreClass | ArrayStorage;
+type ArrayInput = NDArrayCoreClass;
 
-// Helper to extract storage from any array input
-function getStorage(a: ArrayInput): ArrayStorage {
-  if (a instanceof NDArrayCoreClass) return a.storage;
-  return a;
-}
+const getStorage = (a: ArrayInput): ArrayStorage => toStorage(a);
 
 export const fft = {
   fft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') =>

@@ -732,9 +732,30 @@ export {
 import type { DType } from './common/dtype';
 import * as randomOps from './common/ops/random';
 import type { ArrayStorage } from './common/storage';
+import type {
+  ArrayFamily,
+  RngArray,
+  Choice as SharedChoice,
+  DimSampler as SharedDimSampler,
+  RandInt as SharedRandInt,
+  Sampler as SharedSampler,
+  SizeArg,
+} from './core/random-types';
+import { toStorage } from './core/types';
 import { NDArray as NDArrayClass } from './full';
 
-type SizeArg = number | readonly number[];
+interface MainArrays extends ArrayFamily {
+  readonly type: NDArrayClass<this['dtype']>;
+}
+
+type Sampler<
+  Req extends unknown[],
+  Opt extends unknown[],
+  R extends DType = 'float64',
+> = SharedSampler<MainArrays, Req, Opt, R>;
+type DimSampler = SharedDimSampler<MainArrays>;
+type RandInt = SharedRandInt<MainArrays>;
+type Choice = SharedChoice<MainArrays>;
 
 // Wraps an ArrayStorage result as an NDArray and leaves scalars alone.
 function wrapResult(result: unknown): unknown {
@@ -744,14 +765,6 @@ function wrapResult(result: unknown): unknown {
   return result;
 }
 
-// A sampling function returns an array of dtype R when size is given and a plain number otherwise.
-// Req are the leading required parameters and Opt the optional ones between them and size, each
-// typed with undefined so it can be skipped to reach size.
-interface Sampler<Req extends unknown[], Opt extends unknown[], R extends DType = 'float64'> {
-  (...args: [...Req, ...Opt, size: SizeArg]): NDArrayClass<R>;
-  (...args: [...Req, ...Partial<Opt>, size?: undefined]): number;
-}
-
 function sampler<Req extends unknown[], Opt extends unknown[], R extends DType = 'float64'>(
   fn: (...args: never[]) => unknown,
 ): Sampler<Req, Opt, R> {
@@ -759,42 +772,13 @@ function sampler<Req extends unknown[], Opt extends unknown[], R extends DType =
     wrapResult((fn as (...a: unknown[]) => unknown)(...args))) as Sampler<Req, Opt, R>;
 }
 
-// Shape-from-arguments generators: no arguments gives a number, any dimensions give an array.
-interface DimSampler {
-  (): number;
-  (...shape: [number, ...number[]]): NDArrayClass<'float64'>;
-}
-
-interface RandInt {
-  <D extends DType = 'int64'>(
-    low: number,
-    high: number | null | undefined,
-    size: SizeArg,
-    dtype?: D,
-  ): NDArrayClass<D>;
-  (low: number, high?: number | null, size?: undefined, dtype?: DType): number;
-}
-
-// Unlike the samplers, choice draws from an array, so the element dtype is not known statically.
-interface Choice {
-  (
-    a: number | RngArray,
-    size: SizeArg,
-    replace?: boolean,
-    p?: RngArray | readonly number[],
-  ): NDArrayClass;
-  (
-    a: number | RngArray,
-    size?: undefined,
-    replace?: boolean,
-    p?: RngArray | readonly number[],
-  ): number;
-}
-
-type RngArray = NDArrayCore | ArrayStorage;
-
 function toRandomStorage<T>(x: NDArrayCore | T): ArrayStorage | T {
   return x instanceof NDArrayCore ? x.storage : (x as T);
+}
+
+// Populations are an integer or an array to draw from; anything else must not reach the sampler.
+function toPopulation(a: number | RngArray): number | ArrayStorage {
+  return typeof a === 'number' ? a : toStorage(a);
 }
 
 function choiceFn(
@@ -813,7 +797,7 @@ function choiceFn(
   ) =>
     wrapResult(
       pick(
-        toRandomStorage(a) as number | ArrayStorage,
+        toPopulation(a),
         size as number | number[] | undefined,
         replace,
         toRandomStorage(p) as ArrayStorage | number[] | undefined,
@@ -842,8 +826,8 @@ export const random = {
       ),
       choice: choiceFn(gen.choice.bind(gen)),
       permutation: (x: number | RngArray): NDArrayClass =>
-        NDArrayClass.fromStorage(gen.permutation(toRandomStorage(x) as number | ArrayStorage)),
-      shuffle: (x: RngArray) => gen.shuffle(toRandomStorage(x) as ArrayStorage),
+        NDArrayClass.fromStorage(gen.permutation(toPopulation(x))),
+      shuffle: (x: RngArray) => gen.shuffle(toStorage(x)),
       exponential: sampler<[], [scale: number | undefined]>(gen.exponential.bind(gen)),
       poisson: sampler<[], [lam: number | undefined], 'int64'>(gen.poisson.bind(gen)),
       binomial: sampler<[n: number, p: number], [], 'int64'>(gen.binomial.bind(gen)),
@@ -915,7 +899,7 @@ export const random = {
   zipf: sampler<[a: number], [], 'int64'>(randomOps.zipf),
 
   // Multivariate distributions
-  multinomial: (n: number, pvals: number[] | RngArray, size?: SizeArg): NDArrayClass<'int64'> =>
+  multinomial: (n: number, pvals: RngArray | number[], size?: SizeArg): NDArrayClass<'int64'> =>
     wrapResult(
       randomOps.multinomial(
         n,
@@ -924,8 +908,8 @@ export const random = {
       ),
     ) as NDArrayClass<'int64'>,
   multivariate_normal: (
-    mean: number[] | RngArray,
-    cov: number[][] | RngArray,
+    mean: RngArray | number[],
+    cov: RngArray | number[][],
     size?: SizeArg,
     check_valid?: 'warn' | 'raise' | 'ignore',
     tol?: number,
@@ -939,7 +923,7 @@ export const random = {
         tol,
       ),
     ) as NDArrayClass<'float64'>,
-  dirichlet: (alpha: number[] | RngArray, size?: SizeArg): NDArrayClass<'float64'> =>
+  dirichlet: (alpha: RngArray | number[], size?: SizeArg): NDArrayClass<'float64'> =>
     wrapResult(
       randomOps.dirichlet(
         toRandomStorage(alpha) as number[] | ArrayStorage,
@@ -951,8 +935,8 @@ export const random = {
   // Sequence operations
   choice: choiceFn(randomOps.choice),
   permutation: (x: number | RngArray): NDArrayClass =>
-    NDArrayClass.fromStorage(randomOps.permutation(toRandomStorage(x) as number | ArrayStorage)),
-  shuffle: (x: RngArray) => randomOps.shuffle(toRandomStorage(x) as ArrayStorage),
+    NDArrayClass.fromStorage(randomOps.permutation(toPopulation(x))),
+  shuffle: (x: RngArray) => randomOps.shuffle(toStorage(x)),
 };
 
 // ============================================================
@@ -962,15 +946,10 @@ export const random = {
 import { NDArrayCore } from './common/ndarray-core';
 import * as fftOps from './common/ops/fft';
 
-// Type alias for array inputs - accepts NDArray, NDArrayCore, or ArrayStorage
-type ArrayInput = NDArrayClass | NDArrayCore | ArrayStorage;
+// NDArray extends NDArrayCore, so this accepts both. Anything else throws the standard guard error.
+type ArrayInput = NDArrayCore;
 
-// Helper to extract storage from any array input
-function getStorage(a: ArrayInput): ArrayStorage {
-  if (a instanceof NDArrayClass) return a.storage;
-  if (a instanceof NDArrayCore) return a.storage;
-  return a;
-}
+const getStorage = (a: ArrayInput): ArrayStorage => toStorage(a);
 
 export const fft = {
   fft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {

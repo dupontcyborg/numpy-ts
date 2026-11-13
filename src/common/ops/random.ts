@@ -12,7 +12,7 @@
 
 import { type DType, isBigIntDType } from '../dtype';
 import { svd } from '../ops/linalg';
-import { ArrayStorage } from '../storage';
+import { ArrayStorage, notAnNDArray } from '../storage';
 import {
   directFill,
   fillBeta,
@@ -1099,6 +1099,11 @@ export function binomial(n: number, p: number, size?: number | number[]): ArrayS
   return result;
 }
 
+/** A population is an integer or an array to draw from; anything else must not reach the sampler. */
+function assertPopulation(a: unknown): void {
+  if (typeof a !== 'number' && !(a instanceof ArrayStorage)) throw notAnNDArray(a);
+}
+
 /**
  * Implementation of choice
  */
@@ -1110,6 +1115,7 @@ function choiceImpl(
   rng: () => number = mt19937Float64,
   usePCG: boolean = false,
 ): ArrayStorage | number {
+  assertPopulation(a);
   // Fast path: integer a, replace=true, no p — use randint/integers (matches NumPy)
   const n = typeof a === 'number' ? a : a.size;
   if (typeof a === 'number' && replace && p === undefined) {
@@ -1327,6 +1333,7 @@ function permutationImpl(
   rng: () => number = mt19937Float64,
   usePCG: boolean = false,
 ): ArrayStorage {
+  assertPopulation(x);
   // Fast path: integer n — do entire shuffle in WASM
   if (typeof x === 'number') {
     if (usePCG) {
@@ -1389,6 +1396,7 @@ function shuffleImpl(
   rng: () => number = mt19937Float64,
   usePCG: boolean = false,
 ): void {
+  if (!(x instanceof ArrayStorage)) throw notAnNDArray(x);
   const n = x.size;
   if (n <= 1) return;
   // Generate a permutation of indices via WASM, then reorder x in-place
