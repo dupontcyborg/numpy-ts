@@ -180,6 +180,13 @@ const CUSTOM_WRAPPERS: Record<
   };
   return up(core.apply_along_axis(wrappedFunc1d, axis, arr, ...args));`,
   },
+  // unwrap keeps floating dtypes, gives float64 for other kinds, and stays integer for a signed
+  // integer input with an integer-valued period.
+  unwrap: {
+    generic: 'unary',
+    returnType: 'NDArray<TrueDivide<D>> | NDArray<D>',
+    body: 'return up(core.unwrap(p, discont, axis, period)) as unknown as NDArray<TrueDivide<D>> | NDArray<D>;',
+  },
   // average can return either a single value or a tuple [avg, sum_of_weights]
   // when returned=true. Map the inner NDArrayCore values to NDArray.
   average: {
@@ -240,6 +247,34 @@ export function where(
 ): NDArray | NDArray[] {
   const r = core.where(condition, x as ArrayLike, y as ArrayLike);
   return Array.isArray(r) ? r.map(up) : up(r);
+}`,
+  intersect1d: (jsDoc) => `${jsDoc}
+export function intersect1d<A extends DType, B extends DType>(
+  ar1: NDArrayCore<A>,
+  ar2: NDArrayCore<B>,
+  assume_unique?: boolean,
+  return_indices?: false,
+): NDArray<Promote<A, B>>;
+export function intersect1d<A extends DType, B extends DType>(
+  ar1: NDArrayCore<A>,
+  ar2: NDArrayCore<B>,
+  assume_unique: boolean | undefined,
+  return_indices: true,
+): [NDArray<Promote<A, B>>, NDArray<'int32'>, NDArray<'int32'>];
+export function intersect1d<A extends DType, B extends DType>(
+  ar1: NDArrayCore<A>,
+  ar2: NDArrayCore<B>,
+  assume_unique?: boolean,
+  return_indices?: boolean,
+): NDArray<Promote<A, B>> | [NDArray<Promote<A, B>>, NDArray<'int32'>, NDArray<'int32'>];
+export function intersect1d(
+  ar1: NDArrayCore,
+  ar2: NDArrayCore,
+  assume_unique?: boolean,
+  return_indices?: boolean,
+): NDArray | [NDArray, NDArray, NDArray] {
+  const r = core.intersect1d(ar1, ar2, assume_unique, return_indices);
+  return Array.isArray(r) ? ([up(r[0]), up(r[1]), up(r[2])] as [NDArray, NDArray, NDArray]) : up(r);
 }`,
   ...Object.fromEntries(
     ['atleast_1d', 'atleast_2d', 'atleast_3d'].map((name) => [
@@ -550,7 +585,6 @@ const FUNCTION_RESULT_RULES: Record<
 
   // ---- P1/P2: set ops + binary ufuncs (promote of operands) ----
   union1d: 'promote',
-  intersect1d: 'promote',
   setxor1d: 'promote',
   maximum: 'promote',
   minimum: 'promote',
@@ -566,10 +600,9 @@ const FUNCTION_RESULT_RULES: Record<
   vecmat: 'promote',
 
   // ---- P6: previously-deferred rules, now validated ----
-  // sinc/i0/unwrap: true-divide rule (float/complex preserved, ints/bool → float64).
+  // sinc/i0: true-divide rule (float/complex preserved, ints/bool → float64).
   sinc: 'truediv',
   i0: 'truediv',
-  unwrap: 'truediv',
   // vander: promote against the default int (float32 → float64, uint64 → float64).
   vander: 'accumint',
   // ldexp(x1, x2) = x1 * 2**x2 → preserves x1's (float) dtype.
@@ -666,16 +699,14 @@ function toOverloadParam(seg: string): string {
 }
 
 // Convert a param segment to a required param, for overloads where a later param is
-// required. The axis stays a concrete value; others still accept undefined
-// (`ddof?: number` → `ddof: number | undefined`).
+// required. The optional ones still accept undefined (`ddof?: number` → `ddof: number | undefined`).
 function toRequiredParam(seg: string): string {
   const optional = toOverloadParam(seg);
   const colon = optional.indexOf(':');
   const name = optional.slice(0, colon).trim();
   const type = optional.slice(colon + 1).trim();
   if (!name.endsWith('?')) return optional;
-  const bare = name.slice(0, -1);
-  return bare === 'axis' ? `${bare}: ${type}` : `${bare}: ${type} | undefined`;
+  return `${name.slice(0, -1)}: ${type} | undefined`;
 }
 
 /**
@@ -739,7 +770,9 @@ export function ${info.name}<D extends DType>(${retyped}): ${rt} {
 // rest, and return `NDArray<R> | Scalar<R>` (the runtime yields either an array
 // or a scalar depending on `axis`). Mirrors the `reduction` method pattern.
 const REDUCTION_RESULT: Record<string, string> = {
-  accum: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
+  // The array result widens (int8 → int64) but the scalar result is the JS value of the input
+  // dtype: a bigint only for int64 and uint64, a number for every narrower integer and bool.
+  accum: 'NDArray<ReductionAccum<D>> | Scalar<D>',
   truedivide: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
   stdvar: 'NDArray<StdVar<D>> | Scalar<StdVar<D>>',
   preserve: 'NDArray<D> | Scalar<D>',
@@ -747,6 +780,8 @@ const REDUCTION_RESULT: Record<string, string> = {
   index: "NDArray<'int32'> | number",
   bool: "NDArray<'bool'> | boolean",
 };
+
+const QUANTILE_FUNCTIONS = new Set(['percentile', 'quantile', 'nanpercentile', 'nanquantile']);
 
 function generateReductionWrapper(info: FunctionInfo, kind: string): string | null {
   const rt = REDUCTION_RESULT[kind];
@@ -760,13 +795,41 @@ function generateReductionWrapper(info: FunctionInfo, kind: string): string | nu
   return (r instanceof NDArrayCore ? up(r) : r) as unknown as ${rt};
 }`;
 
-  // An explicit axis with keepdims true always yields an array, so that call gets its
-  // own overload. Without an axis the result collapses to a scalar even with keepdims,
-  // so every other call shape keeps the full union.
+  // keepdims true always yields an array, with or without an axis, so that call gets its
+  // own overload; every other call shape keeps the full union.
   const kdIdx = segs.findIndex((seg) => paramName(seg) === 'keepdims');
   const arrayRt = rt.split(' | ')[0]!;
-  const hasAxis = segs.some((seg) => paramName(seg) === 'axis');
-  if (kdIdx > 0 && hasAxis && arrayRt.startsWith('NDArray<')) {
+
+  // An NDArray q always gives an array, typed over the promotion of the data and q dtypes. The
+  // scalar-q overloads below keep q as a plain number.
+  if (QUANTILE_FUNCTIONS.has(info.name) && kdIdx > 0) {
+    const scalarSegs = segs.map((seg) =>
+      paramName(seg) === 'q' ? seg.replace('number | NDArrayCore', 'number') : seg,
+    );
+    const qArrayParams = [
+      retypeArrayParam(segs[0]!, 'D'),
+      segs[1]!.replace('number | NDArrayCore', 'NDArrayCore<Q>'),
+      ...segs.slice(2).map(toOverloadParam),
+    ].join(', ');
+    const qArrayRt = 'NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>';
+    const kdParams = [
+      retypeArrayParam(segs[0]!, 'D'),
+      ...scalarSegs.slice(1, kdIdx).map(toRequiredParam),
+      'keepdims: true',
+      ...scalarSegs.slice(kdIdx + 1).map(toOverloadParam),
+    ].join(', ');
+    const generalParams = [
+      retypeArrayParam(segs[0]!, 'D'),
+      ...scalarSegs.slice(1).map(toOverloadParam),
+    ].join(', ');
+    return `${info.jsDoc}
+export function ${info.name}<D extends DType, Q extends DType>(${qArrayParams}): ${qArrayRt};
+export function ${info.name}<D extends DType>(${kdParams}): ${arrayRt};
+export function ${info.name}<D extends DType>(${generalParams}): ${rt};
+${impl}`;
+  }
+
+  if (kdIdx > 0 && arrayRt.startsWith('NDArray<')) {
     const kdParams = [
       retypeArrayParam(segs[0]!, 'D'),
       ...segs.slice(1, kdIdx).map(toRequiredParam),
@@ -1438,7 +1501,21 @@ function generateMethodCode(def: MethodDef): string {
       const tail = returnType.includes('<')
         ? `return (r instanceof NDArrayCore ? up(r) : r) as unknown as ${returnType};`
         : `return r instanceof NDArrayCore ? up(r) : r;`;
-      return `${doc}  ${def.name}(${params}): ${returnType} {\n    const r = core.${coreName}(this, ${argNames});\n    ${tail}\n  }`;
+      const impl = `${def.name}(${params}): ${returnType} {\n    const r = core.${coreName}(this, ${argNames});\n    ${tail}\n  }`;
+      // keepdims true always yields an array, so that call gets its own overload.
+      const segs = splitTopLevel(params);
+      const kdIdx = segs.findIndex((seg) => paramName(seg) === 'keepdims');
+      const arrayRt = returnType.split(' | ')[0]!;
+      if (kdIdx >= 0 && arrayRt.startsWith('NDArray<')) {
+        const kdParams = [
+          ...segs.slice(0, kdIdx).map(toRequiredParam),
+          'keepdims: true',
+          ...segs.slice(kdIdx + 1).map(toOverloadParam),
+        ].join(', ');
+        const generalParams = segs.map(toOverloadParam).join(', ');
+        return `${doc}  ${def.name}(${kdParams}): ${arrayRt};\n  ${def.name}(${generalParams}): ${returnType};\n  ${impl}`;
+      }
+      return `${doc}  ${impl}`;
     }
 
     case 'passthrough': {

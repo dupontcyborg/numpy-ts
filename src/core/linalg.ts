@@ -47,7 +47,7 @@ export function diagonal(
   axis1: number = 0,
   axis2: number = 1,
 ): NDArrayCore {
-  return fromStorage(linalgOps.diagonal(toStorage(a), offset, axis1, axis2));
+  return fromStorageView(linalgOps.diagonal(toStorage(a), offset, axis1, axis2), a);
 }
 
 /** Kronecker product */

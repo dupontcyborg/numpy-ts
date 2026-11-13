@@ -5,15 +5,18 @@
  * imported independently for optimal tree-shaking.
  */
 
+import { isComplexDType } from '../common/dtype';
 import * as complexOps from '../common/ops/complex';
 import { fromStorage, fromStorageMaybeView, type NDArrayCore, toStorage } from './types';
 
 // Re-export Complex class from core
 export { Complex } from '../common/complex';
 
-/** Extract real part of array (a view of `x`, as in NumPy) */
+/** Extract real part of array (a view of `x` for complex input, `x` itself otherwise, as in NumPy) */
 export function real(x: NDArrayCore): NDArrayCore {
-  return fromStorageMaybeView(complexOps.real(toStorage(x)), x);
+  const result = complexOps.real(toStorage(x));
+  // NumPy hands back the input object itself when there is no imaginary part to drop.
+  return isComplexDType(toStorage(x).dtype) ? fromStorageMaybeView(result, x) : x;
 }
 
 /** Extract imaginary part of array (a view for complex `x`, zeros otherwise) */

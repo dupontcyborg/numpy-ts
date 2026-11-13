@@ -111,3 +111,23 @@ export function expandEllipsis<T>(indices: (T | string)[], ndim: number): (T | s
 
   return result;
 }
+
+/**
+ * Normalize a tuple of axes against ndim, rejecting out-of-bounds and repeated axes the way
+ * NumPy does. Negative axes are resolved first, so [0, -3] on a 3-D array is a duplicate.
+ *
+ * @param axes - Axes as given by the caller, possibly negative
+ * @param ndim - Number of dimensions of the array being reduced
+ * @returns The axes in the order given, each in [0, ndim)
+ */
+export function normalizeAxisTuple(axes: readonly number[], ndim: number): number[] {
+  const norm = axes.map((ax) => {
+    const n = ax < 0 ? ndim + ax : ax;
+    if (n < 0 || n >= ndim) {
+      throw new Error(`axis ${ax} is out of bounds for array of dimension ${ndim}`);
+    }
+    return n;
+  });
+  if (new Set(norm).size !== norm.length) throw new Error("duplicate value in 'axis'");
+  return norm;
+}

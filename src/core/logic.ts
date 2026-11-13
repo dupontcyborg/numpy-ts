@@ -128,8 +128,8 @@ export function iterable(obj: unknown): boolean {
   return logicOps.iterable(obj);
 }
 
-/** Check dtype against a kind string */
-export function isdtype(dtype: DType, kind: string): boolean {
+/** Check a dtype against a kind name, a dtype name, or an array of them */
+export function isdtype(dtype: DType, kind: string | readonly string[]): boolean {
   return logicOps.isdtype(dtype, kind);
 }
 
@@ -210,24 +210,58 @@ export function not_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCor
   );
 }
 
-/** Element-wise close comparison with tolerance */
+/**
+ * Element-wise close comparison with tolerance: true where |a - b| <= atol + rtol * |b| and b is
+ * finite, or where a equals b, so infinities of the same sign are close. Tolerances may be arrays
+ * and broadcast with the inputs.
+ *
+ * @param a - First input
+ * @param b - Second input, an array or a scalar
+ * @param rtol - Relative tolerance, a number or an array (default 1e-5)
+ * @param atol - Absolute tolerance, a number or an array (default 1e-8)
+ * @param equal_nan - Treat NaN in both inputs as close (default false)
+ * @returns Boolean array of the broadcast shape
+ */
 export function isclose(
   a: NDArrayCore,
   b: NDArrayCore | number,
-  rtol: number = 1e-5,
-  atol: number = 1e-8,
+  rtol: number | NDArrayCore = 1e-5,
+  atol: number | NDArrayCore = 1e-8,
+  equal_nan: boolean = false,
 ): NDArrayCore {
   return fromStorage(
-    comparisonOps.isclose(toStorage(a), typeof b === 'number' ? b : toStorage(b), rtol, atol),
+    comparisonOps.isclose(
+      toStorage(a),
+      typeof b === 'number' ? b : toStorage(b),
+      typeof rtol === 'number' ? rtol : toStorage(rtol),
+      typeof atol === 'number' ? atol : toStorage(atol),
+      equal_nan,
+    ),
   );
 }
 
-/** Check if all elements are close */
+/**
+ * Check if all elements are close, with the same rule as isclose.
+ *
+ * @param a - First input
+ * @param b - Second input, an array or a scalar
+ * @param rtol - Relative tolerance, a number or an array (default 1e-5)
+ * @param atol - Absolute tolerance, a number or an array (default 1e-8)
+ * @param equal_nan - Treat NaN in both inputs as close (default false)
+ * @returns True when every element is close
+ */
 export function allclose(
   a: NDArrayCore,
   b: NDArrayCore | number,
-  rtol: number = 1e-5,
-  atol: number = 1e-8,
+  rtol: number | NDArrayCore = 1e-5,
+  atol: number | NDArrayCore = 1e-8,
+  equal_nan: boolean = false,
 ): boolean {
-  return comparisonOps.allclose(toStorage(a), typeof b === 'number' ? b : toStorage(b), rtol, atol);
+  return comparisonOps.allclose(
+    toStorage(a),
+    typeof b === 'number' ? b : toStorage(b),
+    typeof rtol === 'number' ? rtol : toStorage(rtol),
+    typeof atol === 'number' ? atol : toStorage(atol),
+    equal_nan,
+  );
 }

@@ -251,10 +251,12 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   reshape(...args: [readonly number[]] | number[]): NDArray<D> {
     const first = args[0];
     const newShape = (args.length === 1 && Array.isArray(first) ? first : args) as number[];
-    const resultStorage = core.reshape(this, newShape).storage;
-    const isView = resultStorage.data === this.data;
-    const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
+    const result = core.reshape(this, newShape);
+    const base = result.base as NDArrayCore;
+    return NDArray.fromStorage(
+      result.storage,
+      base instanceof NDArray ? base : NDArray.fromStorage(base.storage),
+    ) as NDArray<D>;
   }
 
   /**
@@ -262,10 +264,11 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @returns 1D array containing all elements
    */
   ravel(): NDArray<D> {
-    const resultStorage = core.ravel(this).storage;
-    const isView = resultStorage.data === this.data;
-    const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
+    const result = core.ravel(this);
+    return NDArray.fromStorage(
+      result.storage,
+      (result.base ?? undefined) as NDArray | undefined,
+    ) as NDArray<D>;
   }
 
   /**
@@ -522,24 +525,36 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * Element-wise comparison with tolerance
    * Returns True where |a - b| <= (atol + rtol * |b|)
    * @param other - Value or array to compare with
-   * @param rtol - Relative tolerance (default: 1e-5)
-   * @param atol - Absolute tolerance (default: 1e-8)
+   * @param rtol - Relative tolerance, a number or an array (default: 1e-5)
+   * @param atol - Absolute tolerance, a number or an array (default: 1e-8)
+   * @param equal_nan - Treat NaN in both inputs as close (default: false)
    * @returns boolean
    */
-  allclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): boolean {
-    return core.allclose(this, other, rtol, atol);
+  allclose(
+    other: NDArray | number,
+    rtol: number | NDArray = 1e-5,
+    atol: number | NDArray = 1e-8,
+    equal_nan: boolean = false,
+  ): boolean {
+    return core.allclose(this, other, rtol, atol, equal_nan);
   }
 
   /**
    * Element-wise comparison with tolerance
    * Returns True where |a - b| <= (atol + rtol * |b|)
    * @param other - Value or array to compare with
-   * @param rtol - Relative tolerance (default: 1e-5)
-   * @param atol - Absolute tolerance (default: 1e-8)
+   * @param rtol - Relative tolerance, a number or an array (default: 1e-5)
+   * @param atol - Absolute tolerance, a number or an array (default: 1e-8)
+   * @param equal_nan - Treat NaN in both inputs as close (default: false)
    * @returns Boolean array
    */
-  isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray<'bool'> {
-    return up(core.isclose(this, other, rtol, atol)) as NDArray<'bool'>;
+  isclose(
+    other: NDArray | number,
+    rtol: number | NDArray = 1e-5,
+    atol: number | NDArray = 1e-8,
+    equal_nan: boolean = false,
+  ): NDArray<'bool'> {
+    return up(core.isclose(this, other, rtol, atol, equal_nan)) as NDArray<'bool'>;
   }
 
   /**
@@ -571,11 +586,11 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * Sum of diagonal elements (trace)
    * @returns Sum of diagonal elements
    */
-  trace(): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+  trace(): NDArray<ReductionAccum<D>> | Scalar<D> {
     const r = core.trace(this);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as
       | NDArray<ReductionAccum<D>>
-      | Scalar<ReductionAccum<D>>;
+      | Scalar<D>;
   }
 
   /**
@@ -626,6 +641,114 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    */
   searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray<'float64'> {
     return up(core.searchsorted(this, v, side)) as NDArray<'float64'>;
+  }
+
+  /**
+   * Compute the q-th percentile of the data along the specified axis
+   * @param q - Percentile to compute (0-100), a number or an NDArray of percentiles that gives q.shape followed by the reduced shape
+   */
+  percentile<Q extends DType>(
+    q: NDArray<Q>,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
+  percentile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  percentile(
+    q: number,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+  percentile(
+    q: number | NDArray,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> | NDArray<Promote<TrueDivide<D>, DType>> {
+    const r = core.percentile(this, q, axis, keepdims);
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>
+      | NDArray<Promote<TrueDivide<D>, DType>>;
+  }
+
+  /**
+   * Compute the q-th quantile of the data along the specified axis
+   * @param q - Quantile to compute (0-1), a number or an NDArray of quantiles that gives q.shape followed by the reduced shape
+   */
+  quantile<Q extends DType>(
+    q: NDArray<Q>,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
+  quantile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  quantile(
+    q: number,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+  quantile(
+    q: number | NDArray,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> | NDArray<Promote<TrueDivide<D>, DType>> {
+    const r = core.quantile(this, q, axis, keepdims);
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>
+      | NDArray<Promote<TrueDivide<D>, DType>>;
+  }
+
+  /**
+   * Compute the q-th quantile, ignoring NaNs
+   * @param q - Quantile to compute (0-1), a number or an NDArray of quantiles that gives q.shape followed by the reduced shape
+   */
+  nanquantile<Q extends DType>(
+    q: NDArray<Q>,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
+  nanquantile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  nanquantile(
+    q: number,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+  nanquantile(
+    q: number | NDArray,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> | NDArray<Promote<TrueDivide<D>, DType>> {
+    const r = core.nanquantile(this, q, axis, keepdims);
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>
+      | NDArray<Promote<TrueDivide<D>, DType>>;
+  }
+
+  /**
+   * Compute the q-th percentile, ignoring NaNs
+   * @param q - Percentile to compute (0-100), a number or an NDArray of percentiles that gives q.shape followed by the reduced shape
+   */
+  nanpercentile<Q extends DType>(
+    q: NDArray<Q>,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
+  nanpercentile(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  nanpercentile(
+    q: number,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+  nanpercentile(
+    q: number | NDArray,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> | NDArray<Promote<TrueDivide<D>, DType>> {
+    const r = core.nanpercentile(this, q, axis, keepdims);
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>
+      | NDArray<Promote<TrueDivide<D>, DType>>;
   }
 
   // ========================================
@@ -1288,19 +1411,23 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Sum array elements over a given axis
    */
-  sum(
-    axis?: number | number[],
-    keepdims: boolean = false,
-  ): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+  sum(axis: number | number[] | undefined, keepdims: true): NDArray<ReductionAccum<D>>;
+  sum(axis?: number | number[], keepdims?: boolean): NDArray<ReductionAccum<D>> | Scalar<D>;
+  sum(axis?: number | number[], keepdims: boolean = false): NDArray<ReductionAccum<D>> | Scalar<D> {
     const r = core.sum(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as
       | NDArray<ReductionAccum<D>>
-      | Scalar<ReductionAccum<D>>;
+      | Scalar<D>;
   }
 
   /**
    * Compute the arithmetic mean along the specified axis
    */
+  mean(axis: number | number[] | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  mean(
+    axis?: number | number[],
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
   mean(
     axis?: number | number[],
     keepdims: boolean = false,
@@ -1314,19 +1441,23 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Product of array elements over a given axis
    */
+  prod(axis: number | number[] | undefined, keepdims: true): NDArray<ReductionAccum<D>>;
+  prod(axis?: number | number[], keepdims?: boolean): NDArray<ReductionAccum<D>> | Scalar<D>;
   prod(
     axis?: number | number[],
     keepdims: boolean = false,
-  ): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+  ): NDArray<ReductionAccum<D>> | Scalar<D> {
     const r = core.prod(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as
       | NDArray<ReductionAccum<D>>
-      | Scalar<ReductionAccum<D>>;
+      | Scalar<D>;
   }
 
   /**
    * Return the maximum along a given axis
    */
+  max(axis: number | number[] | undefined, keepdims: true): NDArray<D>;
+  max(axis?: number | number[], keepdims?: boolean): NDArray<D> | Scalar<D>;
   max(axis?: number | number[], keepdims: boolean = false): NDArray<D> | Scalar<D> {
     const r = core.max(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<D> | Scalar<D>;
@@ -1335,6 +1466,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Return the minimum along a given axis
    */
+  min(axis: number | number[] | undefined, keepdims: true): NDArray<D>;
+  min(axis?: number | number[], keepdims?: boolean): NDArray<D> | Scalar<D>;
   min(axis?: number | number[], keepdims: boolean = false): NDArray<D> | Scalar<D> {
     const r = core.min(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<D> | Scalar<D>;
@@ -1343,6 +1476,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Peak to peak (maximum - minimum) value along a given axis
    */
+  ptp(axis: number | undefined, keepdims: true): NDArray<D>;
+  ptp(axis?: number, keepdims?: boolean): NDArray<D> | Scalar<D>;
   ptp(axis?: number, keepdims: boolean = false): NDArray<D> | Scalar<D> {
     const r = core.ptp(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<D> | Scalar<D>;
@@ -1351,32 +1486,41 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Return the sum of array elements, treating NaNs as zero
    */
+  nansum(axis: number | number[] | undefined, keepdims: true): NDArray<ReductionAccum<D>>;
+  nansum(axis?: number | number[], keepdims?: boolean): NDArray<ReductionAccum<D>> | Scalar<D>;
   nansum(
     axis?: number | number[],
     keepdims: boolean = false,
-  ): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+  ): NDArray<ReductionAccum<D>> | Scalar<D> {
     const r = core.nansum(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as
       | NDArray<ReductionAccum<D>>
-      | Scalar<ReductionAccum<D>>;
+      | Scalar<D>;
   }
 
   /**
    * Return the product of array elements, treating NaNs as ones
    */
+  nanprod(axis: number | number[] | undefined, keepdims: true): NDArray<ReductionAccum<D>>;
+  nanprod(axis?: number | number[], keepdims?: boolean): NDArray<ReductionAccum<D>> | Scalar<D>;
   nanprod(
     axis?: number | number[],
     keepdims: boolean = false,
-  ): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+  ): NDArray<ReductionAccum<D>> | Scalar<D> {
     const r = core.nanprod(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as
       | NDArray<ReductionAccum<D>>
-      | Scalar<ReductionAccum<D>>;
+      | Scalar<D>;
   }
 
   /**
    * Compute the arithmetic mean, ignoring NaNs
    */
+  nanmean(axis: number | number[] | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  nanmean(
+    axis?: number | number[],
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
   nanmean(
     axis?: number | number[],
     keepdims: boolean = false,
@@ -1390,6 +1534,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Return minimum of an array, ignoring NaNs
    */
+  nanmin(axis: number | number[] | undefined, keepdims: true): NDArray<D>;
+  nanmin(axis?: number | number[], keepdims?: boolean): NDArray<D> | Scalar<D>;
   nanmin(axis?: number | number[], keepdims: boolean = false): NDArray<D> | Scalar<D> {
     const r = core.nanmin(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<D> | Scalar<D>;
@@ -1398,6 +1544,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Return maximum of an array, ignoring NaNs
    */
+  nanmax(axis: number | number[] | undefined, keepdims: true): NDArray<D>;
+  nanmax(axis?: number | number[], keepdims?: boolean): NDArray<D> | Scalar<D>;
   nanmax(axis?: number | number[], keepdims: boolean = false): NDArray<D> | Scalar<D> {
     const r = core.nanmax(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<D> | Scalar<D>;
@@ -1441,6 +1589,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param ddof - Delta degrees of freedom (default: 0)
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    */
+  var(axis: number | undefined, ddof: number | undefined, keepdims: true): NDArray<StdVar<D>>;
+  var(axis?: number, ddof?: number, keepdims?: boolean): NDArray<StdVar<D>> | Scalar<StdVar<D>>;
   var(
     axis?: number,
     ddof: number = 0,
@@ -1458,6 +1608,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param ddof - Delta degrees of freedom (default: 0)
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    */
+  std(axis: number | undefined, ddof: number | undefined, keepdims: true): NDArray<StdVar<D>>;
+  std(axis?: number, ddof?: number, keepdims?: boolean): NDArray<StdVar<D>> | Scalar<StdVar<D>>;
   std(
     axis?: number,
     ddof: number = 0,
@@ -1476,6 +1628,16 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    */
   nanvar(
+    axis: number | number[] | undefined,
+    ddof: number | undefined,
+    keepdims: true,
+  ): NDArray<StdVar<D>>;
+  nanvar(
+    axis?: number | number[],
+    ddof?: number,
+    keepdims?: boolean,
+  ): NDArray<StdVar<D>> | Scalar<StdVar<D>>;
+  nanvar(
     axis?: number | number[],
     ddof: number = 0,
     keepdims: boolean = false,
@@ -1493,6 +1655,16 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    */
   nanstd(
+    axis: number | number[] | undefined,
+    ddof: number | undefined,
+    keepdims: true,
+  ): NDArray<StdVar<D>>;
+  nanstd(
+    axis?: number | number[],
+    ddof?: number,
+    keepdims?: boolean,
+  ): NDArray<StdVar<D>> | Scalar<StdVar<D>>;
+  nanstd(
     axis?: number | number[],
     ddof: number = 0,
     keepdims: boolean = false,
@@ -1506,6 +1678,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Test whether all array elements along a given axis evaluate to True
    */
+  all(axis: number | number[] | undefined, keepdims: true): NDArray<'bool'>;
+  all(axis?: number | number[], keepdims?: boolean): NDArray<'bool'> | boolean;
   all(axis?: number | number[], keepdims: boolean = false): NDArray<'bool'> | boolean {
     const r = core.all(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'bool'> | boolean;
@@ -1514,6 +1688,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Test whether any array elements along a given axis evaluate to True
    */
+  any(axis: number | number[] | undefined, keepdims: true): NDArray<'bool'>;
+  any(axis?: number | number[], keepdims?: boolean): NDArray<'bool'> | boolean;
   any(axis?: number | number[], keepdims: boolean = false): NDArray<'bool'> | boolean {
     const r = core.any(this, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'bool'> | boolean;
@@ -1522,6 +1698,11 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Compute the median along the specified axis
    */
+  median(axis: number | number[] | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  median(
+    axis?: number | number[],
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
   median(
     axis?: number | number[],
     keepdims: boolean = false,
@@ -1535,71 +1716,13 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Compute the median, ignoring NaNs
    */
+  nanmedian(axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  nanmedian(axis?: number, keepdims?: boolean): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
   nanmedian(
     axis?: number,
     keepdims: boolean = false,
   ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.nanmedian(this, axis, keepdims);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
-      | NDArray<TrueDivide<D>>
-      | Scalar<TrueDivide<D>>;
-  }
-
-  /**
-   * Compute the q-th percentile of the data along the specified axis
-   * @param q - Percentile to compute (0-100)
-   */
-  percentile(
-    q: number,
-    axis?: number,
-    keepdims: boolean = false,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
-    const r = core.percentile(this, q, axis, keepdims);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
-      | NDArray<TrueDivide<D>>
-      | Scalar<TrueDivide<D>>;
-  }
-
-  /**
-   * Compute the q-th quantile of the data along the specified axis
-   * @param q - Quantile to compute (0-1)
-   */
-  quantile(
-    q: number,
-    axis?: number,
-    keepdims: boolean = false,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
-    const r = core.quantile(this, q, axis, keepdims);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
-      | NDArray<TrueDivide<D>>
-      | Scalar<TrueDivide<D>>;
-  }
-
-  /**
-   * Compute the q-th quantile, ignoring NaNs
-   * @param q - Quantile to compute (0-1)
-   */
-  nanquantile(
-    q: number,
-    axis?: number,
-    keepdims: boolean = false,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
-    const r = core.nanquantile(this, q, axis, keepdims);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
-      | NDArray<TrueDivide<D>>
-      | Scalar<TrueDivide<D>>;
-  }
-
-  /**
-   * Compute the q-th percentile, ignoring NaNs
-   * @param q - Percentile to compute (0-100)
-   */
-  nanpercentile(
-    q: number,
-    axis?: number,
-    keepdims: boolean = false,
-  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
-    const r = core.nanpercentile(this, q, axis, keepdims);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as
       | NDArray<TrueDivide<D>>
       | Scalar<TrueDivide<D>>;

@@ -6,7 +6,7 @@
  */
 
 import { Complex } from '../complex';
-import type { DType } from '../dtype';
+import { type DType, isComplexDType } from '../dtype';
 import type { ArrayStorage } from '../storage';
 
 /**
@@ -23,7 +23,7 @@ export interface PrintOptions {
   linewidth: number;
   /** If true, always use exponential format; if false, never; if null, auto (default: null) */
   floatmode: 'fixed' | 'unique' | 'maxprec' | 'maxprec_equal';
-  /** If true, suppress printing of small floating point values (default: true) */
+  /** If true, print very small floating point values as zero (default: false) */
   suppress: boolean;
   /** String inserted between elements (default: ' ') */
   separator: string;
@@ -48,7 +48,7 @@ const defaultPrintOptions: PrintOptions = {
   precision: 8,
   linewidth: 75,
   floatmode: 'maxprec',
-  suppress: true,
+  suppress: false,
   separator: ' ',
   prefix: '',
   suffix: '',
@@ -147,24 +147,341 @@ export function printoptions(options: Partial<PrintOptions>): {
   return ctx;
 }
 
+type FloatKind = 'float16' | 'float32' | 'float64';
+type Trim = 'k' | '.' | '0' | '-';
+type SignChar = '-' | '+' | ' ';
+
+/** Digits d0 d1 d2... with value d0.d1d2... x 10^e; zero is ds '0', e 0. */
+interface Decimal {
+  ds: string;
+  e: number;
+}
+
+const f64view = new DataView(new ArrayBuffer(8));
+
+function normalizeSign(sign: boolean | SignChar | undefined): SignChar {
+  if (sign === true) return '+';
+  if (sign === false || sign === undefined) return '-';
+  return sign;
+}
+
+function stripZeros(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 48) end--;
+  return s.slice(0, end);
+}
+
+/** Exact decimal expansion of a positive finite double. */
+function exactDecimal(x: number): Decimal {
+  f64view.setFloat64(0, x);
+  const hi = f64view.getUint32(0);
+  const lo = f64view.getUint32(4);
+  const biased = (hi >>> 20) & 0x7ff;
+  let m = (BigInt(hi & 0xfffff) << 32n) | BigInt(lo);
+  let e2: number;
+  if (biased === 0) {
+    e2 = -1074;
+  } else {
+    m |= 1n << 52n;
+    e2 = biased - 1075;
+  }
+  let s: string;
+  let e10: number;
+  if (e2 >= 0) {
+    s = (m << BigInt(e2)).toString();
+    e10 = s.length - 1;
+  } else {
+    s = (m * 5n ** BigInt(-e2)).toString();
+    e10 = s.length - 1 + e2;
+  }
+  return { ds: stripZeros(s), e: e10 };
+}
+
+function roundHalfEven(t: number): number {
+  const f = Math.floor(t);
+  const d = t - f;
+  if (d > 0.5) return f + 1;
+  if (d < 0.5) return f;
+  return f % 2 === 0 ? f : f + 1;
+}
+
+/** Round a finite value to the nearest IEEE half-precision value. */
+function roundToFloat16(v: number): number {
+  if (!Number.isFinite(v) || v === 0) return v;
+  const a = Math.abs(v);
+  if (a >= 65520) return v < 0 ? -Infinity : Infinity;
+  f64view.setFloat64(0, a);
+  const e = Math.max(((f64view.getUint32(0) >>> 20) & 0x7ff) - 1023, -14);
+  const q = 2 ** (e - 10);
+  const r = roundHalfEven(a / q) * q;
+  return v < 0 ? -r : r;
+}
+
+/** Round a double to the precision of the given float type. */
+function roundToKind(v: number, kind: FloatKind): number {
+  if (kind === 'float32') return Math.fround(v);
+  if (kind === 'float16') return roundToFloat16(v);
+  return v;
+}
+
 /**
- * Format a floating-point number in positional notation
+ * Shortest digit string that reads back as the same value in the given float type. Narrow
+ * types round the exact expansion themselves because Number toExponential breaks ties upward
+ * where the shortest-digits algorithm breaks them to even.
+ */
+function uniqueDecimal(a: number, kind: FloatKind): Decimal {
+  if (kind === 'float64') {
+    const s = a.toExponential();
+    const eIdx = s.indexOf('e');
+    const ds = stripZeros(s.slice(0, eIdx).replace('.', ''));
+    return { ds, e: Number(s.slice(eIdx + 1)) };
+  }
+  const exact = exactDecimal(a);
+  for (let n = 1; n < exact.ds.length; n++) {
+    const c = roundDecimal(exact, n);
+    const v = Number(`0.${c.ds}e${c.e + 1}`);
+    if (roundToKind(v, kind) === a) return { ds: stripZeros(c.ds), e: c.e };
+  }
+  return exact;
+}
+
+/**
+ * Round an exact decimal to nd significant digits, ties to even. Digits that were cut
+ * keep their trailing zeros, except that a carry shortens the result to the changed digit.
+ */
+function roundDecimal(d: Decimal, nd: number): Decimal {
+  if (d.ds.length <= nd) return d;
+  if (nd < 0) return { ds: '0', e: 0 };
+  const next = d.ds.charCodeAt(nd) - 48;
+  const restNonZero = d.ds.length > nd + 1;
+  let up: boolean;
+  if (next !== 5) up = next > 5;
+  else if (restNonZero) up = true;
+  else up = nd > 0 && (d.ds.charCodeAt(nd - 1) - 48) % 2 === 1;
+  const kept = d.ds.slice(0, nd);
+  if (!up) return nd === 0 ? { ds: '0', e: 0 } : { ds: kept, e: d.e };
+  if (nd === 0) return { ds: '1', e: d.e + 1 };
+  const digits = kept.split('');
+  let i = digits.length - 1;
+  while (i >= 0 && digits[i] === '9') i--;
+  if (i < 0) return { ds: '1', e: d.e + 1 };
+  digits[i] = String(Number(digits[i]) + 1);
+  return { ds: digits.slice(0, i + 1).join(''), e: d.e };
+}
+
+interface DragonSpec {
+  precision: number | null;
+  unique: boolean;
+  /** Positional only: precision counts digits after the point rather than significant digits. */
+  fractional: boolean;
+  minDigits: number | null;
+  scientific: boolean;
+  kind: FloatKind;
+}
+
+/** Digits of a positive finite value after applying the precision cutoff and minimum digits. */
+function generateDigits(a: number, spec: DragonSpec): Decimal {
+  const { precision, minDigits, scientific } = spec;
+  const cutoff = (e: number): number | null => {
+    if (precision === null) return null;
+    return scientific || !spec.fractional ? precision + (scientific ? 1 : 0) : e + 1 + precision;
+  };
+  const minimum = (e: number, digits: number): number =>
+    scientific ? digits + 1 : spec.fractional ? e + 1 + digits : digits;
+  if (!spec.unique) {
+    const ex = exactDecimal(a);
+    const nd = cutoff(ex.e) as number;
+    return nd < 0 ? { ds: '0', e: 0 } : roundDecimal(ex, nd);
+  }
+  // The shortest digits of a narrow float can sit at a different decimal exponent than the
+  // exact value, so every rounding position is recomputed against the exact expansion.
+  let d = uniqueDecimal(a, spec.kind);
+  const nd = cutoff(d.e);
+  let exact: Decimal | null = null;
+  if (nd !== null && d.ds.length > nd) {
+    exact = exactDecimal(a);
+    d = roundDecimal(exact, cutoff(exact.e) as number);
+  }
+  if (minDigits !== null && minDigits > 0) {
+    exact ??= exactDecimal(a);
+    let min = minimum(exact.e, minDigits);
+    const cap = cutoff(exact.e);
+    if (cap !== null && min > cap) min = cap;
+    if (d.ds.length < min) d = roundDecimal(exact, min);
+  }
+  return d;
+}
+
+/**
+ * Apply a trim mode to the digits after the point. In scientific notation the point
+ * survives mode '-' whenever digits past the first were generated before trimming.
+ */
+function trimFraction(
+  frac: string,
+  trim: Trim,
+  keepPoint: boolean,
+): { frac: string; point: boolean } {
+  if (trim === 'k') return { frac, point: true };
+  const f = stripZeros(frac);
+  if (trim === '0') return { frac: f === '' ? '0' : f, point: true };
+  if (trim === '-') return { frac: f, point: f !== '' || keepPoint };
+  return { frac: f, point: true };
+}
+
+function checkDigitArgs(
+  precision: number | null,
+  unique: boolean,
+  minDigits: number | null,
+  fractional = true,
+): void {
+  if (!fractional && precision === 0) {
+    throw new Error('precision must be greater than 0 when fractional is false');
+  }
+  if (!unique && precision === null) {
+    throw new Error('in non-unique mode `precision` must be supplied');
+  }
+  if (precision !== null && precision > 0 && minDigits !== null && minDigits > precision) {
+    throw new Error('min_digits must be less than or equal to precision');
+  }
+}
+
+function nonFinite(x: number, sign: SignChar): string {
+  if (Number.isNaN(x)) return 'nan';
+  if (x < 0) return '-inf';
+  return sign === '+' ? '+inf' : 'inf';
+}
+
+function signPrefix(x: number, sign: SignChar): string {
+  if (x < 0 || Object.is(x, -0)) return '-';
+  return sign === '-' ? '' : sign;
+}
+
+function dragonPositional(
+  x: number,
+  kind: FloatKind,
+  precision: number | null,
+  unique: boolean,
+  fractional: boolean,
+  trim: Trim,
+  sign: SignChar,
+  padLeft: number | null,
+  padRight: number | null,
+  minDigits: number | null,
+): string {
+  if (!Number.isFinite(x)) return nonFinite(x, sign);
+  checkDigitArgs(precision, unique, minDigits, fractional);
+  const a = Math.abs(x);
+  let intPart = '0';
+  let frac = '';
+  if (a !== 0) {
+    const d = generateDigits(a, {
+      precision,
+      unique,
+      fractional,
+      minDigits,
+      scientific: false,
+      kind,
+    });
+    if (d.ds === '0') {
+      if (precision !== null && fractional) frac = '0'.repeat(precision);
+    } else if (d.e >= 0) {
+      intPart = d.ds.slice(0, d.e + 1).padEnd(d.e + 1, '0');
+      frac = d.ds.slice(d.e + 1);
+    } else {
+      frac = '0'.repeat(-d.e - 1) + d.ds;
+    }
+  }
+  if (!unique) {
+    // Significant-digit mode pads until the integer digits plus fraction digits reach precision.
+    const want = fractional ? (precision as number) : (precision as number) - intPart.length;
+    frac = frac.padEnd(want, '0');
+  } else if (minDigits !== null && minDigits > 0) {
+    if (fractional) {
+      frac = frac.padEnd(minDigits, '0');
+    } else {
+      // Counting digits from the first nonzero integer digit; the zero before the point of a
+      // fractional value does not count, but leading zeros after the point do.
+      const have = (intPart === '0' && a !== 0 ? 0 : intPart.length) + frac.length;
+      frac = frac.padEnd(frac.length + Math.max(0, minDigits - have), '0');
+    }
+  }
+  const t = trimFraction(frac, trim, false);
+  let head = signPrefix(x, sign) + intPart;
+  if (padLeft !== null && head.length < padLeft) head = head.padStart(padLeft);
+  if (!t.point) return padRight === null ? head : `${head} ${' '.repeat(padRight)}`;
+  const tail = padRight !== null && t.frac.length < padRight ? t.frac.padEnd(padRight) : t.frac;
+  return `${head}.${tail}`;
+}
+
+function dragonScientific(
+  x: number,
+  kind: FloatKind,
+  precision: number | null,
+  unique: boolean,
+  trim: Trim,
+  sign: SignChar,
+  padLeft: number | null,
+  expDigits: number | null,
+  minDigits: number | null,
+): string {
+  if (!Number.isFinite(x)) return nonFinite(x, sign);
+  checkDigitArgs(precision, unique, minDigits);
+  const a = Math.abs(x);
+  let ds: string;
+  let e: number;
+  if (a === 0) {
+    ds = '0';
+    e = 0;
+  } else {
+    const d = generateDigits(a, {
+      precision,
+      unique,
+      fractional: true,
+      minDigits,
+      scientific: true,
+      kind,
+    });
+    ds = d.ds;
+    e = d.e;
+  }
+  let frac = ds.slice(1);
+  if (!unique) frac = frac.padEnd(precision as number, '0');
+  else if (minDigits !== null && minDigits > 0) frac = frac.padEnd(minDigits, '0');
+  const extended =
+    unique &&
+    a !== 0 &&
+    minDigits !== null &&
+    minDigits > 0 &&
+    (precision === null || precision > 0);
+  const t = trimFraction(frac, trim, ds.length > 1 || extended);
+  let head = signPrefix(x, sign) + ds[0];
+  if (padLeft !== null && head.length < padLeft) head = head.padStart(padLeft);
+  const expStr =
+    e === 0 && expDigits === 0 ? '' : String(Math.abs(e)).padStart(expDigits ?? 2, '0');
+  return `${head}${t.point ? `.${t.frac}` : ''}e${e < 0 ? '-' : '+'}${expStr}`;
+}
+
+/**
+ * Format a floating-point number in positional notation. With unique true the shortest
+ * digits that identify the value are printed and precision only caps them, so precision
+ * never pads zeros; pass unique false to print exactly precision digits.
  *
  * @param x - Value to format
- * @param precision - Number of digits after decimal point (default: from printoptions)
- * @param unique - If true, use shortest representation (default: true)
- * @param fractional - If true, always include fractional part (default: true)
- * @param trim - Trim trailing zeros: 'k' (keep), '.' (trim after decimal), '0' (trim zeros), '-' (trim point and zeros)
- * @param sign - Sign handling: '-' (only negative), '+' (always), ' ' (space for positive)
- * @param pad_left - Pad left with spaces to this width
- * @param pad_right - Pad right with zeros to this width
- * @param min_digits - Minimum digits after decimal point
+ * @param precision - Maximum digits after the decimal point (all unique digits when null)
+ * @param unique - If true, use the shortest representation that round-trips (default: true)
+ * @param fractional - If true, precision counts digits after the point, otherwise significant digits
+ * @param trim - 'k' keep trailing zeros, '.' trim zeros and keep the point, '0' trim zeros but keep one digit after the point, '-' trim zeros and the point
+ * @param sign - true or '+' always shows a sign, ' ' leaves a space for positive values, false or '-' only shows negative signs
+ * @param pad_left - Pad the part left of the decimal point with spaces to this width
+ * @param pad_right - Pad the part right of the decimal point with spaces to this width
+ * @param min_digits - Minimum digits after the decimal point when unique is true
  * @returns Formatted string
  *
  * @example
  * ```typescript
- * format_float_positional(3.14159265, 4); // '3.1416'
- * format_float_positional(1000.0, 2);     // '1000.00'
+ * format_float_positional(3.14159265, 4);        // '3.1416'
+ * format_float_positional(3.14, 4);              // '3.14'
+ * format_float_positional(3.14, 4, false);       // '3.1400'
  * ```
  */
 export function format_float_positional(
@@ -172,200 +489,69 @@ export function format_float_positional(
   precision: number | null = null,
   unique: boolean = true,
   fractional: boolean = true,
-  trim: 'k' | '.' | '0' | '-' = 'k',
-  sign: '-' | '+' | ' ' = '-',
+  trim: Trim = 'k',
+  sign: boolean | SignChar = '-',
   pad_left: number | null = null,
   pad_right: number | null = null,
   min_digits: number | null = null,
 ): string {
-  const prec = precision ?? currentPrintOptions.precision;
-
-  // Handle special values
-  if (!Number.isFinite(x)) {
-    if (Number.isNaN(x)) return currentPrintOptions.nanstr;
-    return (x > 0 ? '' : '-') + currentPrintOptions.infstr;
-  }
-
-  // Format the number
-  let result: string;
-  if (unique && precision === null) {
-    // Use shortest representation that round-trips
-    result = x.toString();
-    // If no decimal point and fractional is required, add .0
-    if (fractional && !result.includes('.') && !result.includes('e')) {
-      result += '.0';
-    }
-  } else {
-    result = x.toFixed(prec);
-  }
-
-  // Apply min_digits
-  if (min_digits !== null) {
-    const dotIndex = result.indexOf('.');
-    if (dotIndex !== -1) {
-      const currentDigits = result.length - dotIndex - 1;
-      if (currentDigits < min_digits) {
-        result += '0'.repeat(min_digits - currentDigits);
-      }
-    } else if (fractional) {
-      result += '.' + '0'.repeat(min_digits);
-    }
-  }
-
-  // Trim trailing zeros/decimal point
-  // Use loop-based trimming instead of regex to avoid ReDoS vulnerability
-  // '.' = trim trailing zeros, keep decimal point
-  // '0' = trim trailing zeros, ensure at least one digit after decimal
-  // '-' = trim trailing zeros and trailing decimal point
-  if (trim !== 'k' && result.includes('.')) {
-    if (trim === '.' || trim === '0' || trim === '-') {
-      let i = result.length;
-      while (i > 0 && result[i - 1] === '0') i--;
-      result = result.slice(0, i);
-    }
-    if (trim === '0') {
-      if (result.endsWith('.')) {
-        result += '0';
-      }
-    }
-    if (trim === '-') {
-      if (result.endsWith('.')) {
-        result = result.slice(0, -1);
-      }
-    }
-  }
-
-  // Handle sign
-  if (x >= 0 && !Object.is(x, -0)) {
-    if (sign === '+') {
-      result = '+' + result;
-    } else if (sign === ' ') {
-      result = ' ' + result;
-    }
-  }
-
-  // Pad left
-  if (pad_left !== null && result.length < pad_left) {
-    result = ' '.repeat(pad_left - result.length) + result;
-  }
-
-  // Pad right
-  if (pad_right !== null) {
-    const dotIndex = result.indexOf('.');
-    if (dotIndex !== -1) {
-      const currentDigits = result.length - dotIndex - 1;
-      if (currentDigits < pad_right) {
-        result += '0'.repeat(pad_right - currentDigits);
-      }
-    }
-  }
-
-  return result;
+  return dragonPositional(
+    x,
+    'float64',
+    precision,
+    unique,
+    fractional,
+    trim,
+    normalizeSign(sign),
+    pad_left,
+    pad_right,
+    min_digits,
+  );
 }
 
 /**
- * Format a floating-point number in scientific notation
+ * Format a floating-point number in scientific notation. With unique true the shortest
+ * digits that identify the value are printed and precision only caps them; pass unique
+ * false to print exactly precision digits after the point.
  *
  * @param x - Value to format
- * @param precision - Number of digits after decimal point (default: from printoptions)
- * @param unique - If true, use shortest representation (default: true)
- * @param trim - Trim trailing zeros: 'k' (keep), '.' (trim after decimal), '0' (trim zeros), '-' (trim point and zeros)
- * @param sign - Sign handling: '-' (only negative), '+' (always), ' ' (space for positive)
- * @param pad_left - Pad left with spaces to this width
- * @param exp_digits - Minimum digits in exponent
- * @param min_digits - Minimum digits after decimal point
+ * @param precision - Maximum digits after the decimal point of the mantissa (all unique digits when null)
+ * @param unique - If true, use the shortest representation that round-trips (default: true)
+ * @param trim - 'k' keep trailing zeros, '.' trim zeros and keep the point, '0' trim zeros but keep one digit after the point, '-' trim zeros and the point
+ * @param sign - true or '+' always shows a sign, ' ' leaves a space for positive values, false or '-' only shows negative signs
+ * @param pad_left - Pad the part left of the decimal point with spaces to this width
+ * @param exp_digits - Minimum digits in the exponent (default: 2)
+ * @param min_digits - Minimum digits after the decimal point when unique is true
  * @returns Formatted string
  *
  * @example
  * ```typescript
- * format_float_scientific(3.14159265, 4); // '3.1416e+00'
- * format_float_scientific(12345.0, 2);    // '1.23e+04'
+ * format_float_scientific(3.14159265, 4);        // '3.1416e+00'
+ * format_float_scientific(1500.0);               // '1.5e+03'
+ * format_float_scientific(1500.0, 3, false);     // '1.500e+03'
  * ```
  */
 export function format_float_scientific(
   x: number,
   precision: number | null = null,
-  _unique: boolean = true,
-  trim: 'k' | '.' | '0' | '-' = 'k',
-  sign: '-' | '+' | ' ' = '-',
+  unique: boolean = true,
+  trim: Trim = 'k',
+  sign: boolean | SignChar = '-',
   pad_left: number | null = null,
-  exp_digits: number = 2,
+  exp_digits: number | null = null,
   min_digits: number | null = null,
 ): string {
-  const prec = precision ?? currentPrintOptions.precision;
-
-  // Handle special values
-  if (!Number.isFinite(x)) {
-    if (Number.isNaN(x)) return currentPrintOptions.nanstr;
-    return (x > 0 ? '' : '-') + currentPrintOptions.infstr;
-  }
-
-  // Format in scientific notation
-  let result = x.toExponential(prec);
-
-  // Apply min_digits
-  if (min_digits !== null) {
-    const eIndex = result.indexOf('e');
-    const mantissa = result.slice(0, eIndex);
-    const exponent = result.slice(eIndex);
-    const dotIndex = mantissa.indexOf('.');
-    if (dotIndex !== -1) {
-      const currentDigits = mantissa.length - dotIndex - 1;
-      if (currentDigits < min_digits) {
-        result = mantissa + '0'.repeat(min_digits - currentDigits) + exponent;
-      }
-    }
-  }
-
-  // Trim trailing zeros in mantissa
-  if (trim !== 'k') {
-    const eIndex = result.indexOf('e');
-    let mantissa = result.slice(0, eIndex);
-    const exponent = result.slice(eIndex);
-
-    if (mantissa.includes('.')) {
-      if (trim === '.' || trim === '0' || trim === '-') {
-        mantissa = mantissa.replace(/0+$/, '');
-      }
-      if (trim === '0') {
-        if (mantissa.endsWith('.')) {
-          mantissa += '0';
-        }
-      }
-      if (trim === '-') {
-        mantissa = mantissa.replace(/\.$/, '');
-      }
-    }
-    result = mantissa + exponent;
-  }
-
-  // Fix exponent format (ensure minimum digits)
-  const eIndex = result.indexOf('e');
-  const mantissa = result.slice(0, eIndex);
-  const expPart = result.slice(eIndex + 1);
-  const expSign = expPart[0] === '-' ? '-' : '+';
-  let expNum = expPart.replace(/^[+-]/, '');
-
-  while (expNum.length < exp_digits) {
-    expNum = '0' + expNum;
-  }
-  result = mantissa + 'e' + expSign + expNum;
-
-  // Handle sign
-  if (x >= 0 && !Object.is(x, -0)) {
-    if (sign === '+') {
-      result = '+' + result;
-    } else if (sign === ' ') {
-      result = ' ' + result;
-    }
-  }
-
-  // Pad left
-  if (pad_left !== null && result.length < pad_left) {
-    result = ' '.repeat(pad_left - result.length) + result;
-  }
-
-  return result;
+  return dragonScientific(
+    x,
+    'float64',
+    precision,
+    unique,
+    trim,
+    normalizeSign(sign),
+    pad_left,
+    exp_digits,
+    min_digits,
+  );
 }
 
 /**
@@ -463,449 +649,428 @@ export function binary_repr(num: number, width: number | null = null): string {
   return result;
 }
 
-/**
- * Format a value for array output
- */
-function formatValue(
-  value: number | bigint | boolean | Complex,
-  dtype: DType,
-  opts: PrintOptions,
-): string {
-  if (value instanceof Complex) {
-    const re = formatValue(value.re, 'float64', opts);
-    const im = formatValue(Math.abs(value.im), 'float64', opts);
-    const sign = value.im >= 0 ? '+' : '-';
-    return `${re}${sign}${im}j`;
-  }
+type ElementValue = number | bigint | Complex;
+type ElementFormatter = (value: ElementValue) => string;
 
-  if (typeof value === 'boolean') {
-    return value ? ' True' : 'False';
-  }
-
-  if (typeof value === 'bigint') {
-    return value.toString();
-  }
-
-  // Handle special float values
-  if (!Number.isFinite(value)) {
-    if (Number.isNaN(value)) return opts.nanstr;
-    return (value > 0 ? '' : '-') + opts.infstr;
-  }
-
-  // Format based on dtype
-  if (dtype === 'float16' || dtype === 'float32' || dtype === 'float64') {
-    // Check if we should suppress small values
-    if (opts.suppress && Math.abs(value) < 1e-10 && value !== 0) {
-      return '0.';
-    }
-    return format_float_positional(value, opts.precision, false, true, 'k', opts.sign);
-  }
-
-  // Integer types
-  return value.toString();
+function floatKindOf(dtype: DType): FloatKind {
+  if (dtype === 'float16') return 'float16';
+  if (dtype === 'float32' || dtype === 'complex64') return 'float32';
+  return 'float64';
 }
 
 /**
- * Collect visible scalar values from an array, mirroring the summarization logic
- * of formatArrayRecursive. Used for pre-scan to determine uniform formatting.
+ * Read the element at a multi-index. Strides are applied here, once; iget takes
+ * a logical row-major index and applies strides itself, so it cannot be fed a
+ * stride-based offset.
  */
+function readAt(storage: ArrayStorage, indices: readonly number[]): ElementValue {
+  const strides = storage.strides;
+  let pos = storage.offset;
+  for (let i = 0; i < indices.length; i++) {
+    pos += indices[i]! * strides[i]!;
+  }
+  if (isComplexDType(storage.dtype)) {
+    return new Complex(storage.data[pos * 2] as number, storage.data[pos * 2 + 1] as number);
+  }
+  const v = storage.data[pos]!;
+  // Without native Float16Array the buffer holds float32 values; print what a half would hold.
+  return storage.dtype === 'float16' ? roundToFloat16(v as number) : v;
+}
+
+/** Positions shown along an axis of length n: all of them, or the edge items when summarizing. */
+function shownPositions(n: number, summarize: boolean, edgeitems: number): number[] {
+  const out: number[] = [];
+  if (summarize && n > 2 * edgeitems) {
+    for (let i = 0; i < edgeitems; i++) out.push(i);
+    for (let i = n - edgeitems; i < n; i++) out.push(i);
+  } else {
+    for (let i = 0; i < n; i++) out.push(i);
+  }
+  return out;
+}
+
+/** The values that will actually be printed, used to size the columns uniformly. */
 function collectVisibleValues(
   storage: ArrayStorage,
-  opts: PrintOptions,
-): (number | bigint | boolean | Complex)[] {
-  const values: (number | bigint | boolean | Complex)[] = [];
+  summarize: boolean,
+  edgeitems: number,
+): ElementValue[] {
+  const values: ElementValue[] = [];
   const shape = storage.shape;
   const ndim = shape.length;
-  const strides = storage.strides;
+  const indices = new Array<number>(ndim).fill(0);
 
-  function walk(indices: number[], depth: number): void {
+  function walk(depth: number): void {
     if (depth === ndim) {
-      let flatIdx = 0;
-      for (let i = 0; i < ndim; i++) {
-        flatIdx += indices[i]! * strides[i]!;
-      }
-      values.push(storage.iget(flatIdx));
+      values.push(readAt(storage, indices));
       return;
     }
-
-    const size = shape[depth]!;
-    const totalSize = shape.reduce((a, b) => a * b, 1);
-    const shouldSummarize = totalSize > opts.threshold && size > 2 * opts.edgeitems;
-
-    if (shouldSummarize) {
-      for (let i = 0; i < opts.edgeitems; i++) {
-        indices[depth] = i;
-        walk(indices, depth + 1);
-      }
-      for (let i = size - opts.edgeitems; i < size; i++) {
-        indices[depth] = i;
-        walk(indices, depth + 1);
-      }
-    } else {
-      for (let i = 0; i < size; i++) {
-        indices[depth] = i;
-        walk(indices, depth + 1);
-      }
+    for (const i of shownPositions(shape[depth]!, summarize, edgeitems)) {
+      indices[depth] = i;
+      walk(depth + 1);
     }
   }
 
-  if (ndim > 0) {
-    walk(new Array(ndim).fill(0), 0);
-  } else {
-    values.push(storage.iget(0));
-  }
-
+  walk(0);
   return values;
 }
 
-/**
- * Format an integer-valued float as "N." (e.g., 1., 100., -3.)
- */
-function formatIntFloat(v: number, sign: ' ' | '+' | '-'): string {
-  if (v < 0 || Object.is(v, -0)) {
-    return '-' + Math.abs(v).toString() + '.';
-  }
-  if (sign === '+') {
-    return '+' + v.toString() + '.';
-  }
-  if (sign === ' ') {
-    return ' ' + v.toString() + '.';
-  }
-  return v.toString() + '.';
-}
+// Largest magnitude printed positionally; wider float types reach 1e8, narrower ones less.
+const EXP_CUTOFF_MAX: Record<FloatKind, number> = { float16: 1e3, float32: 1e6, float64: 1e8 };
 
 /**
- * Pad a formatted float string using decimal-point alignment.
- * Left of the decimal is right-justified (padStart), right of the decimal
- * is left-justified (padEnd with spaces). This matches NumPy's alignment.
+ * Float element formatter that sizes every column from the visible values: scientific
+ * notation when the magnitudes span too many orders, a shared number of digits after
+ * the point in fixed modes, and alignment on the decimal point.
  */
-function padDecimalAlign(s: string, maxLeft: number, maxRight: number): string {
-  const dotIdx = s.indexOf('.');
-  if (dotIdx === -1) {
-    // No decimal point (e.g., special values) — right-justify to total width
-    return s.padStart(maxLeft + (maxRight > 0 ? 1 + maxRight : 0));
-  }
-  const left = s.slice(0, dotIdx);
-  const right = s.slice(dotIdx + 1); // after the '.'
-  const paddedLeft = left.padStart(maxLeft);
-  const paddedRight = maxRight > 0 ? right.padEnd(maxRight) : right;
-  return paddedLeft + '.' + paddedRight;
-}
+function buildFloatFormatter(
+  data: number[],
+  kind: FloatKind,
+  opts: PrintOptions,
+  sign: SignChar,
+): (x: number) => string {
+  const floatmode = opts.floatmode;
+  const plusSign: SignChar = sign === '+' ? '+' : '-';
+  let precision: number | null = floatmode === 'unique' ? null : opts.precision;
+  const finite = data.filter((v) => Number.isFinite(v));
 
-/**
- * Compute max chars left of decimal and max chars right of decimal
- * across a set of formatted strings.
- */
-function computeDecimalWidths(strings: string[]): { maxLeft: number; maxRight: number } {
-  let maxLeft = 0;
-  let maxRight = 0;
-  for (const s of strings) {
-    const dotIdx = s.indexOf('.');
-    if (dotIdx === -1) {
-      maxLeft = Math.max(maxLeft, s.length);
-    } else {
-      maxLeft = Math.max(maxLeft, dotIdx);
-      maxRight = Math.max(maxRight, s.length - dotIdx - 1);
+  let expFormat = false;
+  let padLeft: number;
+  let padRight: number;
+  let trim: Trim;
+  let expSize = -1;
+  let unique: boolean;
+  let minDigits: number | null;
+
+  let maxVal = 0;
+  let minVal = Infinity;
+  for (const v of finite) {
+    const a = Math.abs(v);
+    if (a === 0) continue;
+    if (a > maxVal) maxVal = a;
+    if (a < minVal) minVal = a;
+  }
+  if (maxVal > 0) {
+    if (
+      maxVal >= EXP_CUTOFF_MAX[kind] ||
+      (!opts.suppress &&
+        (minVal < roundToKind(0.0001, kind) || roundToKind(maxVal / minVal, kind) > 1000))
+    ) {
+      expFormat = true;
     }
   }
-  return { maxLeft, maxRight };
-}
 
-/**
- * Build a formatter closure for float values.
- * Pre-scans values to determine format strategy (scientific/integer/fixed)
- * and computes uniform width using decimal-point alignment.
- */
-function buildFloatFormatter(values: number[], opts: PrintOptions): (v: number) => string {
-  const finiteValues = values.filter((v) => Number.isFinite(v));
-
-  if (finiteValues.length === 0) {
-    // Only special values (nan, inf, -inf) or empty
-    const specialStrings = values.map((v) => {
-      if (Number.isNaN(v)) return opts.nanstr;
-      return (v > 0 ? '' : '-') + opts.infstr;
-    });
-    const maxWidth =
-      specialStrings.length > 0 ? Math.max(...specialStrings.map((s) => s.length)) : 1;
-    return (v: number) => {
-      if (Number.isNaN(v)) return opts.nanstr.padStart(maxWidth);
-      if (!Number.isFinite(v)) return ((v > 0 ? '' : '-') + opts.infstr).padStart(maxWidth);
-      return v.toString().padStart(maxWidth);
-    };
-  }
-
-  // Apply suppress: replace very small values with 0 for formatting decisions
-  const processedValues = opts.suppress
-    ? finiteValues.map((v) => (Math.abs(v) < 1e-10 && v !== 0 ? 0 : v))
-    : finiteValues;
-
-  const absValues = processedValues.map(Math.abs).filter((v) => v > 0);
-  const maxAbs = absValues.length > 0 ? Math.max(...absValues) : 0;
-  const minAbs = absValues.length > 0 ? Math.min(...absValues) : 0;
-
-  // Determine format strategy (matches NumPy 2.x)
-  const useScientific =
-    maxAbs >= 1e16 || (minAbs > 0 && minAbs < 1e-4) || (minAbs > 0 && maxAbs / minAbs > 1e3);
-
-  if (useScientific) {
-    // First pass: format each trimmed to find max mantissa fraction digits
-    const trimmedStrings = processedValues.map((v) =>
-      format_float_scientific(v, opts.precision, false, '.', opts.sign),
+  if (finite.length === 0) {
+    padLeft = 0;
+    padRight = 0;
+    trim = '.';
+    unique = true;
+    minDigits = null;
+  } else if (expFormat) {
+    unique = floatmode !== 'fixed';
+    const first: Trim = unique ? '.' : 'k';
+    const strs = finite.map((v) =>
+      dragonScientific(v, kind, precision, unique, first, plusSign, null, null, null),
     );
-    let maxMantissaFrac = 0;
-    for (const s of trimmedStrings) {
+    let maxFrac = 0;
+    let maxInt = 0;
+    let maxExp = 0;
+    for (const s of strs) {
       const eIdx = s.indexOf('e');
-      const mantissa = eIdx !== -1 ? s.slice(0, eIdx) : s;
-      const dotIdx = mantissa.indexOf('.');
-      if (dotIdx !== -1) {
-        maxMantissaFrac = Math.max(maxMantissaFrac, mantissa.length - dotIdx - 1);
-      }
+      const mant = s.slice(0, eIdx);
+      const dot = mant.indexOf('.');
+      maxInt = Math.max(maxInt, dot);
+      maxFrac = Math.max(maxFrac, mant.length - dot - 1);
+      maxExp = Math.max(maxExp, s.length - eIdx - 2);
     }
-    // Second pass: re-format all with uniform mantissa precision
-    // When uniformPrec is 0, use precision=1 with trim='.' to keep the decimal point
-    // (toExponential(0) omits the dot entirely, but NumPy always shows it)
-    const uniformPrec = Math.max(maxMantissaFrac, 0);
-    const formatPrec = Math.max(uniformPrec, 1);
-    const formatTrim: 'k' | '.' = uniformPrec === 0 ? '.' : 'k';
-    const strings = processedValues.map((v) =>
-      format_float_scientific(v, formatPrec, false, formatTrim, opts.sign),
+    expSize = maxExp;
+    trim = 'k';
+    precision = maxFrac;
+    minDigits = maxFrac;
+    padLeft = maxInt;
+    padRight = expSize + 2 + precision;
+  } else {
+    unique = floatmode !== 'fixed';
+    const first: Trim = unique ? '.' : 'k';
+    const strs = finite.map((v) =>
+      dragonPositional(v, kind, precision, unique, true, first, plusSign, null, null, null),
     );
-    for (const v of values) {
-      if (!Number.isFinite(v)) {
-        strings.push(Number.isNaN(v) ? opts.nanstr : (v > 0 ? '' : '-') + opts.infstr);
-      }
+    let maxInt = 0;
+    let maxFrac = 0;
+    for (const s of strs) {
+      const dot = s.indexOf('.');
+      maxInt = Math.max(maxInt, dot);
+      maxFrac = Math.max(maxFrac, s.length - dot - 1);
     }
-    const maxWidth = Math.max(...strings.map((s) => s.length));
+    padLeft = maxInt;
+    padRight = maxFrac;
+    if (floatmode === 'fixed' || floatmode === 'maxprec_equal') {
+      precision = maxFrac;
+      minDigits = maxFrac;
+      trim = 'k';
+    } else {
+      trim = '.';
+      minDigits = 0;
+    }
+  }
 
-    return (v: number) => {
-      if (opts.suppress && Math.abs(v) < 1e-10 && v !== 0 && Number.isFinite(v)) {
-        v = 0;
-      }
-      if (Number.isNaN(v)) return opts.nanstr.padStart(maxWidth);
-      if (!Number.isFinite(v)) return ((v > 0 ? '' : '-') + opts.infstr).padStart(maxWidth);
-      return format_float_scientific(v, formatPrec, false, formatTrim, opts.sign).padStart(
-        maxWidth,
+  if (sign === ' ' && !finite.some((v) => v < 0 || Object.is(v, -0))) padLeft += 1;
+
+  if (data.length !== finite.length) {
+    const neginf = sign !== '-' || data.some((v) => v === -Infinity);
+    const offset = padRight + 1;
+    padLeft = Math.max(
+      padLeft,
+      opts.nanstr.length - offset,
+      opts.infstr.length + (neginf ? 1 : 0) - offset,
+    );
+  }
+
+  return (x: number) => {
+    if (!Number.isFinite(x)) {
+      let ret: string;
+      if (Number.isNaN(x)) ret = (sign === '+' ? '+' : '') + opts.nanstr;
+      else ret = (x < 0 ? '-' : sign === '+' ? '+' : '') + opts.infstr;
+      return ' '.repeat(Math.max(0, padLeft + padRight + 1 - ret.length)) + ret;
+    }
+    if (expFormat) {
+      return dragonScientific(
+        x,
+        kind,
+        precision,
+        unique,
+        trim,
+        plusSign,
+        padLeft,
+        expSize,
+        minDigits,
       );
-    };
-  }
-
-  // Check if all finite values are integers
-  const allIntegers = processedValues.every((v) => Number.isInteger(v));
-
-  if (allIntegers) {
-    // Integer float format — all have "N." shape, decimal-align is just padStart
-    const strings = processedValues.map((v) => formatIntFloat(v, opts.sign));
-    for (const v of values) {
-      if (!Number.isFinite(v)) {
-        strings.push(Number.isNaN(v) ? opts.nanstr : (v > 0 ? '' : '-') + opts.infstr);
-      }
     }
-    const { maxLeft, maxRight } = computeDecimalWidths(strings);
-
-    return (v: number) => {
-      if (opts.suppress && Math.abs(v) < 1e-10 && v !== 0 && Number.isFinite(v)) {
-        v = 0;
-      }
-      if (Number.isNaN(v)) return padDecimalAlign(opts.nanstr, maxLeft, maxRight);
-      if (!Number.isFinite(v))
-        return padDecimalAlign((v > 0 ? '' : '-') + opts.infstr, maxLeft, maxRight);
-      return padDecimalAlign(formatIntFloat(v, opts.sign), maxLeft, maxRight);
-    };
-  }
-
-  // Fixed notation with trimmed trailing zeros — decimal-point aligned
-  const strings = processedValues.map((v) =>
-    format_float_positional(v, opts.precision, false, true, '.', opts.sign),
-  );
-  for (const v of values) {
-    if (!Number.isFinite(v)) {
-      strings.push(Number.isNaN(v) ? opts.nanstr : (v > 0 ? '' : '-') + opts.infstr);
-    }
-  }
-  const { maxLeft, maxRight } = computeDecimalWidths(strings);
-
-  return (v: number) => {
-    if (opts.suppress && Math.abs(v) < 1e-10 && v !== 0 && Number.isFinite(v)) {
-      v = 0;
-    }
-    if (Number.isNaN(v)) return padDecimalAlign(opts.nanstr, maxLeft, maxRight);
-    if (!Number.isFinite(v))
-      return padDecimalAlign((v > 0 ? '' : '-') + opts.infstr, maxLeft, maxRight);
-    return padDecimalAlign(
-      format_float_positional(v, opts.precision, false, true, '.', opts.sign),
-      maxLeft,
-      maxRight,
+    return dragonPositional(
+      x,
+      kind,
+      precision,
+      unique,
+      true,
+      trim,
+      plusSign,
+      padLeft,
+      padRight,
+      minDigits,
     );
   };
 }
 
-/**
- * Build a formatter for array values based on dtype and visible values.
- * Implements NumPy's two-pass approach: pre-scan to determine format, then apply uniformly.
- */
+/** Builds the element formatter for a dtype from the values that will be shown. */
 function buildFormatter(
-  storage: ArrayStorage,
+  dtype: DType,
+  values: ElementValue[],
   opts: PrintOptions,
-): (value: number | bigint | boolean | Complex) => string {
-  const dtype = storage.dtype as DType;
-  const values = collectVisibleValues(storage, opts);
-
-  if (values.length === 0) {
-    return (v) => formatValue(v as number | bigint | boolean | Complex, dtype, opts);
-  }
-
+  scalar: boolean,
+): ElementFormatter {
   if (dtype === 'bool') {
-    return (v) => ((v as boolean) ? ' True' : 'False');
+    const t = scalar ? 'True' : ' True';
+    return (v) => (v ? t : 'False');
   }
 
-  // BigInt types (int64, uint64 use BigInt64Array/BigUint64Array)
-  if (dtype === 'int64' || dtype === 'uint64') {
-    const strings = values.map((v) => (v as bigint).toString());
-    const maxWidth = Math.max(...strings.map((s) => s.length));
-    return (v) => (v as bigint).toString().padStart(maxWidth);
-  }
-
-  // Integer types (int8, int16, int32, uint8, uint16, uint32)
-  if (dtype.startsWith('int') || dtype.startsWith('uint')) {
-    const strings = values.map((v) => (v as number).toString());
-    const maxWidth = Math.max(...strings.map((s) => s.length));
-    return (v) => (v as number).toString().padStart(maxWidth);
-  }
-
-  // Complex types
-  if (dtype === 'complex64' || dtype === 'complex128') {
-    const reals = values.map((v) => (v as Complex).re);
-    const imags = values.map((v) => Math.abs((v as Complex).im));
-    const realFmt = buildFloatFormatter(reals, opts);
-    const imagFmt = buildFloatFormatter(imags, opts);
+  if (isComplexDType(dtype)) {
+    const kind = floatKindOf(dtype);
+    const cs = values as Complex[];
+    const realFmt = buildFloatFormatter(
+      cs.map((c) => c.re),
+      kind,
+      opts,
+      opts.sign,
+    );
+    const imagFmt = buildFloatFormatter(
+      cs.map((c) => c.im),
+      kind,
+      opts,
+      '+',
+    );
     return (v) => {
       const c = v as Complex;
-      const re = realFmt(c.re);
-      const im = imagFmt(Math.abs(c.im));
-      const sign = c.im >= 0 ? '+' : '-';
-      return `${re}${sign}${im}j`;
+      const r = realFmt(c.re);
+      let i = imagFmt(c.im);
+      const end = i.trimEnd().length;
+      i = `${i.slice(0, end)}j${i.slice(end)}`;
+      return r + i;
     };
   }
 
-  // Float types (float32, float64)
-  const floatFmt = buildFloatFormatter(values as number[], opts);
-  return (v) => floatFmt(v as number);
+  if (dtype === 'float16' || dtype === 'float32' || dtype === 'float64') {
+    const fmt = buildFloatFormatter(values as number[], floatKindOf(dtype), opts, opts.sign);
+    return (v) => fmt(v as number);
+  }
+
+  // Integers, including the bigint-backed int64 and uint64. Callers pass at least one value.
+  let max = values[0] as number | bigint;
+  let min = max;
+  for (const v of values as (number | bigint)[]) {
+    if (v > max) max = v;
+    if (v < min) min = v;
+  }
+  let sign = opts.sign;
+  if (sign === ' ' && min < 0) sign = '-';
+  let maxLen = String(max).length;
+  if (max >= 0 && (sign === '+' || sign === ' ')) maxLen += 1;
+  const width = Math.max(maxLen, String(min).length);
+  const plus = sign === '+' || sign === ' ';
+  const lead = sign === '+' ? '+' : ' ';
+  return (v) => {
+    const n = v as number | bigint;
+    const s = String(n);
+    return (plus && n >= 0 ? lead + s : s).padStart(width);
+  };
+}
+
+function extendLine(
+  parts: string[],
+  line: string,
+  word: string,
+  lineWidth: number,
+  nextLinePrefix: string,
+): string {
+  let needsWrap = line.length + word.length > lineWidth;
+  if (line.length <= nextLinePrefix.length) needsWrap = false;
+  if (needsWrap) {
+    parts.push(`${line.trimEnd()}\n`);
+    line = nextLinePrefix;
+  }
+  return line + word;
 }
 
 /**
- * Recursively format array elements into a nested string
+ * Lay the elements out recursively. The last axis wraps greedily at the line width and
+ * continuation lines align under the first element; outer axes put each sub-array on its
+ * own line, separated by blank lines for every extra dimension.
  */
 function formatArrayRecursive(
   storage: ArrayStorage,
-  indices: number[],
-  depth: number,
-  opts: PrintOptions,
-  formatter: (value: number | bigint | boolean | Complex) => string,
-  column: number,
+  formatter: ElementFormatter,
+  lineWidth: number,
+  nextLinePrefix: string,
+  separator: string,
+  edgeitems: number,
+  summarize: boolean,
 ): string {
   const shape = storage.shape;
   const ndim = shape.length;
+  const indices = new Array<number>(ndim).fill(0);
+  const sepTrim = separator.trimEnd();
 
-  if (depth === ndim) {
-    // Get the value at these indices
-    let flatIdx = 0;
-    const strides = storage.strides;
-    for (let i = 0; i < ndim; i++) {
-      flatIdx += indices[i]! * strides[i]!;
-    }
-    const value = storage.iget(flatIdx);
-    return formatter(value as number | bigint | boolean | Complex);
-  }
+  function recurse(depth: number, hangingIndent: string, currWidth: number): string {
+    const axesLeft = ndim - depth;
+    if (axesLeft === 0) return formatter(readAt(storage, indices));
 
-  const size = shape[depth]!;
-  const threshold = opts.threshold;
-  const edgeitems = opts.edgeitems;
+    const nextHangingIndent = `${hangingIndent} `;
+    const nextWidth = currWidth - 1;
+    const n = shape[depth]!;
+    const showSummary = summarize && 2 * edgeitems < n;
+    const positions = shownPositions(n, showSummary, edgeitems);
+    if (showSummary) positions.splice(edgeitems, 0, -1);
 
-  // Determine if we need to summarize this dimension
-  const totalSize = shape.reduce((a, b) => a * b, 1);
-  const shouldSummarize = totalSize > threshold && size > 2 * edgeitems;
-
-  const parts: string[] = [];
-  const newIndices = [...indices];
-
-  if (shouldSummarize) {
-    // Show first edgeitems
-    for (let i = 0; i < edgeitems; i++) {
-      newIndices[depth] = i;
-      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1));
-    }
-    parts.push('...');
-    // Show last edgeitems
-    for (let i = size - edgeitems; i < size; i++) {
-      newIndices[depth] = i;
-      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1));
-    }
-  } else {
-    for (let i = 0; i < size; i++) {
-      newIndices[depth] = i;
-      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1));
-    }
-  }
-
-  // Join with appropriate separators
-  if (depth === ndim - 1) {
-    // Innermost dimension: try single line first
-    const singleLine = '[' + parts.join(opts.separator) + ']';
-    if (column + singleLine.length < opts.linewidth) {
-      return singleLine;
-    }
-    // Wrap: greedily pack elements onto lines
-    const continuationIndent = ' '.repeat(column + 1);
-    const maxContentWidth = opts.linewidth - column - 1;
-    const lines: string[] = [];
-    let currentLine = '';
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i]!;
-      if (currentLine === '') {
-        currentLine = part;
-      } else {
-        const candidate = currentLine + opts.separator + part;
-        if (candidate.length < maxContentWidth) {
-          currentLine = candidate;
+    const out: string[] = [];
+    if (axesLeft === 1) {
+      const elemWidth = currWidth - Math.max(sepTrim.length, 1);
+      let line = hangingIndent;
+      for (let k = 0; k < positions.length; k++) {
+        const pos = positions[k]!;
+        const last = k === positions.length - 1;
+        let word: string;
+        if (pos === -1) {
+          word = '...';
         } else {
-          lines.push(currentLine);
-          currentLine = part;
+          indices[depth] = pos;
+          word = recurse(depth + 1, nextHangingIndent, nextWidth);
         }
+        line = extendLine(out, line, word, elemWidth, hangingIndent);
+        if (!last) line += separator;
+      }
+      out.push(line);
+    } else {
+      const lineSep = sepTrim + '\n'.repeat(axesLeft - 1);
+      for (let k = 0; k < positions.length; k++) {
+        const pos = positions[k]!;
+        let nested: string;
+        if (pos === -1) {
+          nested = '...';
+        } else {
+          indices[depth] = pos;
+          nested = recurse(depth + 1, nextHangingIndent, nextWidth);
+        }
+        out.push(hangingIndent + nested);
+        if (k < positions.length - 1) out.push(lineSep);
       }
     }
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-    return '[' + lines.join('\n' + continuationIndent) + ']';
-  } else {
-    // Outer dimensions: use newlines with blank lines between blocks
-    const indent = ' '.repeat(column + 1);
-    const extraNewlines = ndim - depth - 2;
-    const innerSep = '\n' + '\n'.repeat(Math.max(0, extraNewlines)) + indent;
-    return '[' + parts.join(innerSep) + ']';
+    return `[${out.join('').slice(hangingIndent.length)}]`;
   }
+
+  return recurse(0, nextLinePrefix, lineWidth);
+}
+
+const SCALAR_SCI_UPPER: Record<FloatKind, number> = {
+  float16: 1e3,
+  float32: 1e6,
+  float64: 1e16,
+};
+
+/**
+ * Shortest round-trip text of a float scalar the way NumPy prints a scalar: positional
+ * with a trailing .0 for whole values, scientific below 1e-4 or from an upper bound that
+ * depends on the float width.
+ */
+function floatScalarString(x: number, kind: FloatKind, trim: Trim): string {
+  if (!Number.isFinite(x)) return nonFinite(x, '-');
+  const a = Math.abs(x);
+  if (a !== 0 && (a >= SCALAR_SCI_UPPER[kind] || a < 1e-4)) {
+    return dragonScientific(x, kind, null, true, trim === '0' ? '-' : trim, '-', null, null, null);
+  }
+  return dragonPositional(x, kind, null, true, true, trim, '-', null, null, null);
+}
+
+/** The str() of a single element, as used for 0-d arrays. */
+function scalarString(value: ElementValue, dtype: DType): string {
+  if (dtype === 'bool') return value ? 'True' : 'False';
+  if (isComplexDType(dtype)) {
+    const c = value as Complex;
+    const kind = floatKindOf(dtype);
+    const re = floatScalarString(c.re, kind, '-');
+    const imNeg = c.im < 0 || Object.is(c.im, -0);
+    const im = `${floatScalarString(Math.abs(c.im), kind, '-')}j`;
+    if (c.re === 0 && !Object.is(c.re, -0)) return (imNeg ? '-' : '') + im;
+    return `(${re}${imNeg ? '-' : '+'}${im})`;
+  }
+  if (dtype === 'float16' || dtype === 'float32' || dtype === 'float64') {
+    return floatScalarString(value as number, floatKindOf(dtype), '0');
+  }
+  return String(value);
 }
 
 /**
- * Convert an array to a string representation
+ * Convert an array to a string representation, matching numpy.array2string. The prefix
+ * and suffix are not part of the result; they only reserve width and set the indent of
+ * continuation lines.
  *
  * @param a - Input array storage
  * @param max_line_width - Maximum line width (default: from printoptions)
  * @param precision - Number of digits of precision (default: from printoptions)
- * @param suppress_small - Suppress small floating point values (default: from printoptions)
- * @param separator - Separator between elements (default: from printoptions)
- * @param prefix - Prefix string (default: '')
- * @param suffix - Suffix string (default: '')
- * @param threshold - Threshold for summarization (default: from printoptions)
- * @param edgeitems - Number of edge items when summarizing (default: from printoptions)
+ * @param suppress_small - Print very small values as zero (default: from printoptions)
+ * @param separator - Separator between elements (default: ' ')
+ * @param prefix - Text that will precede the result, used for alignment
+ * @param suffix - Text that will follow the result, used for line width
+ * @param threshold - Element count above which the output is summarized (default: from printoptions)
+ * @param edgeitems - Number of items at each edge when summarizing (default: from printoptions)
+ * @param floatmode - Float format mode (default: from printoptions)
+ * @param sign - Sign handling for numbers (default: from printoptions)
  * @returns String representation of the array
  *
  * @example
  * ```typescript
  * const arr = array([[1, 2, 3], [4, 5, 6]]);
  * console.log(array2string(arr.storage));
- * // [[1 2 3]
- * //  [4 5 6]]
+ * // [[1. 2. 3.]
+ * //  [4. 5. 6.]]
  * ```
  */
 export function array2string(
@@ -923,7 +1088,7 @@ export function array2string(
 ): string {
   const opts: PrintOptions = {
     ...currentPrintOptions,
-    linewidth: max_line_width ?? currentPrintOptions.linewidth,
+    linewidth: (max_line_width ?? currentPrintOptions.linewidth) - suffix.length,
     precision: precision ?? currentPrintOptions.precision,
     suppress: suppress_small ?? currentPrintOptions.suppress,
     separator,
@@ -935,45 +1100,42 @@ export function array2string(
     sign: sign ?? currentPrintOptions.sign,
   };
 
-  // Handle 0-d array
-  if (a.ndim === 0) {
-    const value = a.iget(0);
-    return formatValue(value as number | bigint | boolean | Complex, a.dtype as DType, opts);
-  }
+  if (a.size === 0) return '[]';
 
-  // Build formatter (pre-scan for uniform formatting)
-  const formatter = buildFormatter(a, opts);
-
-  // Format recursively
-  const startColumn = opts.prefix.length;
-  const result = formatArrayRecursive(
+  const dtype = a.dtype as DType;
+  const summarize = a.size > opts.threshold;
+  const values = collectVisibleValues(a, summarize, opts.edgeitems);
+  const formatter = buildFormatter(dtype, values, opts, a.ndim === 0);
+  return formatArrayRecursive(
     a,
-    new Array(a.ndim).fill(0),
-    0,
-    opts,
     formatter,
-    startColumn,
+    opts.linewidth,
+    ` ${' '.repeat(prefix.length)}`,
+    separator,
+    opts.edgeitems,
+    summarize,
   );
-
-  return opts.prefix + result + opts.suffix;
 }
 
+const IMPLIED_DTYPES: ReadonlySet<string> = new Set(['int64', 'float64', 'complex128', 'bool']);
+
 /**
- * Return the string representation of an array
- *
- * Similar to array2string but includes the 'array(' prefix.
+ * Return the string representation of an array, matching numpy.array_repr: rows are
+ * comma separated and aligned under the opening bracket, and the dtype is appended unless
+ * it is implied by the values (int64, float64, complex128, bool). Empty arrays and arrays
+ * larger than the print threshold also show their shape.
  *
  * @param a - Input array storage
  * @param max_line_width - Maximum line width
  * @param precision - Number of digits of precision
- * @param suppress_small - Suppress small floating point values
+ * @param suppress_small - Print very small values as zero
  * @returns String representation
  *
  * @example
  * ```typescript
- * const arr = array([1, 2, 3]);
+ * const arr = array([1, 2, 3], 'int8');
  * console.log(array_repr(arr.storage));
- * // array([1, 2, 3])
+ * // array([1, 2, 3], dtype=int8)
  * ```
  */
 export function array_repr(
@@ -982,37 +1144,43 @@ export function array_repr(
   precision: number | null = null,
   suppress_small: boolean | null = null,
 ): string {
-  const dataStr = array2string(a, max_line_width, precision, suppress_small, ', ');
+  const width = max_line_width ?? currentPrintOptions.linewidth;
+  const prefix = 'array(';
+  const lst = array2string(a, width, precision, suppress_small, ', ', prefix, ')');
 
-  // Build the repr string
-  let result = 'array(' + dataStr;
-
-  // Add dtype if not float64
-  if (a.dtype !== 'float64') {
-    result += `, dtype='${a.dtype}'`;
+  const extras: string[] = [];
+  const shape = a.shape;
+  const isEmpty1d = shape.length === 1 && shape[0] === 0;
+  if ((a.size === 0 && !isEmpty1d) || a.size > currentPrintOptions.threshold) {
+    extras.push(`shape=(${shape.join(', ')}${shape.length === 1 ? ',' : ''})`);
   }
+  if (!IMPLIED_DTYPES.has(a.dtype) || a.size === 0) {
+    extras.push(`dtype=${a.dtype}`);
+  }
+  if (extras.length === 0) return `${prefix}${lst})`;
 
-  result += ')';
-
-  return result;
+  const head = `${prefix}${lst},`;
+  const extra = `${extras.join(', ')})`;
+  const lastLineLen = head.length - (head.lastIndexOf('\n') + 1);
+  const spacer = lastLineLen + extra.length + 1 > width ? `\n${' '.repeat(prefix.length)}` : ' ';
+  return head + spacer + extra;
 }
 
 /**
- * Return a string representation of the data in an array
- *
- * Similar to array2string but returns just the data without array() wrapper.
+ * Return a string representation of the data in an array, matching numpy.array_str.
+ * A 0-d array prints as its scalar value.
  *
  * @param a - Input array storage
  * @param max_line_width - Maximum line width
  * @param precision - Number of digits of precision
- * @param suppress_small - Suppress small floating point values
+ * @param suppress_small - Print very small values as zero
  * @returns String representation of the data
  *
  * @example
  * ```typescript
  * const arr = array([1, 2, 3]);
  * console.log(array_str(arr.storage));
- * // [1 2 3]
+ * // [1. 2. 3.]
  * ```
  */
 export function array_str(
@@ -1021,5 +1189,6 @@ export function array_str(
   precision: number | null = null,
   suppress_small: boolean | null = null,
 ): string {
-  return array2string(a, max_line_width, precision, suppress_small);
+  if (a.ndim === 0) return scalarString(readAt(a, []), a.dtype as DType);
+  return array2string(a, max_line_width, precision, suppress_small, ' ', '');
 }

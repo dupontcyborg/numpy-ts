@@ -6,12 +6,39 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import { arange, asfortranarray, ones, zeros } from '../../src';
 import { ArrayStorage } from '../../src/common/storage';
 import { wasmConfig } from '../../src/common/wasm/config';
 import { wasmFreeBytes } from '../../src/common/wasm/runtime';
 
 beforeEach(() => {
   wasmConfig.thresholdMultiplier = 0; // force WASM
+});
+
+// ---------------------------------------------------------------------------
+// Ops that build a second storage over the region of a fresh copy
+// ---------------------------------------------------------------------------
+
+describe('storages sharing a fresh copy hold their own reference', () => {
+  it('a copying reshape keeps its data after its hidden base is disposed', () => {
+    const r = arange(10000).reshape([100, 100]).T.reshape([10000]);
+    expect(r.base).not.toBeNull();
+    r.base!.dispose();
+    // Reuse the freed memory, if it was freed.
+    ones([10000]).multiply(42);
+    expect([r.get([0]), r.get([1]), r.get([2])]).toEqual([0, 100, 200]);
+  });
+
+  it('asfortranarray frees its regions on dispose', () => {
+    const src = zeros([300, 400]);
+    const f = asfortranarray(src);
+    const fRegion = f.storage.wasmRegion!;
+    const srcRegion = src.storage.wasmRegion!;
+    f.dispose();
+    src.dispose();
+    expect(fRegion.refCount).toBe(0);
+    expect(srcRegion.refCount).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

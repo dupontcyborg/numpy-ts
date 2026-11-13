@@ -1962,53 +1962,25 @@ export function diagonal(
   }
   outShape.push(diagLen);
 
-  // Fast path: 2D arrays — return a strided view (zero-copy)
-  if (ndim === 2 && ax1 === 0 && ax2 === 1) {
-    const startOffset = a.offset + (offset >= 0 ? offset * a.strides[1]! : -offset * a.strides[0]!);
-    const diagStride = a.strides[0]! + a.strides[1]!;
-    return ArrayStorage.fromDataShared(
-      a.data,
-      [diagLen],
-      a.dtype,
-      [diagStride],
-      startOffset,
-      a.wasmRegion,
-    );
+  // A strided view over the same buffer: both diagonal axes collapse into one whose step
+  // is the sum of their strides, and the diagonal axis comes last.
+  const outStrides: number[] = [];
+  for (let i = 0; i < ndim; i++) {
+    if (i !== ax1 && i !== ax2) outStrides.push(a.strides[i]!);
   }
-
-  // General N-D path: element-by-element copy
-  const result = ArrayStorage.zeros(outShape, a.dtype);
-  const otherDims = shape.filter((_, i) => i !== ax1 && i !== ax2);
-  const otherSize = otherDims.reduce((acc, d) => acc * d, 1);
-
-  for (let otherIdx = 0; otherIdx < otherSize; otherIdx++) {
-    let temp = otherIdx;
-    const otherIndices: number[] = [];
-    for (let i = otherDims.length - 1; i >= 0; i--) {
-      otherIndices.unshift(temp % otherDims[i]!);
-      temp = Math.floor(temp / otherDims[i]!);
-    }
-
-    for (let d = 0; d < diagLen; d++) {
-      const srcIndices: number[] = new Array(ndim);
-      let otherIdx2 = 0;
-      for (let i = 0; i < ndim; i++) {
-        if (i === ax1) {
-          srcIndices[i] = offset >= 0 ? d : d - offset;
-        } else if (i === ax2) {
-          srcIndices[i] = offset >= 0 ? d + offset : d;
-        } else {
-          srcIndices[i] = otherIndices[otherIdx2++]!;
-        }
-      }
-
-      const dstIndices = [...otherIndices, d];
-      const value = a.get(...srcIndices);
-      result.set(dstIndices, value);
-    }
+  outStrides.push(a.strides[ax1]! + a.strides[ax2]!);
+  let startOffset = a.offset;
+  if (diagLen > 0) {
+    startOffset += offset >= 0 ? offset * a.strides[ax2]! : -offset * a.strides[ax1]!;
   }
-
-  return result;
+  return ArrayStorage.fromDataShared(
+    a.data,
+    outShape,
+    a.dtype,
+    outStrides,
+    startOffset,
+    a.wasmRegion,
+  );
 }
 
 /**

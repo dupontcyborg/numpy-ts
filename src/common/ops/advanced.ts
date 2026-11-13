@@ -536,88 +536,133 @@ export function take_along_axis(
 }
 
 /**
- * Put values into array along an axis using 1D index array
+ * Put values into an array along an axis, in place. The indices must have the same number of
+ * dimensions as the array; their other dimensions broadcast against the array's, and values
+ * (an array or a scalar) broadcast against the resulting shape. Writes happen in C order, so
+ * a repeated index keeps the last value, and values are cast to the array dtype like an
+ * assignment (floats truncate, a complex source loses its imaginary part).
  */
 export function put_along_axis(
   storage: ArrayStorage,
   indices: ArrayStorage,
-  values: ArrayStorage,
+  values: ArrayStorage | number | bigint | Complex,
   axis: number,
 ): void {
   const shape = storage.shape;
   const ndim = shape.length;
-  const dtype = storage.dtype;
 
-  // Normalize axis
   const normalizedAxis = axis < 0 ? ndim + axis : axis;
   if (normalizedAxis < 0 || normalizedAxis >= ndim) {
     throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
   }
-
-  const indicesShape = indices.shape;
-  const valuesShape = values.shape;
-
-  if (indicesShape.length !== ndim || valuesShape.length !== ndim) {
-    throw new Error('indices, arr, and values must have same ndim');
+  if (indices.ndim !== ndim) {
+    throw new Error('`indices` and `arr` must have the same number of dimensions');
   }
 
-  const axisSize = shape[normalizedAxis]!;
-  const inputStrides = computeStrides(shape);
-  const indicesStrides = computeStrides(indicesShape);
-  const valuesStrides = computeStrides(valuesShape);
-
-  // Iterate through indices positions
-  const indicesSize = indicesShape.reduce((a, b) => a * b, 1);
-  for (let idx = 0; idx < indicesSize; idx++) {
-    // Convert idx to multi-index
-    const multiIdx = new Array(ndim);
-    let remaining = idx;
-    for (let d = ndim - 1; d >= 0; d--) {
-      multiIdx[d] = remaining % indicesShape[d]!;
-      remaining = Math.floor(remaining / indicesShape[d]!);
-    }
-
-    // Get the index value
-    let indicesLinearIdx = 0;
-    for (let d = 0; d < ndim; d++) {
-      indicesLinearIdx += multiIdx[d]! * indicesStrides[d]!;
-    }
-    let indexValue = Number(indices.iget(indicesLinearIdx));
-    if (indexValue < 0) indexValue = axisSize + indexValue;
-    if (indexValue < 0 || indexValue >= axisSize) {
+  const idxShape = indices.shape;
+  const outShape = new Array<number>(ndim);
+  for (let d = 0; d < ndim; d++) {
+    const m = idxShape[d]!;
+    const n = shape[d]!;
+    if (d === normalizedAxis || m === n || n === 1) outShape[d] = m;
+    else if (m === 1) outShape[d] = n;
+    else {
       throw new Error(
-        `index ${indexValue} is out of bounds for axis ${normalizedAxis} with size ${axisSize}`,
+        `shape mismatch: indices of shape (${idxShape.join(', ')}) cannot be broadcast against array of shape (${shape.join(', ')})`,
       );
     }
+  }
 
-    // Get value from values array (broadcast if needed)
-    let valuesLinearIdx = 0;
-    for (let d = 0; d < ndim; d++) {
-      const vidx = valuesShape[d] === 1 ? 0 : multiIdx[d]!;
-      valuesLinearIdx += vidx * valuesStrides[d]!;
+  // Strides into the values for each output dimension, 0 where the values broadcast.
+  const valueStrides = new Array<number>(ndim).fill(0);
+  const valueIsArray = values instanceof ArrayStorage;
+  if (valueIsArray) {
+    const vShape = values.shape;
+    const lead = ndim - vShape.length;
+    if (lead < 0) {
+      throw new Error(
+        `shape mismatch: value array of shape (${vShape.join(', ')}) could not be broadcast to indexing result of shape (${outShape.join(', ')})`,
+      );
     }
-    let value = values.iget(valuesLinearIdx);
-
-    // Compute destination index
-    const destMultiIdx = [...multiIdx];
-    destMultiIdx[normalizedAxis] = indexValue;
-    let destLinearIdx = 0;
-    for (let d = 0; d < ndim; d++) {
-      destLinearIdx += destMultiIdx[d]! * inputStrides[d]!;
-    }
-
-    // Convert type if needed
-    if (isBigIntDType(dtype)) {
-      if (typeof value !== 'bigint') {
-        value = BigInt(Math.round(Number(value)));
+    for (let d = 0; d < vShape.length; d++) {
+      const v = vShape[d]!;
+      if (v !== 1 && v !== outShape[lead + d]) {
+        throw new Error(
+          `shape mismatch: value array of shape (${vShape.join(', ')}) could not be broadcast to indexing result of shape (${outShape.join(', ')})`,
+        );
       }
+      if (v !== 1) valueStrides[lead + d] = values.strides[d]!;
+    }
+  }
+
+  const outSize = outShape.reduce((a, b) => a * b, 1);
+  if (outSize === 0) return;
+
+  const dstData = storage.data as unknown as { [i: number]: number | bigint };
+  const idxData = indices.data;
+  const dstDtype = storage.dtype;
+  const dstComplex = isComplexDType(dstDtype);
+  const dstBigInt = isBigIntDType(dstDtype);
+  const dstBool = dstDtype === 'bool';
+  const srcComplex = valueIsArray ? isComplexDType(values.dtype) : values instanceof Complex;
+  const valData = valueIsArray
+    ? (values.data as unknown as { [i: number]: number | bigint })
+    : undefined;
+  const scalar = valueIsArray ? undefined : values;
+  const axisSize = shape[normalizedAxis]!;
+
+  const coord = new Array<number>(ndim).fill(0);
+  for (let o = 0; o < outSize; o++) {
+    let idxPos = indices.offset;
+    let dstPos = storage.offset;
+    let valPos = valueIsArray ? values.offset : 0;
+    for (let d = 0; d < ndim; d++) {
+      const c = coord[d]!;
+      if (idxShape[d] !== 1) idxPos += c * indices.strides[d]!;
+      if (d !== normalizedAxis && shape[d] !== 1) dstPos += c * storage.strides[d]!;
+      valPos += c * valueStrides[d]!;
+    }
+
+    const raw = Number(idxData[idxPos]!);
+    const index = raw < 0 ? axisSize + raw : raw;
+    if (!(index >= 0 && index < axisSize)) {
+      throw new Error(
+        `index ${raw} is out of bounds for axis ${normalizedAxis} with size ${axisSize}`,
+      );
+    }
+    dstPos += index * storage.strides[normalizedAxis]!;
+
+    let re: number | bigint;
+    let im = 0;
+    if (valueIsArray) {
+      if (srcComplex) {
+        re = valData![valPos * 2]!;
+        im = Number(valData![valPos * 2 + 1]!);
+      } else {
+        re = valData![valPos]!;
+      }
+    } else if (scalar instanceof Complex) {
+      re = scalar.re;
+      im = scalar.im;
     } else {
-      if (typeof value === 'bigint') {
-        value = Number(value);
-      }
+      re = scalar as number | bigint;
     }
 
-    storage.iset(destLinearIdx, value);
+    if (dstComplex) {
+      dstData[dstPos * 2] = Number(re);
+      dstData[dstPos * 2 + 1] = im;
+    } else if (dstBool) {
+      dstData[dstPos] = Number(re) !== 0 || im !== 0 ? 1 : 0;
+    } else if (dstBigInt) {
+      dstData[dstPos] = typeof re === 'bigint' ? re : BigInt(Math.trunc(re));
+    } else {
+      dstData[dstPos] = Number(re);
+    }
+
+    for (let d = ndim - 1; d >= 0; d--) {
+      if (++coord[d]! < outShape[d]!) break;
+      coord[d] = 0;
+    }
   }
 }
 

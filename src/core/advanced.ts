@@ -25,9 +25,14 @@ export function broadcast_to(a: NDArrayCore, shape: readonly number[]): NDArrayC
   return fromStorageView(advancedOps.broadcast_to(toStorage(a), shape), a);
 }
 
+/** Broadcast arrays against each other - views, except that an array already of the common shape is returned as is */
 export function broadcast_arrays(...arrays: NDArrayCore[]): NDArrayCore[] {
   const storages = arrays.map(toStorage);
-  return advancedOps.broadcast_arrays(storages).map((s) => fromStorage(s));
+  return advancedOps.broadcast_arrays(storages).map((s, i) => {
+    const src = storages[i]!;
+    const same = s.ndim === src.ndim && s.shape.every((d, k) => d === src.shape[k]);
+    return same ? arrays[i]! : fromStorageView(s, arrays[i]!);
+  });
 }
 
 export function broadcast_shapes(...shapes: number[][]): number[] {
@@ -123,13 +128,18 @@ export function take_along_axis(arr: NDArrayCore, indices: NDArrayCore, axis: nu
   return fromStorage(advancedOps.take_along_axis(toStorage(arr), toStorage(indices), axis));
 }
 
+/** Put values into an array along an axis, in place; values may be an array or a scalar */
 export function put_along_axis(
   arr: NDArrayCore,
   indices: NDArrayCore,
-  values: NDArrayCore,
+  values: NDArrayCore | number | bigint | Complex,
   axis: number,
 ): void {
-  advancedOps.put_along_axis(toStorage(arr), toStorage(indices), toStorage(values), axis);
+  const valueStorage =
+    typeof values === 'number' || typeof values === 'bigint' || values instanceof Complex
+      ? values
+      : toStorage(values);
+  advancedOps.put_along_axis(toStorage(arr), toStorage(indices), valueStorage, axis);
 }
 
 export function choose(a: NDArrayCore, choices: NDArrayCore[]): NDArrayCore {

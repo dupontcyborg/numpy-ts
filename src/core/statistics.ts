@@ -146,14 +146,14 @@ export function corrcoef(x: NDArrayCore, y?: NDArrayCore, rowvar?: boolean): NDA
 /** Compute histogram bin edges */
 export function histogram_bin_edges(
   a: NDArrayCore,
-  bins?: number | BinStrategyString,
+  bins?: number | BinStrategyString | NDArrayCore,
   range?: [number, number],
   weights?: NDArrayCore,
 ): NDArrayCore {
   return fromStorage(
     statisticsOps.histogram_bin_edges(
       toStorage(a),
-      bins,
+      typeof bins === 'object' ? toStorage(bins) : bins,
       range,
       weights ? toStorage(weights) : undefined,
     ),

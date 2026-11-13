@@ -8,7 +8,8 @@
 
 import { broadcastTo, computeBroadcastShape } from '../broadcasting';
 import { Complex } from '../complex';
-import { isBigIntDType, isComplexDType } from '../dtype';
+import { type DType, isBigIntDType, isComplexDType, isFloatDType, promoteDTypes } from '../dtype';
+import { float16BitsToNumber, numberToFloat16Bits } from '../float16-conv';
 import { allElementsEqual, elementwiseComparisonOp } from '../internal/compute';
 import { ArrayStorage } from '../storage';
 
@@ -160,106 +161,132 @@ export function notEqual(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
   return elementwiseComparisonOp(a, b, (x, y) => x !== y, 'ne');
 }
 
+type Operand = { re: ArrayLike<number>; im?: ArrayLike<number> };
+
+/** An operand broadcast to the output shape, read as float64 (real and imaginary parts apart). */
+function toOperand(storage: ArrayStorage, outShape: number[]): Operand {
+  const n = outShape.reduce((x, y) => x * y, 1);
+  const complex = isComplexDType(storage.dtype);
+  const sameShape =
+    storage.shape.length === outShape.length && storage.shape.every((d, i) => d === outShape[i]);
+  if (sameShape && storage.isCContiguous && !complex && !isBigIntDType(storage.dtype)) {
+    const data = storage.data as unknown as { subarray(b: number, e: number): ArrayLike<number> };
+    return { re: data.subarray(storage.offset, storage.offset + n) };
+  }
+  const view = broadcastTo(storage, outShape);
+  const data = view.data as unknown as { [i: number]: number | bigint };
+  const re = new Float64Array(n);
+  const im = complex ? new Float64Array(n) : undefined;
+  const nd = outShape.length;
+  const coord = new Array<number>(nd).fill(0);
+  for (let i = 0; i < n; i++) {
+    let pos = view.offset;
+    for (let d = 0; d < nd; d++) pos += coord[d]! * view.strides[d]!;
+    if (im) {
+      re[i] = data[pos * 2] as number;
+      im[i] = data[pos * 2 + 1] as number;
+    } else {
+      re[i] = Number(data[pos]!);
+    }
+    for (let d = nd - 1; d >= 0; d--) {
+      if (++coord[d]! < outShape[d]!) break;
+      coord[d] = 0;
+    }
+  }
+  return im ? { re, im } : { re };
+}
+
+/** Rounding to the precision of a float dtype, for arithmetic NumPy does in that dtype. */
+function rounderFor(dtype: DType): (v: number) => number {
+  if (dtype === 'float32' || dtype === 'complex64') return Math.fround;
+  if (dtype === 'float16') return (v) => float16BitsToNumber(numberToFloat16Bits(v));
+  return (v) => v;
+}
+
+function inexactDType(dtype: DType): DType {
+  return isFloatDType(dtype) || isComplexDType(dtype) ? dtype : 'float64';
+}
+
 /**
- * Element-wise "close" comparison with tolerance
- * Returns true where |a - b| <= atol + rtol * |b|
+ * Element-wise "close" comparison with tolerance, NumPy's formula: close where
+ * |a - b| <= atol + rtol * |b| and b is finite, or where a == b (so equal infinities are
+ * close). With equalNan, a NaN in both counts as close. Tolerances may be arrays and broadcast
+ * with the inputs. The arithmetic runs in the promoted dtype, so float32 inputs are compared
+ * at float32 precision as in NumPy; integers are compared as float64.
  */
 export function isclose(
   a: ArrayStorage,
   b: ArrayStorage | number,
-  rtol: number = 1e-5,
-  atol: number = 1e-8,
+  rtol: number | ArrayStorage = 1e-5,
+  atol: number | ArrayStorage = 1e-8,
+  equalNan: boolean = false,
 ): ArrayStorage {
-  if (typeof b === 'number') {
-    return iscloseScalar(a, b, rtol, atol);
+  const arrays = [a];
+  for (const v of [b, rtol, atol]) if (typeof v !== 'number') arrays.push(v);
+  const outShape = computeBroadcastShape(arrays.map((s) => Array.from(s.shape)));
+  if (!outShape) {
+    throw new Error('Cannot broadcast arrays together');
   }
-  // Complex isclose: |a - b| <= atol + rtol * |b| using complex abs
-  if (isComplexDType(a.dtype) || (typeof b !== 'number' && isComplexDType(b.dtype))) {
-    return complexComparisonOp(a, b, (aRe, aIm, bRe, bIm) => {
-      const diffRe = aRe - bRe;
-      const diffIm = aIm - bIm;
-      const absDiff = Math.hypot(diffRe, diffIm);
-      const absB = Math.hypot(bRe, bIm);
-      return absDiff <= atol + rtol * absB;
-    });
+
+  // A scalar operand is weak: it takes the dtype of the array it meets instead of widening it.
+  const yDtype = typeof b === 'number' ? undefined : inexactDType(b.dtype);
+  const dtype = yDtype ? promoteDTypes(a.dtype, yDtype) : inexactDType(a.dtype);
+  const rndDiff = rounderFor(dtype);
+  let thrDtype: DType = yDtype ?? inexactDType(a.dtype);
+  if (isComplexDType(thrDtype)) thrDtype = thrDtype === 'complex64' ? 'float32' : 'float64';
+  for (const t of [rtol, atol]) {
+    if (typeof t !== 'number') thrDtype = promoteDTypes(thrDtype, inexactDType(t.dtype));
   }
-  const viaBigInt = iscloseBigInt(a, b, rtol, atol);
-  if (viaBigInt) return viaBigInt;
+  const rndThr = rounderFor(thrDtype);
 
-  return elementwiseComparisonOp(a, b, (x, y) => {
-    const diff = Math.abs(x - y);
-    const threshold = atol + rtol * Math.abs(y);
-    return diff <= threshold;
-  });
-}
+  const x = toOperand(a, outShape);
+  const y = typeof b === 'number' ? undefined : toOperand(b, outShape);
+  const rt = typeof rtol === 'number' ? undefined : toOperand(rtol, outShape);
+  const at = typeof atol === 'number' ? undefined : toOperand(atol, outShape);
+  const scalarB = typeof b === 'number' ? rndDiff(b) : 0;
+  const rtolScalar = typeof rtol === 'number' ? rndThr(rtol) : 0;
+  const atolScalar = typeof atol === 'number' ? rndThr(atol) : 0;
 
-/**
- * isclose for two same-shape, contiguous 64-bit integer arrays.
- *
- * `isclose` passes no comparison kind, so it misses both the WASM kernel and
- * the monomorphic CMP_LOOPS path and lands in the generic loop — broadcast
- * views plus `iget()` per element, which recomputes the multi-index for every
- * value. This does the same arithmetic with direct typed-array loads.
- *
- * The difference stays in BigInt so it is exact above 2^53; only the comparison
- * against the float threshold converts, which is what NumPy does too (`|x - y|`
- * is computed in int64 and promoted only to meet `atol + rtol * |y|`).
- *
- * Returns null when the inputs are not that shape, and the caller falls through.
- */
-function iscloseBigInt(
-  a: ArrayStorage,
-  b: ArrayStorage,
-  rtol: number,
-  atol: number,
-): ArrayStorage | null {
-  if (!isBigIntDType(a.dtype) || !isBigIntDType(b.dtype)) return null;
-  if (!a.isCContiguous || !b.isCContiguous) return null;
-  if (a.data.constructor !== b.data.constructor) return null;
-  if (a.shape.length !== b.shape.length) return null;
-  if (!a.shape.every((dim, i) => dim === b.shape[i])) return null;
-
-  const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
+  const n = outShape.reduce((p, q) => p * q, 1);
+  const result = ArrayStorage.empty(outShape, 'bool');
   const out = result.data as Uint8Array;
-  const n = a.size;
-  const aOff = a.offset;
-  const bOff = b.offset;
+  for (let i = 0; i < n; i++) {
+    const xr = x.re[i]!;
+    const xi = x.im ? x.im[i]! : 0;
+    const yr = y ? y.re[i]! : scalarB;
+    const yi = y?.im ? y.im[i]! : 0;
+    const complex = x.im !== undefined || y?.im !== undefined;
 
-  if (a.data instanceof BigInt64Array) {
-    const av = a.data;
-    const bv = b.data as BigInt64Array;
-    for (let i = 0; i < n; i++) {
-      const x = av[aOff + i]!;
-      const y = bv[bOff + i]!;
-      const diff = x > y ? x - y : y - x;
-      const absY = y < 0n ? -y : y;
-      out[i] = Number(diff) <= atol + rtol * Number(absY) ? 1 : 0;
+    const absDiff = complex
+      ? rndDiff(Math.hypot(rndDiff(xr - yr), rndDiff(xi - yi)))
+      : rndDiff(Math.abs(rndDiff(xr - yr)));
+    const absY = complex ? rndThr(Math.hypot(yr, yi)) : Math.abs(yr);
+    const rtolV = rt ? rt.re[i]! : rtolScalar;
+    const atolV = at ? at.re[i]! : atolScalar;
+    const threshold = rndThr(atolV + rndThr(rtolV * absY));
+
+    const finite = Number.isFinite(yr) && Number.isFinite(yi);
+    let close = (absDiff <= threshold && finite) || (xr === yr && xi === yi);
+    if (!close && equalNan) {
+      close = (xr !== xr || xi !== xi) && (yr !== yr || yi !== yi);
     }
-  } else {
-    const av = a.data as BigUint64Array;
-    const bv = b.data as BigUint64Array;
-    for (let i = 0; i < n; i++) {
-      const x = av[aOff + i]!;
-      const y = bv[bOff + i]!;
-      const diff = x > y ? x - y : y - x;
-      out[i] = Number(diff) <= atol + rtol * Number(y) ? 1 : 0;
-    }
+    out[i] = close ? 1 : 0;
   }
-
   return result;
 }
 
 /**
  * Check if all elements are close (scalar result)
- * Returns true if all elements satisfy isclose condition
+ * Returns true if all elements satisfy the isclose condition
  */
 export function allclose(
   a: ArrayStorage,
   b: ArrayStorage | number,
-  rtol: number = 1e-5,
-  atol: number = 1e-8,
+  rtol: number | ArrayStorage = 1e-5,
+  atol: number | ArrayStorage = 1e-8,
+  equalNan: boolean = false,
 ): boolean {
-  const closeResult = isclose(a, b, rtol, atol);
+  const closeResult = isclose(a, b, rtol, atol, equalNan);
   try {
     const data = closeResult.data as Uint8Array;
 
@@ -583,34 +610,6 @@ function notEqualScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   } else {
     for (let i = 0; i < size; i++) {
       resultData[i] = Number(storage.iget(i)) !== scalar ? 1 : 0;
-    }
-  }
-
-  return result;
-}
-
-function iscloseScalar(
-  storage: ArrayStorage,
-  scalar: number,
-  rtol: number,
-  atol: number,
-): ArrayStorage {
-  const result = ArrayStorage.empty(Array.from(storage.shape), 'bool');
-  const resultData = result.data as Uint8Array;
-  const size = storage.size;
-  const threshold = atol + rtol * Math.abs(scalar);
-
-  if (storage.isCContiguous) {
-    const srcData = storage.data;
-    const off = storage.offset;
-    for (let i = 0; i < size; i++) {
-      const diff = Math.abs(Number(srcData[off + i]!) - scalar);
-      resultData[i] = diff <= threshold ? 1 : 0;
-    }
-  } else {
-    for (let i = 0; i < size; i++) {
-      const diff = Math.abs(Number(storage.iget(i)) - scalar);
-      resultData[i] = diff <= threshold ? 1 : 0;
     }
   }
 

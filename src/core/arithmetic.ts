@@ -295,7 +295,7 @@ export function interp(
 /** Unwrap phase angles */
 export function unwrap(
   p: NDArrayCore,
-  discont: number = Math.PI,
+  discont?: number | null,
   axis: number = -1,
   period: number = 2 * Math.PI,
 ): NDArrayCore {

@@ -197,18 +197,18 @@ reshape(shape: readonly number[]): NDArray<D>;
   reshape(...args: [readonly number[]] | number[]): NDArray<D> {
     const first = args[0];
     const newShape = (args.length === 1 && Array.isArray(first) ? first : args) as number[];
-    const resultStorage = core.reshape(this, newShape).storage;
-    const isView = resultStorage.data === this.data;
-    const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
+    const result = core.reshape(this, newShape);
+    const base = result.base as NDArrayCore;
+    return NDArray.fromStorage(
+      result.storage,
+      base instanceof NDArray ? base : NDArray.fromStorage(base.storage),
+    ) as NDArray<D>;
   }`;
 
 const RAVEL_METHOD = `\
 ravel(): NDArray<D> {
-    const resultStorage = core.ravel(this).storage;
-    const isView = resultStorage.data === this.data;
-    const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
+    const result = core.ravel(this);
+    return NDArray.fromStorage(result.storage, (result.base ?? undefined) as NDArray | undefined) as NDArray<D>;
   }`;
 
 const ROW_METHOD = `\
@@ -426,13 +426,23 @@ around(decimals: number = 0): NDArray<RoundResult<D>> {
   }`;
 
 const ALLCLOSE_METHOD = `\
-allclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): boolean {
-    return core.allclose(this, other, rtol, atol);
+allclose(
+    other: NDArray | number,
+    rtol: number | NDArray = 1e-5,
+    atol: number | NDArray = 1e-8,
+    equal_nan: boolean = false,
+  ): boolean {
+    return core.allclose(this, other, rtol, atol, equal_nan);
   }`;
 
 const ISCLOSE_METHOD = `\
-isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray<'bool'> {
-    return up(core.isclose(this, other, rtol, atol)) as NDArray<'bool'>;
+isclose(
+    other: NDArray | number,
+    rtol: number | NDArray = 1e-5,
+    atol: number | NDArray = 1e-8,
+    equal_nan: boolean = false,
+  ): NDArray<'bool'> {
+    return up(core.isclose(this, other, rtol, atol, equal_nan)) as NDArray<'bool'>;
   }`;
 
 // average → true-division result (int → float64, float32 → float32). Typed for
@@ -458,13 +468,39 @@ dot<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote
       | Scalar<Promote<D, B>>;
   }`;
 
-// trace → ReductionAccum<D> (sum of the diagonal widens ints, like sum/prod).
+// percentile / quantile and their nan variants: a scalar q reduces to NDArray | Scalar, an NDArray q
+// always gives an array typed over the promotion of the data and q dtypes.
+const quantileMethod = (name: string): string => `\
+${name}<Q extends DType>(
+    q: NDArray<Q>,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<Promote<TrueDivide<D>, TrueDivide<Q>>>;
+  ${name}(q: number, axis: number | undefined, keepdims: true): NDArray<TrueDivide<D>>;
+  ${name}(
+    q: number,
+    axis?: number,
+    keepdims?: boolean,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+  ${name}(
+    q: number | NDArray,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> | NDArray<Promote<TrueDivide<D>, DType>> {
+    const r = core.${name}(this, q, axis, keepdims);
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>
+      | NDArray<Promote<TrueDivide<D>, DType>>;
+  }`;
+
+// trace: the array result widens ints to int64 like sum, the scalar result is the input dtype's JS value.
 const TRACE_METHOD = `\
-trace(): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
+trace(): NDArray<ReductionAccum<D>> | Scalar<D> {
     const r = core.trace(this);
     return (r instanceof NDArrayCore ? up(r) : r) as unknown as
       | NDArray<ReductionAccum<D>>
-      | Scalar<ReductionAccum<D>>;
+      | Scalar<D>;
   }`;
 
 const INNER_METHOD = `\
@@ -813,13 +849,13 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'allclose',
     pattern: 'manual',
-    doc: 'Element-wise comparison with tolerance\nReturns True where |a - b| <= (atol + rtol * |b|)\n@param other - Value or array to compare with\n@param rtol - Relative tolerance (default: 1e-5)\n@param atol - Absolute tolerance (default: 1e-8)\n@returns boolean',
+    doc: 'Element-wise comparison with tolerance\nReturns True where |a - b| <= (atol + rtol * |b|)\n@param other - Value or array to compare with\n@param rtol - Relative tolerance, a number or an array (default: 1e-5)\n@param atol - Absolute tolerance, a number or an array (default: 1e-8)\n@param equal_nan - Treat NaN in both inputs as close (default: false)\n@returns boolean',
     manualCode: ALLCLOSE_METHOD,
   },
   {
     name: 'isclose',
     pattern: 'manual',
-    doc: 'Element-wise comparison with tolerance\nReturns True where |a - b| <= (atol + rtol * |b|)\n@param other - Value or array to compare with\n@param rtol - Relative tolerance (default: 1e-5)\n@param atol - Absolute tolerance (default: 1e-8)\n@returns Boolean array',
+    doc: 'Element-wise comparison with tolerance\nReturns True where |a - b| <= (atol + rtol * |b|)\n@param other - Value or array to compare with\n@param rtol - Relative tolerance, a number or an array (default: 1e-5)\n@param atol - Absolute tolerance, a number or an array (default: 1e-8)\n@param equal_nan - Treat NaN in both inputs as close (default: false)\n@returns Boolean array',
     manualCode: ISCLOSE_METHOD,
   },
   {
@@ -1367,7 +1403,7 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'sum',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<D>',
     doc: 'Sum array elements over a given axis',
   },
   {
@@ -1381,7 +1417,7 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'prod',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<D>',
     doc: 'Product of array elements over a given axis',
   },
   {
@@ -1409,14 +1445,14 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'nansum',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<D>',
     doc: 'Return the sum of array elements, treating NaNs as zero',
   },
   {
     name: 'nanprod',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<D>',
     doc: 'Return the product of array elements, treating NaNs as ones',
   },
   {
@@ -1537,35 +1573,27 @@ export const METHOD_DEFS: MethodDef[] = [
   // q first, then axis? + keepdims? → NDArray | number
   {
     name: 'percentile',
-    pattern: 'reduction',
-    params: 'q: number, axis?: number, keepdims: boolean = false',
-    coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
-    doc: 'Compute the q-th percentile of the data along the specified axis\n@param q - Percentile to compute (0-100)',
+    pattern: 'manual',
+    doc: 'Compute the q-th percentile of the data along the specified axis\n@param q - Percentile to compute (0-100), a number or an NDArray of percentiles that gives q.shape followed by the reduced shape',
+    manualCode: quantileMethod('percentile'),
   },
   {
     name: 'quantile',
-    pattern: 'reduction',
-    params: 'q: number, axis?: number, keepdims: boolean = false',
-    coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
-    doc: 'Compute the q-th quantile of the data along the specified axis\n@param q - Quantile to compute (0-1)',
+    pattern: 'manual',
+    doc: 'Compute the q-th quantile of the data along the specified axis\n@param q - Quantile to compute (0-1), a number or an NDArray of quantiles that gives q.shape followed by the reduced shape',
+    manualCode: quantileMethod('quantile'),
   },
   {
     name: 'nanquantile',
-    pattern: 'reduction',
-    params: 'q: number, axis?: number, keepdims: boolean = false',
-    coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
-    doc: 'Compute the q-th quantile, ignoring NaNs\n@param q - Quantile to compute (0-1)',
+    pattern: 'manual',
+    doc: 'Compute the q-th quantile, ignoring NaNs\n@param q - Quantile to compute (0-1), a number or an NDArray of quantiles that gives q.shape followed by the reduced shape',
+    manualCode: quantileMethod('nanquantile'),
   },
   {
     name: 'nanpercentile',
-    pattern: 'reduction',
-    params: 'q: number, axis?: number, keepdims: boolean = false',
-    coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
-    doc: 'Compute the q-th percentile, ignoring NaNs\n@param q - Percentile to compute (0-100)',
+    pattern: 'manual',
+    doc: 'Compute the q-th percentile, ignoring NaNs\n@param q - Percentile to compute (0-100), a number or an NDArray of percentiles that gives q.shape followed by the reduced shape',
+    manualCode: quantileMethod('nanpercentile'),
   },
 
   // ============================================================

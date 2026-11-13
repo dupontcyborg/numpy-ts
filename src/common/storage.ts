@@ -72,6 +72,28 @@ function describeInput(a: unknown): string {
   return typeof a === 'object' ? (a.constructor?.name ?? 'an object') : typeof a;
 }
 
+function describeAxis(axis: unknown, allowTuple: boolean): string {
+  if (Array.isArray(axis)) return allowTuple ? 'an array containing a non-integer' : 'an array';
+  if (typeof axis === 'number') return `the non-integer number ${axis}`;
+  return typeof axis === 'object' ? 'an object' : `a ${typeof axis}`;
+}
+
+/**
+ * Validates the axis argument of a reduction and returns it with null mapped to undefined, so
+ * callers only test for undefined. A mistaken argument such as an options object would otherwise
+ * be read as an axis and give silently wrong numbers.
+ */
+export function checkAxis(axis: unknown, allowTuple: boolean): number | number[] | undefined {
+  if (axis === undefined || axis === null) return undefined;
+  if (typeof axis === 'number' && Number.isInteger(axis)) return axis;
+  if (allowTuple && Array.isArray(axis) && axis.every((x) => Number.isInteger(x))) {
+    return axis as number[];
+  }
+  throw new TypeError(
+    `axis must be an integer${allowTuple ? ' or an array of integers' : ''}, got ${describeAxis(axis, allowTuple)}`,
+  );
+}
+
 /**
  * Internal storage for NDArray data
  * Manages the underlying TypedArray and metadata
@@ -689,4 +711,35 @@ export function computeStrides(shape: readonly number[]): number[] {
     stride *= shape[i]!;
   }
   return strides;
+}
+
+/**
+ * Contiguity as NumPy reports it in flags: axes of length one never matter, and an array
+ * with a zero-length axis is both C and F contiguous. The storage getters isCContiguous
+ * and isFContiguous are stricter because kernels rely on them.
+ */
+export function memoryOrder(
+  shape: readonly number[],
+  strides: readonly number[],
+): { c: boolean; f: boolean } {
+  let c = true;
+  let f = true;
+  let expectC = 1;
+  let expectF = 1;
+  for (let i = 0; i < shape.length; i++) {
+    if (shape[i] === 0) return { c: true, f: true };
+  }
+  for (let i = shape.length - 1; i >= 0; i--) {
+    const dim = shape[i]!;
+    if (dim === 1) continue;
+    if (strides[i] !== expectC) c = false;
+    expectC *= dim;
+  }
+  for (let i = 0; i < shape.length; i++) {
+    const dim = shape[i]!;
+    if (dim === 1) continue;
+    if (strides[i] !== expectF) f = false;
+    expectF *= dim;
+  }
+  return { c, f };
 }

@@ -8,7 +8,7 @@
 import { Complex } from '../common/complex';
 import type { TypedArray } from '../common/dtype';
 import { NDArrayCore, rawOf } from '../common/ndarray-core';
-import { ArrayStorage, notAnNDArray } from '../common/storage';
+import { ArrayStorage, computeStrides, notAnNDArray } from '../common/storage';
 
 // Re-export types needed by functions
 export type { DType, TypedArray } from '../common/dtype';
@@ -70,6 +70,27 @@ export function fromStorageView(storage: ArrayStorage, original: NDArrayCore): N
   // `original.base` goes through the Proxy; the raw target does not.
   const base = rawOf(original).base ?? original;
   return NDArrayCore.fromStorage(storage, base);
+}
+
+/**
+ * Wraps the result of reshape. When the layout allows it the result is a view of the input.
+ * Otherwise the data was copied, and NumPy still returns a view: of a hidden copy shaped like
+ * the input, so base is set and OWNDATA is false although nothing is shared with the input.
+ */
+export function fromStorageReshaped(storage: ArrayStorage, original: NDArrayCore): NDArrayCore {
+  const source = toStorage(original);
+  if (storage.data === source.data) return fromStorageView(storage, original);
+  // The hidden base shares the copy's region, so it must hold its own reference: disposing either
+  // one must not free memory the other still reads.
+  const copied = ArrayStorage.fromDataShared(
+    storage.data,
+    [...source.shape],
+    storage.dtype,
+    computeStrides(source.shape),
+    storage.offset,
+    storage.wasmRegion,
+  );
+  return NDArrayCore.fromStorage(storage, NDArrayCore.fromStorage(copied));
 }
 
 /**

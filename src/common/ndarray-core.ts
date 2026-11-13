@@ -21,7 +21,7 @@ import {
 } from './dtype';
 import { array_str } from './ops/formatting';
 import * as shapeOps from './ops/shape';
-import { ArrayStorage } from './storage';
+import { ArrayStorage, memoryOrder } from './storage';
 
 /**
  * Minimal NDArray class - core functionality without operation methods
@@ -236,9 +236,10 @@ export class NDArrayCore<D extends DType = DType> {
     F_CONTIGUOUS: boolean;
     OWNDATA: boolean;
   } {
+    const order = memoryOrder(this._storage.shape, this._storage.strides);
     return {
-      C_CONTIGUOUS: this._storage.isCContiguous,
-      F_CONTIGUOUS: this._storage.isFContiguous,
+      C_CONTIGUOUS: order.c,
+      F_CONTIGUOUS: order.f,
       OWNDATA: this._base === undefined,
     };
   }

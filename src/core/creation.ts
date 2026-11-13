@@ -18,8 +18,9 @@ import {
 } from '../common/dtype';
 import { type DType, NDArrayCore } from '../common/ndarray-core';
 import * as advancedOps from '../common/ops/advanced';
+import { diagonal as diagonalOp } from '../common/ops/linalg';
 import * as shapeOps from '../common/ops/shape';
-import { ArrayStorage, notAnNDArray } from '../common/storage';
+import { ArrayStorage, memoryOrder, notAnNDArray } from '../common/storage';
 import { wasmAllFinite } from '../common/wasm/all_finite';
 import { assertNDArray, toStorage } from './types';
 
@@ -156,6 +157,18 @@ function containsComplex(data: unknown): boolean {
   return false;
 }
 
+// True when the data has at least one element and every element is a boolean. Empty data
+// stays float64, as in NumPy.
+function isAllBoolean(data: unknown): boolean {
+  let leaves = 0;
+  const visit = (v: unknown): boolean => {
+    if (Array.isArray(v)) return v.every(visit);
+    leaves++;
+    return typeof v === 'boolean';
+  };
+  return visit(data) && leaves > 0;
+}
+
 function flattenKeepBigInt(data: unknown): unknown[] {
   const result: unknown[] = [];
   function flatten(arr: unknown): void {
@@ -222,6 +235,8 @@ export function array(data: unknown, dtype?: DType): NDArrayCore {
       actualDtype = 'complex128';
     } else if (hasBigInt) {
       actualDtype = 'int64';
+    } else if (isAllBoolean(data)) {
+      actualDtype = 'bool';
     } else {
       actualDtype = DEFAULT_DTYPE;
     }
@@ -604,16 +619,48 @@ export function asanyarray(a: NDArrayCore | unknown, dtype?: DType): NDArrayCore
   return asarray(a as NDArrayCore, dtype);
 }
 
+/** Return an array in C order with at least one dimension; the input itself when it already is one */
 export function ascontiguousarray(a: NDArrayCore | unknown, dtype?: DType): NDArrayCore {
-  const arr = asarray(a as NDArrayCore, dtype);
-  // In our implementation, arrays are always contiguous
-  return arr.copy();
+  const arr = atLeast1d(asarray(a as NDArrayCore, dtype));
+  const st = toStorage(arr);
+  return memoryOrder(st.shape, st.strides).c ? arr : arr.copy();
 }
 
+/** Return an array in Fortran order with at least one dimension; the input itself when it already is one */
 export function asfortranarray(a: NDArrayCore | unknown, dtype?: DType): NDArrayCore {
-  const arr = asarray(a as NDArrayCore, dtype);
-  // Note: We don't actually support Fortran order, return C-order copy
-  return arr.copy();
+  const arr = atLeast1d(asarray(a as NDArrayCore, dtype));
+  const st = toStorage(arr);
+  if (memoryOrder(st.shape, st.strides).f) return arr;
+  // A C-ordered copy of the transpose has exactly the buffer layout a Fortran-ordered copy needs.
+  const transposed = shapeOps.transpose(st);
+  const packed = transposed.copy();
+  transposed.dispose();
+  const strides: number[] = [];
+  let step = 1;
+  for (const dim of st.shape) {
+    strides.push(step);
+    step *= dim;
+  }
+  const result = fromStorage(
+    ArrayStorage.fromDataShared(
+      packed.data,
+      [...st.shape],
+      st.dtype,
+      strides,
+      0,
+      packed.wasmRegion,
+    ),
+  );
+  // The result took its own reference to the region, so this one would only keep it alive past dispose.
+  packed.dispose();
+  return result;
+}
+
+function atLeast1d(arr: NDArrayCore): NDArrayCore {
+  if (arr.ndim > 0) return arr;
+  const st = toStorage(arr);
+  const view = ArrayStorage.fromDataShared(st.data, [1], st.dtype, [1], st.offset, st.wasmRegion);
+  return new NDArrayCore(view, arr.base ?? arr);
 }
 
 export function asarray_chkfinite(a: NDArrayCore | unknown, dtype?: DType): NDArrayCore {
@@ -675,89 +722,30 @@ export function require(
 // Diagonal and Triangular
 // ============================================================
 
-// Helper: flatten an NDArrayCore to 1D
+// Helper: flatten an NDArrayCore to 1D, reading through its strides and offset
 function flattenCore(a: NDArrayCore): NDArrayCore {
-  const srcData = a.data;
-  const size = a.size;
-  const storage = ArrayStorage.empty([size], a.dtype as DType);
-  const data = storage.data;
-  (data as unknown as { set(src: ArrayLike<number | bigint>): void }).set(
-    srcData as unknown as ArrayLike<number | bigint>,
-  );
-  return fromStorage(storage);
+  return fromStorage(shapeOps.flatten(toStorage(a)));
 }
 
 export function diag(v: NDArrayCore, k: number = 0): NDArrayCore {
   assertNDArray(v);
-  const shape = v.shape;
-  const data = v.data;
-  const dtype = v.dtype as DType;
+  const src = toStorage(v);
 
-  if (shape.length === 1) {
-    // Create a 2D array with v as diagonal
-    const dim0 = shape[0]!;
-    const n = dim0 + Math.abs(k);
-    const result = zeros([n, n], dtype);
-    const resultData = result.data;
-    const isComplex = isComplexDType(dtype);
-
-    for (let i = 0; i < dim0; i++) {
+  if (src.ndim === 1) {
+    // Place the vector on the k-th diagonal of a new square matrix
+    const len = src.shape[0]!;
+    const n = len + Math.abs(k);
+    const result = ArrayStorage.zeros([n, n], src.dtype);
+    for (let i = 0; i < len; i++) {
       const row = k >= 0 ? i : i - k;
       const col = k >= 0 ? i + k : i;
-      if (row >= 0 && row < n && col >= 0 && col < n) {
-        if (isComplex) {
-          const physSrc = i * 2;
-          const physDst = (row * n + col) * 2;
-          (resultData as Float64Array | Float32Array)[physDst] = (
-            data as Float64Array | Float32Array
-          )[physSrc]!;
-          (resultData as Float64Array | Float32Array)[physDst + 1] = (
-            data as Float64Array | Float32Array
-          )[physSrc + 1]!;
-        } else {
-          (resultData as Float64Array)[row * n + col] = data[i] as number;
-        }
-      }
+      result.iset(row * n + col, src.iget(i));
     }
-    return result;
-  } else if (shape.length === 2) {
-    // Extract diagonal from 2D array
-    const rows = shape[0]!;
-    const cols = shape[1]!;
-    const diagLen = Math.min(
-      k >= 0 ? Math.min(rows, cols - k) : Math.min(rows + k, cols),
-      Math.max(0, k >= 0 ? cols - k : rows + k),
-    );
-
-    if (diagLen <= 0) {
-      return array([], dtype);
-    }
-
-    const isComplex = isComplexDType(dtype);
-    if (isComplex) {
-      const resultStorage = ArrayStorage.empty([diagLen], dtype);
-      const resultData = resultStorage.data as Float64Array | Float32Array;
-      for (let i = 0; i < diagLen; i++) {
-        const row = k >= 0 ? i : i - k;
-        const col = k >= 0 ? i + k : i;
-        if (row >= 0 && row < rows && col >= 0 && col < cols) {
-          const physSrc = (row * cols + col) * 2;
-          resultData[i * 2] = (data as Float64Array | Float32Array)[physSrc]!;
-          resultData[i * 2 + 1] = (data as Float64Array | Float32Array)[physSrc + 1]!;
-        }
-      }
-      return new NDArrayCore(resultStorage);
-    }
-
-    const resultArr: number[] = [];
-    for (let i = 0; i < diagLen; i++) {
-      const row = k >= 0 ? i : i - k;
-      const col = k >= 0 ? i + k : i;
-      if (row >= 0 && row < rows && col >= 0 && col < cols) {
-        resultArr.push(data[row * cols + col] as number);
-      }
-    }
-    return array(resultArr, dtype);
+    return fromStorage(result);
+  }
+  if (src.ndim === 2) {
+    // Like NumPy, the diagonal of a matrix is a view onto it
+    return new NDArrayCore(diagonalOp(src, k), v.base ?? v);
   }
 
   throw new Error('Input must be 1-D or 2-D');

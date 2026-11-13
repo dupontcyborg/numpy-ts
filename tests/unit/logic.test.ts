@@ -799,6 +799,7 @@ describe('Additional Logic Functions', () => {
       expect(isscalar(true)).toBe(true);
       expect(isscalar('hello')).toBe(true);
       expect(isscalar(BigInt(42))).toBe(true);
+      expect(isscalar(new Complex(1, 2))).toBe(true);
     });
 
     it('returns false for non-scalars', () => {
@@ -828,43 +829,44 @@ describe('Additional Logic Functions', () => {
   });
 
   describe('isdtype()', () => {
-    it('checks for bool dtype', () => {
-      expect(isdtype('bool', 'b')).toBe(true);
-      expect(isdtype('int32', 'b')).toBe(false);
+    it('checks the bool kind', () => {
+      expect(isdtype('bool', 'bool')).toBe(true);
+      expect(isdtype('int32', 'bool')).toBe(false);
     });
 
-    it('checks for int dtypes', () => {
-      expect(isdtype('int8', 'i')).toBe(true);
-      expect(isdtype('int16', 'i')).toBe(true);
-      expect(isdtype('int32', 'i')).toBe(true);
-      expect(isdtype('int64', 'i')).toBe(true);
-      expect(isdtype('uint32', 'i')).toBe(false);
-      expect(isdtype('float32', 'i')).toBe(false);
+    it('checks signed, unsigned and integral kinds', () => {
+      for (const d of ['int8', 'int16', 'int32', 'int64'] as const) {
+        expect(isdtype(d, 'signed integer')).toBe(true);
+        expect(isdtype(d, 'integral')).toBe(true);
+      }
+      expect(isdtype('uint32', 'signed integer')).toBe(false);
+      expect(isdtype('float32', 'integral')).toBe(false);
+      for (const d of ['uint8', 'uint16', 'uint32', 'uint64'] as const) {
+        expect(isdtype(d, 'unsigned integer')).toBe(true);
+        expect(isdtype(d, 'integral')).toBe(true);
+      }
+      expect(isdtype('int32', 'unsigned integer')).toBe(false);
     });
 
-    it('checks for uint dtypes', () => {
-      expect(isdtype('uint8', 'u')).toBe(true);
-      expect(isdtype('uint16', 'u')).toBe(true);
-      expect(isdtype('uint32', 'u')).toBe(true);
-      expect(isdtype('uint64', 'u')).toBe(true);
-      expect(isdtype('int32', 'u')).toBe(false);
+    it('checks floating kinds, including float16 and complex', () => {
+      expect(isdtype('float16', 'real floating')).toBe(true);
+      expect(isdtype('float32', 'real floating')).toBe(true);
+      expect(isdtype('float64', 'real floating')).toBe(true);
+      expect(isdtype('int32', 'real floating')).toBe(false);
+      expect(isdtype('complex64', 'real floating')).toBe(false);
+      expect(isdtype('complex128', 'complex floating')).toBe(true);
     });
 
-    it('checks for float dtypes', () => {
-      expect(isdtype('float32', 'f')).toBe(true);
-      expect(isdtype('float64', 'f')).toBe(true);
-      expect(isdtype('int32', 'f')).toBe(false);
-    });
-
-    it('returns false for unknown kind', () => {
-      expect(isdtype('float32', 'x')).toBe(false);
+    it('throws for an unknown kind', () => {
+      expect(() => isdtype('float32', 'x')).toThrow(/not a known kind name/);
     });
   });
 
   describe('promote_types()', () => {
     it('promotes int to float', () => {
-      expect(promote_types('int32', 'float32')).toBe('float32');
-      expect(promote_types('float32', 'int32')).toBe('float32');
+      expect(promote_types('int32', 'float32')).toBe('float64');
+      expect(promote_types('float32', 'int32')).toBe('float64');
+      expect(promote_types('int16', 'float32')).toBe('float32');
     });
 
     it('promotes to higher precision', () => {
@@ -878,8 +880,9 @@ describe('Additional Logic Functions', () => {
     });
 
     it('promotes signed and unsigned ints', () => {
-      expect(promote_types('int32', 'uint32')).toBe('int32');
+      expect(promote_types('int32', 'uint32')).toBe('int64');
       expect(promote_types('uint8', 'int16')).toBe('int16');
+      expect(promote_types('int64', 'uint64')).toBe('float64');
     });
 
     it('promotes bool to any other type', () => {
