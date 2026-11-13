@@ -132,7 +132,7 @@ export function sliceKeepDim(storage: ArrayStorage, ...slices: string[]): ArrayS
  * Reshape array to a new shape
  * Returns a view if array is C-contiguous, otherwise copies data
  */
-export function reshape(storage: ArrayStorage, newShape: number[]): ArrayStorage {
+export function reshape(storage: ArrayStorage, newShape: readonly number[]): ArrayStorage {
   const size = storage.size;
   const dtype = storage.dtype;
 
@@ -153,7 +153,7 @@ export function reshape(storage: ArrayStorage, newShape: number[]): ArrayStorage
 
     finalShape = newShape.map((dim, i) => (i === negIndex ? inferredDim : dim));
   } else {
-    finalShape = newShape;
+    finalShape = Array.from(newShape);
   }
 
   // Validate that the new shape has the same total size
@@ -1653,7 +1653,7 @@ export const rowStack = vstack;
 /**
  * Resize array to new shape (returns new array, may repeat or truncate)
  */
-export function resize(storage: ArrayStorage, newShape: number[]): ArrayStorage {
+export function resize(storage: ArrayStorage, newShape: readonly number[]): ArrayStorage {
   const dtype = storage.dtype;
   const newSize = newShape.reduce((a, b) => a * b, 1);
   const oldSize = storage.size;

@@ -20,7 +20,7 @@ import { fromStorage, fromStorageView, toStorage } from './types';
 // ============================================================
 
 /** Broadcast array to a new shape - returns a view */
-export function broadcast_to(a: NDArrayCore, shape: number[]): NDArrayCore {
+export function broadcast_to(a: NDArrayCore, shape: readonly number[]): NDArrayCore {
   return fromStorageView(advancedOps.broadcast_to(toStorage(a), shape), a);
 }
 
@@ -253,7 +253,7 @@ export function copyto(dst: NDArrayCore, src: NDArrayCore | number | bigint): vo
 // Index Arrays
 // ============================================================
 
-export function indices(dimensions: number[], dtype: string = 'float64'): NDArrayCore {
+export function indices(dimensions: readonly number[], dtype: string = 'float64'): NDArrayCore {
   return fromStorage(advancedOps.indices(dimensions, dtype));
 }
 
@@ -264,14 +264,17 @@ export function ix_(...args: NDArrayCore[]): NDArrayCore[] {
 
 export function ravel_multi_index(
   multi_index: NDArrayCore[],
-  dims: number[],
+  dims: readonly number[],
   mode: 'raise' | 'wrap' | 'clip' = 'raise',
 ): NDArrayCore {
   const indexStorages = multi_index.map(toStorage);
   return fromStorage(advancedOps.ravel_multi_index(indexStorages, dims, mode));
 }
 
-export function unravel_index(indices: NDArrayCore | number, shape: number[]): NDArrayCore[] {
+export function unravel_index(
+  indices: NDArrayCore | number,
+  shape: readonly number[],
+): NDArrayCore[] {
   const indicesStorage =
     typeof indices === 'number' ? toStorage(array([indices])) : toStorage(indices);
   return advancedOps.unravel_index(indicesStorage, shape).map((s) => fromStorage(s));
@@ -289,8 +292,12 @@ export function diag_indices_from(a: NDArrayCore): NDArrayCore[] {
   return advancedOps.diag_indices_from(toStorage(a)).map((s) => fromStorage(s));
 }
 
-export function fill_diagonal(a: NDArrayCore, val: number, wrap: boolean = false): void {
-  advancedOps.fill_diagonal(toStorage(a), val, wrap);
+export function fill_diagonal(
+  a: NDArrayCore,
+  val: NDArrayCore | number,
+  wrap: boolean = false,
+): void {
+  advancedOps.fill_diagonal(toStorage(a), typeof val === 'number' ? val : toStorage(val), wrap);
 }
 
 // ============================================================

@@ -54,7 +54,7 @@ function isNDArrayLike(a: unknown): a is NDArrayCore {
 /**
  * Create array of zeros
  */
-export function zeros(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArrayCore {
+export function zeros(shape: readonly number[], dtype: DType = DEFAULT_DTYPE): NDArrayCore {
   const storage = ArrayStorage.zeros(shape, dtype);
   return new NDArrayCore(storage);
 }
@@ -62,7 +62,7 @@ export function zeros(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArrayCor
 /**
  * Create array of ones
  */
-export function ones(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArrayCore {
+export function ones(shape: readonly number[], dtype: DType = DEFAULT_DTYPE): NDArrayCore {
   const storage = ArrayStorage.ones(shape, dtype);
   return new NDArrayCore(storage);
 }
@@ -70,7 +70,7 @@ export function ones(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArrayCore
 /**
  * Create an uninitialized array
  */
-export function empty(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArrayCore {
+export function empty(shape: readonly number[], dtype: DType = DEFAULT_DTYPE): NDArrayCore {
   return new NDArrayCore(ArrayStorage.empty(shape, dtype));
 }
 
@@ -78,7 +78,7 @@ export function empty(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArrayCor
  * Create array filled with a constant value
  */
 export function full(
-  shape: number[],
+  shape: readonly number[],
   fill_value: number | bigint | boolean,
   dtype?: DType,
 ): NDArrayCore {
@@ -975,7 +975,7 @@ export function frombuffer(
 
 export function fromfunction(
   func: (...indices: number[]) => number,
-  shape: number[],
+  shape: readonly number[],
   dtype: DType = DEFAULT_DTYPE,
 ): NDArrayCore {
   const size = shape.reduce((a, b) => a * b, 1);

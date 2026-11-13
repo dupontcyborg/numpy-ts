@@ -8,16 +8,59 @@
 import * as setOps from '../common/ops/sets';
 import { type ArrayStorage, fromStorage, type NDArrayCore, toStorage } from './types';
 
-/** Find unique elements */
-export function unique(
+type UniqueField<K extends string, T, Flag extends boolean> = [Flag] extends [true]
+  ? { [P in K]: T }
+  : { [P in K]?: T };
+
+type Flatten<T> = { [P in keyof T]: T[P] };
+
+type UniqueObject<T, I extends boolean, V extends boolean, C extends boolean> = Flatten<
+  { values: T } & UniqueField<'indices', T, I> &
+    UniqueField<'inverse', T, V> &
+    UniqueField<'counts', T, C>
+>;
+
+/**
+ * Result of unique for the given flag types, where T is the array type. No flags gives a bare
+ * array, a literal-true flag makes its field non-optional, and a flag typed as plain boolean
+ * gives the union since the shape is only known at runtime.
+ */
+export type UniqueResult<T, I extends boolean, V extends boolean, C extends boolean> = [
+  I,
+  V,
+  C,
+] extends [false, false, false]
+  ? T
+  : [I] extends [true]
+    ? UniqueObject<T, I, V, C>
+    : [V] extends [true]
+      ? UniqueObject<T, I, V, C>
+      : [C] extends [true]
+        ? UniqueObject<T, I, V, C>
+        : T | UniqueObject<T, I, V, C>;
+
+/**
+ * Find unique elements. With no flags the result is the sorted unique array; with any flag set it
+ * is an object holding values plus the requested indices, inverse and counts.
+ *
+ * @param ar - Input array
+ * @param returnIndex - Also return the first-occurrence indices
+ * @param returnInverse - Also return the indices that rebuild the input
+ * @param returnCounts - Also return the count of each unique value
+ * @param axis - Axis to operate along, or undefined to flatten
+ * @returns Unique values, or an object when any flag is set
+ */
+export function unique<
+  I extends boolean = false,
+  V extends boolean = false,
+  C extends boolean = false,
+>(
   ar: NDArrayCore,
-  returnIndex: boolean = false,
-  returnInverse: boolean = false,
-  returnCounts: boolean = false,
+  returnIndex?: I,
+  returnInverse?: V,
+  returnCounts?: C,
   axis?: number,
-):
-  | NDArrayCore
-  | { values: NDArrayCore; indices?: NDArrayCore; inverse?: NDArrayCore; counts?: NDArrayCore } {
+): UniqueResult<NDArrayCore, I, V, C> {
   const result = setOps.unique(toStorage(ar), returnIndex, returnInverse, returnCounts, axis);
   if ('values' in result) {
     return {
@@ -25,9 +68,9 @@ export function unique(
       indices: result.indices ? fromStorage(result.indices) : undefined,
       inverse: result.inverse ? fromStorage(result.inverse) : undefined,
       counts: result.counts ? fromStorage(result.counts) : undefined,
-    };
+    } as UniqueResult<NDArrayCore, I, V, C>;
   }
-  return fromStorage(result as ArrayStorage);
+  return fromStorage(result as ArrayStorage) as UniqueResult<NDArrayCore, I, V, C>;
 }
 
 /**

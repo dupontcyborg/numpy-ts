@@ -26,7 +26,7 @@
 
 export { Complex, type ComplexInput } from './common/complex';
 export type { BigIntDType, ComplexDType, DType, Scalar } from './common/dtype';
-export { hasFloat16 } from './common/dtype';
+export { hasFloat16, isComplexDType, isFloatDType, isIntegerDType } from './common/dtype';
 // Compile-time dtype result-type helpers (types-only; generated from the runtime SSOT).
 export type {
   Abs,
@@ -734,12 +734,91 @@ import * as randomOps from './common/ops/random';
 import type { ArrayStorage } from './common/storage';
 import { NDArray as NDArrayClass } from './full';
 
-// Helper to wrap ArrayStorage results in NDArray
-function wrapResult<T>(result: T): T | NDArrayClass {
+type SizeArg = number | readonly number[];
+
+// Wraps an ArrayStorage result as an NDArray and leaves scalars alone.
+function wrapResult(result: unknown): unknown {
   if (result && typeof result === 'object' && '_data' in result && '_shape' in result) {
     return NDArrayClass.fromStorage(result as unknown as ArrayStorage);
   }
   return result;
+}
+
+// A sampling function returns an array of dtype R when size is given and a plain number otherwise.
+// Req are the leading required parameters and Opt the optional ones between them and size, each
+// typed with undefined so it can be skipped to reach size.
+interface Sampler<Req extends unknown[], Opt extends unknown[], R extends DType = 'float64'> {
+  (...args: [...Req, ...Opt, size: SizeArg]): NDArrayClass<R>;
+  (...args: [...Req, ...Partial<Opt>, size?: undefined]): number;
+}
+
+function sampler<Req extends unknown[], Opt extends unknown[], R extends DType = 'float64'>(
+  fn: (...args: never[]) => unknown,
+): Sampler<Req, Opt, R> {
+  return ((...args: unknown[]) =>
+    wrapResult((fn as (...a: unknown[]) => unknown)(...args))) as Sampler<Req, Opt, R>;
+}
+
+// Shape-from-arguments generators: no arguments gives a number, any dimensions give an array.
+interface DimSampler {
+  (): number;
+  (...shape: [number, ...number[]]): NDArrayClass<'float64'>;
+}
+
+interface RandInt {
+  <D extends DType = 'int64'>(
+    low: number,
+    high: number | null | undefined,
+    size: SizeArg,
+    dtype?: D,
+  ): NDArrayClass<D>;
+  (low: number, high?: number | null, size?: undefined, dtype?: DType): number;
+}
+
+// Unlike the samplers, choice draws from an array, so the element dtype is not known statically.
+interface Choice {
+  (
+    a: number | RngArray,
+    size: SizeArg,
+    replace?: boolean,
+    p?: RngArray | readonly number[],
+  ): NDArrayClass;
+  (
+    a: number | RngArray,
+    size?: undefined,
+    replace?: boolean,
+    p?: RngArray | readonly number[],
+  ): number;
+}
+
+type RngArray = NDArrayCore | ArrayStorage;
+
+function toRandomStorage<T>(x: NDArrayCore | T): ArrayStorage | T {
+  return x instanceof NDArrayCore ? x.storage : (x as T);
+}
+
+function choiceFn(
+  pick: (
+    a: number | ArrayStorage,
+    size?: number | number[],
+    replace?: boolean,
+    p?: ArrayStorage | number[],
+  ) => unknown,
+): Choice {
+  return ((
+    a: number | RngArray,
+    size?: SizeArg,
+    replace?: boolean,
+    p?: RngArray | readonly number[],
+  ) =>
+    wrapResult(
+      pick(
+        toRandomStorage(a) as number | ArrayStorage,
+        size as number | number[] | undefined,
+        replace,
+        toRandomStorage(p) as ArrayStorage | number[] | undefined,
+      ),
+    )) as Choice;
 }
 
 export const random = {
@@ -750,157 +829,130 @@ export const random = {
   get_bit_generator: randomOps.get_bit_generator,
   set_bit_generator: randomOps.set_bit_generator,
   default_rng: (seedValue?: number) => {
-    type ArrayLike = NDArrayClass | NDArrayCore | ArrayStorage;
     const gen = randomOps.default_rng(seedValue);
-    const unwrap = (x: number | ArrayLike): number | ArrayStorage =>
-      x instanceof NDArrayClass
-        ? x.storage
-        : x instanceof NDArrayCore
-          ? x.storage
-          : (x as number | ArrayStorage);
     return {
-      random: (size?: number | number[]) => wrapResult(gen.random(size)),
-      integers: (low: number, high?: number, size?: number | number[]) =>
-        wrapResult(gen.integers(low, high, size)),
-      standard_normal: (size?: number | number[]) => wrapResult(gen.standard_normal(size)),
-      normal: (loc?: number, scale?: number, size?: number | number[]) =>
-        wrapResult(gen.normal(loc, scale, size)),
-      uniform: (low?: number, high?: number, size?: number | number[]) =>
-        wrapResult(gen.uniform(low, high, size)),
-      choice: (
-        a: number | ArrayLike,
-        size?: number | number[],
-        replace?: boolean,
-        p?: ArrayLike | number[],
-      ) =>
-        wrapResult(
-          gen.choice(
-            unwrap(a),
-            size,
-            replace,
-            p instanceof NDArrayClass
-              ? p.storage
-              : p instanceof NDArrayCore
-                ? p.storage
-                : (p as ArrayStorage | number[] | undefined),
-          ),
-        ),
-      permutation: (x: number | ArrayLike) => wrapResult(gen.permutation(unwrap(x))),
-      shuffle: (x: ArrayLike) =>
-        gen.shuffle(
-          x instanceof NDArrayClass ? x.storage : x instanceof NDArrayCore ? x.storage : x,
-        ),
-      exponential: (scale?: number, size?: number | number[]) =>
-        wrapResult(gen.exponential(scale, size)),
-      poisson: (lam?: number, size?: number | number[]) => wrapResult(gen.poisson(lam, size)),
-      binomial: (n: number, p: number, size?: number | number[]) =>
-        wrapResult(gen.binomial(n, p, size)),
+      random: sampler<[], []>(gen.random.bind(gen)),
+      integers: sampler<[low: number], [high: number | undefined], 'int64'>(gen.integers.bind(gen)),
+      standard_normal: sampler<[], []>(gen.standard_normal.bind(gen)),
+      normal: sampler<[], [loc: number | undefined, scale: number | undefined]>(
+        gen.normal.bind(gen),
+      ),
+      uniform: sampler<[], [low: number | undefined, high: number | undefined]>(
+        gen.uniform.bind(gen),
+      ),
+      choice: choiceFn(gen.choice.bind(gen)),
+      permutation: (x: number | RngArray): NDArrayClass =>
+        NDArrayClass.fromStorage(gen.permutation(toRandomStorage(x) as number | ArrayStorage)),
+      shuffle: (x: RngArray) => gen.shuffle(toRandomStorage(x) as ArrayStorage),
+      exponential: sampler<[], [scale: number | undefined]>(gen.exponential.bind(gen)),
+      poisson: sampler<[], [lam: number | undefined], 'int64'>(gen.poisson.bind(gen)),
+      binomial: sampler<[n: number, p: number], [], 'int64'>(gen.binomial.bind(gen)),
     };
   },
   Generator: randomOps.Generator,
 
   // Basic random functions
-  random: (size?: number | number[]) => wrapResult(randomOps.random(size)),
-  rand: (...shape: number[]) => wrapResult(randomOps.rand(...shape)),
-  randn: (...shape: number[]) => wrapResult(randomOps.randn(...shape)),
-  randint: (low: number, high?: number | null, size?: number | number[], dtype?: DType) =>
-    wrapResult(randomOps.randint(low, high, size, dtype)),
+  random: sampler<[], []>(randomOps.random),
+  rand: ((...shape: number[]) => wrapResult(randomOps.rand(...shape))) as DimSampler,
+  randn: ((...shape: number[]) => wrapResult(randomOps.randn(...shape))) as DimSampler,
+  randint: ((low: number, high?: number | null, size?: SizeArg, dtype?: DType) =>
+    wrapResult(
+      randomOps.randint(low, high, size as number | number[] | undefined, dtype),
+    )) as RandInt,
 
   // Aliases
-  random_sample: (size?: number | number[]) => wrapResult(randomOps.random_sample(size)),
-  ranf: (size?: number | number[]) => wrapResult(randomOps.ranf(size)),
-  sample: (size?: number | number[]) => wrapResult(randomOps.sample(size)),
-  random_integers: (low: number, high?: number, size?: number | number[]) =>
-    wrapResult(randomOps.random_integers(low, high, size)),
+  random_sample: sampler<[], []>(randomOps.random_sample),
+  ranf: sampler<[], []>(randomOps.ranf),
+  sample: sampler<[], []>(randomOps.sample),
+  random_integers: sampler<[low: number], [high: number | undefined], 'int64'>(
+    randomOps.random_integers,
+  ),
 
   // Infrastructure
   bytes: randomOps.bytes,
 
   // Continuous distributions
-  uniform: (low?: number, high?: number, size?: number | number[]) =>
-    wrapResult(randomOps.uniform(low, high, size)),
-  normal: (loc?: number, scale?: number, size?: number | number[]) =>
-    wrapResult(randomOps.normal(loc, scale, size)),
-  standard_normal: (size?: number | number[]) => wrapResult(randomOps.standard_normal(size)),
-  exponential: (scale?: number, size?: number | number[]) =>
-    wrapResult(randomOps.exponential(scale, size)),
-  standard_exponential: (size?: number | number[]) =>
-    wrapResult(randomOps.standard_exponential(size)),
+  uniform: sampler<[], [low: number | undefined, high: number | undefined]>(randomOps.uniform),
+  normal: sampler<[], [loc: number | undefined, scale: number | undefined]>(randomOps.normal),
+  standard_normal: sampler<[], []>(randomOps.standard_normal),
+  exponential: sampler<[], [scale: number | undefined]>(randomOps.exponential),
+  standard_exponential: sampler<[], []>(randomOps.standard_exponential),
 
   // Gamma family
-  gamma: (shape: number, scale?: number, size?: number | number[]) =>
-    wrapResult(randomOps.gamma(shape, scale, size)),
-  standard_gamma: (shape: number, size?: number | number[]) =>
-    wrapResult(randomOps.standard_gamma(shape, size)),
-  beta: (a: number, b: number, size?: number | number[]) => wrapResult(randomOps.beta(a, b, size)),
-  chisquare: (df: number, size?: number | number[]) => wrapResult(randomOps.chisquare(df, size)),
-  noncentral_chisquare: (df: number, nonc: number, size?: number | number[]) =>
-    wrapResult(randomOps.noncentral_chisquare(df, nonc, size)),
-  f: (dfnum: number, dfden: number, size?: number | number[]) =>
-    wrapResult(randomOps.f(dfnum, dfden, size)),
-  noncentral_f: (dfnum: number, dfden: number, nonc: number, size?: number | number[]) =>
-    wrapResult(randomOps.noncentral_f(dfnum, dfden, nonc, size)),
+  gamma: sampler<[shape: number], [scale: number | undefined]>(randomOps.gamma),
+  standard_gamma: sampler<[shape: number], []>(randomOps.standard_gamma),
+  beta: sampler<[a: number, b: number], []>(randomOps.beta),
+  chisquare: sampler<[df: number], []>(randomOps.chisquare),
+  noncentral_chisquare: sampler<[df: number, nonc: number], []>(randomOps.noncentral_chisquare),
+  f: sampler<[dfnum: number, dfden: number], []>(randomOps.f),
+  noncentral_f: sampler<[dfnum: number, dfden: number, nonc: number], []>(randomOps.noncentral_f),
 
   // Other continuous distributions
-  standard_cauchy: (size?: number | number[]) => wrapResult(randomOps.standard_cauchy(size)),
-  standard_t: (df: number, size?: number | number[]) => wrapResult(randomOps.standard_t(df, size)),
-  laplace: (loc?: number, scale?: number, size?: number | number[]) =>
-    wrapResult(randomOps.laplace(loc, scale, size)),
-  logistic: (loc?: number, scale?: number, size?: number | number[]) =>
-    wrapResult(randomOps.logistic(loc, scale, size)),
-  lognormal: (mean?: number, sigma?: number, size?: number | number[]) =>
-    wrapResult(randomOps.lognormal(mean, sigma, size)),
-  gumbel: (loc?: number, scale?: number, size?: number | number[]) =>
-    wrapResult(randomOps.gumbel(loc, scale, size)),
-  pareto: (a: number, size?: number | number[]) => wrapResult(randomOps.pareto(a, size)),
-  power: (a: number, size?: number | number[]) => wrapResult(randomOps.power(a, size)),
-  rayleigh: (scale?: number, size?: number | number[]) =>
-    wrapResult(randomOps.rayleigh(scale, size)),
-  triangular: (left: number, mode: number, right: number, size?: number | number[]) =>
-    wrapResult(randomOps.triangular(left, mode, right, size)),
-  wald: (mean: number, scale: number, size?: number | number[]) =>
-    wrapResult(randomOps.wald(mean, scale, size)),
-  weibull: (a: number, size?: number | number[]) => wrapResult(randomOps.weibull(a, size)),
+  standard_cauchy: sampler<[], []>(randomOps.standard_cauchy),
+  standard_t: sampler<[df: number], []>(randomOps.standard_t),
+  laplace: sampler<[], [loc: number | undefined, scale: number | undefined]>(randomOps.laplace),
+  logistic: sampler<[], [loc: number | undefined, scale: number | undefined]>(randomOps.logistic),
+  lognormal: sampler<[], [mean: number | undefined, sigma: number | undefined]>(
+    randomOps.lognormal,
+  ),
+  gumbel: sampler<[], [loc: number | undefined, scale: number | undefined]>(randomOps.gumbel),
+  pareto: sampler<[a: number], []>(randomOps.pareto),
+  power: sampler<[a: number], []>(randomOps.power),
+  rayleigh: sampler<[], [scale: number | undefined]>(randomOps.rayleigh),
+  triangular: sampler<[left: number, mode: number, right: number], []>(randomOps.triangular),
+  wald: sampler<[mean: number, scale: number], []>(randomOps.wald),
+  weibull: sampler<[a: number], []>(randomOps.weibull),
 
   // Discrete distributions
-  poisson: (lam?: number, size?: number | number[]) => wrapResult(randomOps.poisson(lam, size)),
-  binomial: (n: number, p: number, size?: number | number[]) =>
-    wrapResult(randomOps.binomial(n, p, size)),
-  geometric: (p: number, size?: number | number[]) => wrapResult(randomOps.geometric(p, size)),
-  hypergeometric: (ngood: number, nbad: number, nsample: number, size?: number | number[]) =>
-    wrapResult(randomOps.hypergeometric(ngood, nbad, nsample, size)),
-  logseries: (p: number, size?: number | number[]) => wrapResult(randomOps.logseries(p, size)),
-  negative_binomial: (n: number, p: number, size?: number | number[]) =>
-    wrapResult(randomOps.negative_binomial(n, p, size)),
-  zipf: (a: number, size?: number | number[]) => wrapResult(randomOps.zipf(a, size)),
+  poisson: sampler<[], [lam: number | undefined], 'int64'>(randomOps.poisson),
+  binomial: sampler<[n: number, p: number], [], 'int64'>(randomOps.binomial),
+  geometric: sampler<[p: number], [], 'int64'>(randomOps.geometric),
+  hypergeometric: sampler<[ngood: number, nbad: number, nsample: number], [], 'int64'>(
+    randomOps.hypergeometric,
+  ),
+  logseries: sampler<[p: number], [], 'int64'>(randomOps.logseries),
+  negative_binomial: sampler<[n: number, p: number], [], 'int64'>(randomOps.negative_binomial),
+  zipf: sampler<[a: number], [], 'int64'>(randomOps.zipf),
 
   // Multivariate distributions
-  multinomial: (n: number, pvals: number[] | ArrayStorage, size?: number | number[]) =>
-    wrapResult(randomOps.multinomial(n, pvals, size)),
+  multinomial: (n: number, pvals: number[] | RngArray, size?: SizeArg): NDArrayClass<'int64'> =>
+    wrapResult(
+      randomOps.multinomial(
+        n,
+        toRandomStorage(pvals) as number[] | ArrayStorage,
+        size as number | number[] | undefined,
+      ),
+    ) as NDArrayClass<'int64'>,
   multivariate_normal: (
-    mean: number[] | ArrayStorage,
-    cov: number[][] | ArrayStorage,
-    size?: number | number[],
+    mean: number[] | RngArray,
+    cov: number[][] | RngArray,
+    size?: SizeArg,
     check_valid?: 'warn' | 'raise' | 'ignore',
     tol?: number,
-  ) => wrapResult(randomOps.multivariate_normal(mean, cov, size, check_valid, tol)),
-  dirichlet: (alpha: number[] | ArrayStorage, size?: number | number[]) =>
-    wrapResult(randomOps.dirichlet(alpha, size)),
-  vonmises: (mu: number, kappa: number, size?: number | number[]) =>
-    wrapResult(randomOps.vonmises(mu, kappa, size)),
+  ): NDArrayClass<'float64'> =>
+    wrapResult(
+      randomOps.multivariate_normal(
+        toRandomStorage(mean) as number[] | ArrayStorage,
+        toRandomStorage(cov) as number[][] | ArrayStorage,
+        size as number | number[] | undefined,
+        check_valid,
+        tol,
+      ),
+    ) as NDArrayClass<'float64'>,
+  dirichlet: (alpha: number[] | RngArray, size?: SizeArg): NDArrayClass<'float64'> =>
+    wrapResult(
+      randomOps.dirichlet(
+        toRandomStorage(alpha) as number[] | ArrayStorage,
+        size as number | number[] | undefined,
+      ),
+    ) as NDArrayClass<'float64'>,
+  vonmises: sampler<[mu: number, kappa: number], []>(randomOps.vonmises),
 
   // Sequence operations
-  choice: (
-    a: number | ArrayStorage,
-    size?: number | number[],
-    replace?: boolean,
-    p?: ArrayStorage | number[],
-  ) => wrapResult(randomOps.choice(a, size, replace, p)),
-  permutation: (x: number | ArrayStorage) => wrapResult(randomOps.permutation(x)),
-  shuffle: (x: NDArrayClass | NDArrayCore | ArrayStorage) =>
-    randomOps.shuffle(
-      x instanceof NDArrayClass ? x.storage : x instanceof NDArrayCore ? x.storage : x,
-    ),
+  choice: choiceFn(randomOps.choice),
+  permutation: (x: number | RngArray): NDArrayClass =>
+    NDArrayClass.fromStorage(randomOps.permutation(toRandomStorage(x) as number | ArrayStorage)),
+  shuffle: (x: RngArray) => randomOps.shuffle(toRandomStorage(x) as ArrayStorage),
 };
 
 // ============================================================

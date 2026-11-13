@@ -11,13 +11,14 @@ import { ArrayStorage } from '../common/storage';
 import { wasmPad2D } from '../common/wasm/pad';
 import { array, zeros } from './creation';
 import { concatenate, flatten } from './shape';
+import type { ArrayLike } from './types';
 
 /**
  * Append values to the end of an array
  */
 export function append(
   arr: NDArrayCore,
-  values: NDArrayCore | number | number[],
+  values: NDArrayCore | ArrayLike,
   axis?: number,
 ): NDArrayCore {
   const valuesArr =
@@ -203,9 +204,10 @@ export function insert(
       // Insertion is a segment-copy problem: copy the runs between insertion
       // points with `.set()` so everything stays in native typed arrays, and
       // int64 stays in BigInt rather than routing through `number`.
+      type Indexed = { readonly length: number; readonly [index: number]: number };
       type Sub = {
-        subarray(b: number, e: number): ArrayLike<number>;
-        set(v: ArrayLike<number>, o: number): void;
+        subarray(b: number, e: number): Indexed;
+        set(v: Indexed, o: number): void;
       };
       const src = flat.data as unknown as Sub;
       const n = flat.size;

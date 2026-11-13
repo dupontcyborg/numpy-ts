@@ -69,7 +69,14 @@ export function flatnonzero(a: NDArrayCore): NDArrayCore {
   return fromStorage(sortingOps.flatnonzero(toStorage(a)));
 }
 
-/** Return elements from x or y based on condition */
+/** Return elements from x or y based on condition, or the indices where condition is true when x and y are omitted */
+export function where(condition: NDArrayCore): NDArrayCore[];
+export function where(condition: NDArrayCore, x: ArrayLike, y: ArrayLike): NDArrayCore;
+export function where(
+  condition: NDArrayCore,
+  x?: ArrayLike,
+  y?: ArrayLike,
+): NDArrayCore | NDArrayCore[];
 export function where(
   condition: NDArrayCore,
   x?: ArrayLike,
