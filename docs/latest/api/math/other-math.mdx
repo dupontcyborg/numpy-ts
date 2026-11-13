@@ -8,12 +8,12 @@ description: "Clipping, element-wise min/max, NaN handling, interpolation, speci
 Clip (limit) the values in an array to a given range.
 
 ```typescript
-function clip(a: ArrayLike, a_min: ArrayLike | number | null, a_max: ArrayLike | number | null): NDArray
+function clip(a: NDArray, a_min: NDArray | number | null, a_max: NDArray | number | null): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | - | Input array. |
+| `a` | `NDArray` | - | Input array. |
 | `a_min` | `number \| null` | - | Minimum value. Elements below this are set to `a_min`. Pass `null` to skip the lower bound. |
 | `a_max` | `number \| null` | - | Maximum value. Elements above this are set to `a_max`. Pass `null` to skip the upper bound. |
 
@@ -45,13 +45,13 @@ const a = clip(array([1, 5, 10, 15, 20]), 3, 12);
 Element-wise maximum of two arrays. Propagates NaN.
 
 ```typescript
-function maximum(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function maximum(x1: NDArray, x2: NDArray | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | First input array. |
-| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+| `x1` | `NDArray` | - | First input array. |
+| `x2` | `NDArray \| number` | - | Second input array or scalar. |
 
 **Returns:** `NDArray` -- Element-wise maximum. If either element is NaN, the result is NaN.
 
@@ -80,13 +80,13 @@ const a = maximum(array([1, 5, 3]), array([4, 2, 6]));
 Element-wise minimum of two arrays. Propagates NaN.
 
 ```typescript
-function minimum(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function minimum(x1: NDArray, x2: NDArray | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | First input array. |
-| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+| `x1` | `NDArray` | - | First input array. |
+| `x2` | `NDArray \| number` | - | Second input array or scalar. |
 
 **Returns:** `NDArray` -- Element-wise minimum. If either element is NaN, the result is NaN.
 
@@ -112,13 +112,13 @@ const a = minimum(array([1, 5, 3]), array([4, 2, 6]));
 Element-wise maximum of two arrays, ignoring NaN. If one element is NaN, the other is returned.
 
 ```typescript
-function fmax(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function fmax(x1: NDArray, x2: NDArray | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | First input array. |
-| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+| `x1` | `NDArray` | - | First input array. |
+| `x2` | `NDArray \| number` | - | Second input array or scalar. |
 
 **Returns:** `NDArray` -- Element-wise maximum, ignoring NaN.
 
@@ -144,13 +144,13 @@ const a = fmax(array([1, NaN, 3]), array([NaN, 2, NaN]));
 Element-wise minimum of two arrays, ignoring NaN.
 
 ```typescript
-function fmin(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function fmin(x1: NDArray, x2: NDArray | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | First input array. |
-| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+| `x1` | `NDArray` | - | First input array. |
+| `x2` | `NDArray \| number` | - | Second input array or scalar. |
 
 **Returns:** `NDArray` -- Element-wise minimum, ignoring NaN.
 
@@ -177,7 +177,7 @@ Replace NaN with zero and infinity with large finite numbers (or specified value
 
 ```typescript
 function nan_to_num(
-  x: ArrayLike,
+  x: NDArray,
   nan?: number,
   posinf?: number,
   neginf?: number
@@ -186,7 +186,7 @@ function nan_to_num(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 | `nan` | `number` | `0.0` | Value to replace NaN with. |
 | `posinf` | `number` | `undefined` | Value to replace positive infinity. Defaults to a very large finite number. |
 | `neginf` | `number` | `undefined` | Value to replace negative infinity. Defaults to a very large negative finite number. |
@@ -219,9 +219,9 @@ One-dimensional linear interpolation for monotonically increasing sample points.
 
 ```typescript
 function interp(
-  x: ArrayLike,
-  xp: ArrayLike,
-  fp: ArrayLike,
+  x: NDArray,
+  xp: NDArray,
+  fp: NDArray,
   left?: number,
   right?: number,
   period?: number
@@ -230,9 +230,9 @@ function interp(
 
 |Name|Type|Default|Description|
 |-|-|-|-|
-|`x`|`ArrayLike`|-|x-coordinates at which to evaluate the interpolation.|
-|`xp`|`ArrayLike`|-|x-coordinates of the data points (must be increasing unless `period` is given).|
-|`fp`|`ArrayLike`|-|y-coordinates of the data points (same length as `xp`).|
+|`x`|`NDArray`|-|x-coordinates at which to evaluate the interpolation.|
+|`xp`|`NDArray`|-|x-coordinates of the data points (must be increasing unless `period` is given).|
+|`fp`|`NDArray`|-|y-coordinates of the data points (same length as `xp`).|
 |`left`|`number`|`fp[0]`|Value to return for `x < xp[0]`. Ignored when `period` is given.|
 |`right`|`number`|`fp[fp.length - 1]`|Value to return for `x > xp[-1]`. Ignored when `period` is given.|
 |`period`|`number`|`undefined`|If given, treat `xp` as periodic with this period. `x` and `xp` are normalized into `[0, period)`, `xp` is sorted internally, and a wrap-around copy of the first/last sample is appended so any normalized `x` lies in range. `left`/`right` are ignored. Throws if `period === 0`.|
@@ -275,12 +275,12 @@ const y = interp(array([0.5, 1.5]), xp, fp);
 Return the normalized sinc function: `sin(pi*x) / (pi*x)`. The sinc function is `1` at `x = 0`.
 
 ```typescript
-function sinc(x: ArrayLike): NDArray
+function sinc(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array. |
+| `x` | `NDArray` | - | Input array. |
 
 **Returns:** `NDArray` -- Element-wise `sin(pi*x) / (pi*x)`.
 
@@ -306,12 +306,12 @@ const a = sinc(array([0, 0.5, 1, 1.5, 2]));
 Modified Bessel function of the first kind, order 0.
 
 ```typescript
-function i0(x: ArrayLike): NDArray
+function i0(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array (argument of the Bessel function). |
+| `x` | `NDArray` | - | Input array (argument of the Bessel function). |
 
 **Returns:** `NDArray` -- Element-wise modified Bessel function I_0(x).
 
@@ -338,7 +338,7 @@ Unwrap by changing deltas between values to their `2*pi` complement. Useful for 
 
 ```typescript
 function unwrap(
-  p: ArrayLike,
+  p: NDArray,
   discont?: number,
   axis?: number,
   period?: number
@@ -347,7 +347,7 @@ function unwrap(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `p` | `ArrayLike` | - | Input array of phase angles. |
+| `p` | `NDArray` | - | Input array of phase angles. |
 | `discont` | `number` | `Math.PI` | Maximum discontinuity between consecutive values. Jumps larger than this are wrapped. |
 | `axis` | `number` | `-1` | Axis along which to unwrap. |
 | `period` | `number` | `2 * Math.PI` | Wrapping period. |
@@ -379,12 +379,12 @@ const unwrapped = unwrap(phase);
 Return the real part of each element. For real-valued arrays there is nothing to extract, so the input is handed back as a view.
 
 ```typescript
-function real(x: ArrayLike): NDArray
+function real(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array (real or complex). |
+| `x` | `NDArray` | - | Input array (real or complex). |
 
 **Returns:** `NDArray` -- The real part of each element.
 
@@ -418,12 +418,12 @@ const r = real(a);
 Return the imaginary part of each element. For real-valued arrays, returns zeros.
 
 ```typescript
-function imag(x: ArrayLike): NDArray
+function imag(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array (real or complex). |
+| `x` | `NDArray` | - | Input array (real or complex). |
 
 **Returns:** `NDArray` -- The imaginary part of each element.
 
@@ -457,12 +457,12 @@ const i = imag(a);
 Return the complex conjugate, element-wise. For each element `a + bi`, returns `a - bi`. Also available as the alias `conjugate`.
 
 ```typescript
-function conj(x: ArrayLike): NDArray
+function conj(x: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array (real or complex). |
+| `x` | `NDArray` | - | Input array (real or complex). |
 
 **Returns:** `NDArray` -- Complex conjugate of each element.
 
@@ -497,12 +497,12 @@ const c = conj(a);
 Return the angle (argument) of complex numbers.
 
 ```typescript
-function angle(x: ArrayLike, deg?: boolean): NDArray
+function angle(x: NDArray, deg?: boolean): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | - | Input array of complex numbers. |
+| `x` | `NDArray` | - | Input array of complex numbers. |
 | `deg` | `boolean` | `false` | If `true`, return angles in degrees instead of radians. |
 
 **Returns:** `NDArray` -- The counterclockwise angle from the positive real axis, in radians (or degrees if `deg` is `true`).

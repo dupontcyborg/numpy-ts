@@ -11,12 +11,12 @@ All decomposition functions live under the `linalg` namespace. Access them as `n
 Compute the eigenvalues and right eigenvectors of a square matrix. For each eigenvalue `w[i]`, the corresponding eigenvector is the column `v[:, i]`.
 
 ```typescript
-function linalg.eig(a: ArrayLike): { w: NDArray; v: NDArray; }
+function linalg.eig(a: NDArray): { w: NDArray; v: NDArray; }
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input square matrix or batch of matrices with shape `[..., n, n]`. |
+| `a` | `NDArray` | -- | Input square matrix or batch of matrices with shape `[..., n, n]`. |
 
 **Returns:** `{ w, v }` -- Object where `w` has shape `[..., n]` (eigenvalues) and `v` has shape `[..., n, n]` (eigenvectors). The column `v[:, i]` is the eigenvector corresponding to `w[i]`.
 
@@ -43,12 +43,12 @@ console.log(batchW.shape);  // [2, 3]
 Compute eigenvalues and eigenvectors of a symmetric (Hermitian) matrix. The eigenvalues are returned in ascending order. This is faster than `eig` for symmetric matrices and guarantees real eigenvalues.
 
 ```typescript
-function linalg.eigh(a: ArrayLike, UPLO?: 'L' | 'U'): { w: NDArray; v: NDArray; }
+function linalg.eigh(a: NDArray, UPLO?: 'L' | 'U'): { w: NDArray; v: NDArray; }
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input symmetric matrix or batch of matrices with shape `[..., n, n]`. |
+| `a` | `NDArray` | -- | Input symmetric matrix or batch of matrices with shape `[..., n, n]`. |
 | `UPLO` | `'L' \| 'U'` | `'L'` | Whether to use the lower (`'L'`) or upper (`'U'`) triangle of `a`. |
 
 **Returns:** `{ w, v }` -- Object where `w` has shape `[..., n]` containing eigenvalues in ascending order and `v` has shape `[..., n, n]` containing orthonormal eigenvectors.
@@ -70,12 +70,12 @@ console.log(v.shape);      // [2, 2]
 Compute the eigenvalues of a square matrix. This is equivalent to `linalg.eig` but only returns eigenvalues, which can be more efficient when eigenvectors are not needed.
 
 ```typescript
-function linalg.eigvals(a: ArrayLike): NDArray
+function linalg.eigvals(a: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input square matrix or batch of matrices with shape `[..., n, n]`. |
+| `a` | `NDArray` | -- | Input square matrix or batch of matrices with shape `[..., n, n]`. |
 
 **Returns:** `NDArray` -- Array of eigenvalues with shape `[..., n]` (may be complex-valued).
 
@@ -95,12 +95,12 @@ console.log(w.shape);  // [2]
 Compute the eigenvalues of a symmetric (Hermitian) matrix. Returns eigenvalues only, sorted in ascending order.
 
 ```typescript
-function linalg.eigvalsh(a: ArrayLike, UPLO?: 'L' | 'U'): NDArray
+function linalg.eigvalsh(a: NDArray, UPLO?: 'L' | 'U'): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input symmetric matrix or batch of matrices with shape `[..., n, n]`. |
+| `a` | `NDArray` | -- | Input symmetric matrix or batch of matrices with shape `[..., n, n]`. |
 | `UPLO` | `'L' \| 'U'` | `'L'` | Whether to use the lower or upper triangle. |
 
 **Returns:** `NDArray` -- Array of real eigenvalues with shape `[..., n]` in ascending order.
@@ -122,7 +122,7 @@ Compute the singular value decomposition (SVD) of a matrix. Factors the matrix `
 
 ```typescript
 function linalg.svd(
-  a: ArrayLike,
+  a: NDArray,
   full_matrices?: boolean,
   compute_uv?: boolean
 ): { u: NDArray; s: NDArray; vt: NDArray; } | NDArray
@@ -130,7 +130,7 @@ function linalg.svd(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input matrix of shape `[M, N]`. |
+| `a` | `NDArray` | -- | Input matrix of shape `[M, N]`. |
 | `full_matrices` | `boolean` | `true` | If `true`, `U` is `[M, M]` and `Vh` is `[N, N]`. If `false`, `U` is `[M, K]` and `Vh` is `[K, N]` where `K = min(M, N)`. |
 | `compute_uv` | `boolean` | `true` | If `false`, return only singular values. |
 
@@ -161,12 +161,12 @@ console.log(sOnly.shape); // [3]
 Compute the singular values of a matrix. This is equivalent to `linalg.svd` but only returns the singular values, which can be more efficient.
 
 ```typescript
-function linalg.svdvals(a: ArrayLike): NDArray
+function linalg.svdvals(a: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input matrix. |
+| `a` | `NDArray` | -- | Input matrix. |
 
 **Returns:** `NDArray` -- 1-D array of singular values in descending order.
 
@@ -187,14 +187,14 @@ Compute the QR decomposition of a matrix. Factors the matrix `a` as `Q @ R`, whe
 
 ```typescript
 function linalg.qr(
-  a: ArrayLike,
+  a: NDArray,
   mode?: 'reduced' | 'complete' | 'r' | 'raw'
 ): { q: NDArray; r: NDArray; } | NDArray | { h: NDArray; tau: NDArray; }
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input matrix of shape `[M, N]`. |
+| `a` | `NDArray` | -- | Input matrix of shape `[M, N]`. |
 | `mode` | `'reduced' \| 'complete' \| 'r' \| 'raw'` | `'reduced'` | If `'reduced'`/`'complete'`, returns `{ q, r }`. If `'r'`, returns only `R`. If `'raw'`, returns `{ h, tau }`. |
 
 **Returns:** `{ q, r }` for `'reduced'`/`'complete'`, `NDArray` for `'r'`, and `{ h, tau }` for `'raw'`.
@@ -222,12 +222,12 @@ console.log(rf.shape);  // [3, 2]
 Compute the Cholesky decomposition of a positive-definite symmetric matrix. Returns the lower-triangular matrix `L` such that `a = L @ L.T`.
 
 ```typescript
-function linalg.cholesky(a: ArrayLike, upper?: boolean): NDArray
+function linalg.cholesky(a: NDArray, upper?: boolean): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input positive-definite matrix or batch of matrices with shape `[..., n, n]`. |
+| `a` | `NDArray` | -- | Input positive-definite matrix or batch of matrices with shape `[..., n, n]`. |
 | `upper` | `boolean` | `false` | If `true`, compute upper-triangular factor instead of lower-triangular. |
 
 **Returns:** `NDArray` of shape `[..., n, n]` -- Lower-triangular Cholesky factor `L`.

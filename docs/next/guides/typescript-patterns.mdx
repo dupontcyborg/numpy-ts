@@ -42,7 +42,7 @@ import { zeros } from 'numpy-ts';
 import type { DType } from 'numpy-ts';
 
 function createBuffer(shape: number[], dtype: DType = 'float64') {
-  return zeros(shape, { dtype });
+  return zeros(shape, dtype);
 }
 
 createBuffer([3, 3], 'float32');  // OK
@@ -266,8 +266,8 @@ const d = a.astype('int8');      // NDArray<'int8'>
 
 ```typescript
 const ints = zeros([3], 'int64');
-const x = ints.get([0]);   // bigint
-const y: number = ints.get([0]); // ✗ compile error: bigint is not assignable to number
+const x = ints.get([0]);         // bigint
+const y = Number(ints.get([0])); // number; `const y: number = ints.get([0])` is a compile error
 
 const floats = zeros([3], 'float64');
 const z = floats.get([0]); // number
@@ -287,7 +287,7 @@ i.add(f);      // NDArray<'float64'>   — promotion
 i.multiply(i); // NDArray<'int32'>
 i.divide(i);   // NDArray<'float64'>   — true division always floats
 i.sqrt();      // NDArray<'float64'>   — unary math promotes ints
-i.sum();       // NDArray<'int64'> | bigint  — accumulator widening (int64 scalar → bigint)
+i.sum();       // NDArray<'int64'> | number  — accumulator widening (the scalar is a bigint only for int64/uint64 input)
 i.mean();      // NDArray<'float64'> | number
 i.greater(f);  // NDArray<'bool'>      — comparisons
 i.argmax();    // NDArray<'int32'> | number  — arg-reductions (see index caveat)
@@ -320,10 +320,10 @@ cumsum(zeros([3], 'int8'));           // NDArray<'int64'>   — accumulator wide
 argsort(zeros([3], 'float32'));       // NDArray<'float64'> — sort indices (see index caveat)
 real(zeros([3], 'complex64'));        // NDArray<'float32'> — complex component
 maximum(zeros([3], 'int32'), zeros([3], 'float32')); // NDArray<'float64'> — promotion
-sum(zeros([3], 'int8'));   // NDArray<'int64'> | bigint     — reduction (array or scalar)
+sum(zeros([3], 'int8'));   // NDArray<'int64'> | number     — reduction (array or scalar)
 mean(zeros([3], 'int32')); // NDArray<'float64'> | number
 dot(zeros([3], 'int32'), zeros([3], 'float32')); // NDArray<'float64'> | number — contraction
-trace(zeros([2, 2], 'int32'));        // NDArray<'int64'> | bigint — sum of the diagonal
+trace(zeros([2, 2], 'int32'));        // NDArray<'int64'> | number — sum of the diagonal
 frexp(zeros([3], 'int8'));            // [NDArray<'float16'>, NDArray<'int32'>] — tuple ufunc
 divmod(zeros([3], 'int8'), zeros([3], 'int16')); // [NDArray<'int16'>, NDArray<'int16'>]
 nonzero(zeros([3], 'float32'));       // NDArray<'float64'>[] — index family (see index caveat)

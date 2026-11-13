@@ -11,7 +11,7 @@ Apply a function to 1-D slices of an array along the given axis. The function is
 function apply_along_axis(
   func1d: (arr: NDArray, ...args: unknown[]) => NDArray | number,
   axis: number,
-  arr: ArrayLike,
+  arr: NDArray,
   ...args: unknown[]
 ): NDArray
 ```
@@ -21,7 +21,7 @@ function apply_along_axis(
 |-|-|-|-|
 | `func1d` | `(arr: NDArray, ...args) => number \| NDArray` | -- | Function that operates on a 1-D array and returns a scalar or 1-D array. Receives any trailing `...args`. |
 | `axis` | `number` | -- | Axis along which to apply `func1d`. |
-| `arr` | `ArrayLike` | -- | Input array. |
+| `arr` | `NDArray` | -- | Input array. |
 | `...args` | `any[]` | -- | Additional arguments forwarded to each call of `func1d`. |
 
 **Returns:** `NDArray` -- The result of applying `func1d` along the specified axis.
@@ -30,12 +30,16 @@ function apply_along_axis(
 Changed in v1.7.0: `func1d` now receives a **view** of each slice rather than a copy, matching NumPy. A callback that mutates its argument in place will write through to `arr`. If your callback modifies the slice it is handed, copy it first:
 
 ```typescript
-apply_along_axis((s) => { const t = s.copy(); t.set(0, 0); return t; }, 0, a);
+import { array, apply_along_axis, copy } from 'numpy-ts';
+
+const a = array([[3, 1, 2], [6, 4, 5]]);
+
+apply_along_axis((s) => { const t = copy(s); t.set([0], 0); return t; }, 0, a);
 ```
 </Warning>
 
 ```typescript
-import { array, apply_along_axis, sort } from 'numpy-ts';
+import { array, apply_along_axis, multiply, sort } from 'numpy-ts';
 
 const a = array([[3, 1, 2], [6, 4, 5]]);
 
@@ -67,7 +71,7 @@ console.log(result.shape);  // [2, 3]
 
 // Forward extra args to func1d (here: a scalar multiplier).
 const scaled = apply_along_axis(
-  (row, k) => row.multiply(k),
+  (row, k) => multiply(row, k as number),
   1,
   a,
   3
@@ -85,7 +89,7 @@ Apply a function repeatedly over multiple axes. After each application, the resu
 ```typescript
 function apply_over_axes(
   func: (a: NDArray, axis: number) => NDArray,
-  a: ArrayLike,
+  a: NDArray,
   axes: number[]
 ): NDArray
 ```
@@ -93,7 +97,7 @@ function apply_over_axes(
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `func` | `(a: NDArray, axis: number) => NDArray` | -- | Function that takes an array and an axis, returning an array with that axis reduced to size 1. |
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axes` | `number[]` | -- | Axes over which to apply `func`, in order. |
 
 **Returns:** `NDArray` -- The result of applying `func` over all specified axes.
@@ -121,13 +125,13 @@ const result = apply_over_axes(
 Determine whether two arrays share the same underlying data buffer. Returns `true` only when the arrays definitely reference overlapping memory.
 
 ```typescript
-function shares_memory(a: ArrayLike, b: ArrayLike): boolean
+function shares_memory(a: NDArray, b: NDArray): boolean
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | First input array. |
-| `b` | `ArrayLike` | -- | Second input array. |
+| `a` | `NDArray` | -- | First input array. |
+| `b` | `NDArray` | -- | Second input array. |
 
 **Returns:** `boolean` -- `true` if both arrays share memory.
 
@@ -149,13 +153,13 @@ shares_memory(a, c);  // false -- c is a copy
 Determine whether two arrays might share memory. This is a less strict check than `shares_memory` -- it may return `true` even when the arrays do not actually overlap, but it never returns `false` when they do.
 
 ```typescript
-function may_share_memory(a: ArrayLike, b: ArrayLike): boolean
+function may_share_memory(a: NDArray, b: NDArray): boolean
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | First input array. |
-| `b` | `ArrayLike` | -- | Second input array. |
+| `a` | `NDArray` | -- | First input array. |
+| `b` | `NDArray` | -- | Second input array. |
 
 **Returns:** `boolean` -- `true` if the arrays might share memory.
 
@@ -306,7 +310,7 @@ seterr(undefined, old.divide, old.over, old.under, old.invalid);
 Get a single scalar element from an array.
 
 ```typescript
-function item(a: ArrayLike, ...args: number[]): number | bigint | boolean | Complex
+function item(a: NDArray, ...args: number[]): number | bigint | boolean | Complex
 ```
 
 ---
@@ -316,7 +320,7 @@ function item(a: ArrayLike, ...args: number[]): number | bigint | boolean | Comp
 Convert an array to nested JavaScript arrays (or a scalar for 0-D arrays).
 
 ```typescript
-function tolist(a: ArrayLike): unknown
+function tolist(a: NDArray): unknown
 ```
 
 ---
@@ -326,7 +330,7 @@ function tolist(a: ArrayLike): unknown
 Return the raw bytes of an array in C-order by default.
 
 ```typescript
-function tobytes(a: ArrayLike, order?: 'C' | 'F'): Uint8Array
+function tobytes(a: NDArray, order?: 'C' | 'F'): Uint8Array
 ```
 
 ---
@@ -336,7 +340,7 @@ function tobytes(a: ArrayLike, order?: 'C' | 'F'): Uint8Array
 Swap the byte order of each array element.
 
 ```typescript
-function byteswap(a: ArrayLike, inplace?: boolean): NDArray
+function byteswap(a: NDArray, inplace?: boolean): NDArray
 ```
 
 ---
@@ -346,7 +350,7 @@ function byteswap(a: ArrayLike, inplace?: boolean): NDArray
 Create a view of an array (same dtype view currently supported).
 
 ```typescript
-function view(a: ArrayLike, dtype?: DType): NDArray
+function view(a: NDArray, dtype?: DType): NDArray
 ```
 
 ---
@@ -356,7 +360,7 @@ function view(a: ArrayLike, dtype?: DType): NDArray
 Write an array to a file (Node.js-oriented API; see note in implementation for environment limits).
 
 ```typescript
-function tofile(_a: ArrayLike, _file: string, _sep?: string, _format?: string): void
+function tofile(_a: NDArray, _file: string, _sep?: string, _format?: string): void
 ```
 
 ---

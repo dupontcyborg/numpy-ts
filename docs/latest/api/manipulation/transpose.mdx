@@ -9,12 +9,12 @@ Permute the dimensions of an array. When called without `axes`, reverses the dim
 Also available as `np.linalg.transpose(...)`.
 
 ```typescript
-function transpose(a: ArrayLike, axes?: number[]): NDArray
+function transpose(a: NDArray, axes?: number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axes` | `number[]` | `undefined` | Permutation of `[0, 1, ..., N-1]` where `N` is the number of dimensions. If omitted, the axes are reversed. |
 
 **Returns:** `NDArray` -- View of `a` with its axes permuted.
@@ -50,12 +50,12 @@ console.log(e.shape);  // [3, 4, 2]
 Interchange two axes of an array. Returns a view.
 
 ```typescript
-function swapaxes(a: ArrayLike, axis1: number, axis2: number): NDArray
+function swapaxes(a: NDArray, axis1: number, axis2: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis1` | `number` | -- | First axis. |
 | `axis2` | `number` | -- | Second axis. |
 
@@ -83,7 +83,7 @@ Move axes of an array to new positions. Other axes remain in their original orde
 
 ```typescript
 function moveaxis(
-  a: ArrayLike,
+  a: NDArray,
   source: number | number[],
   destination: number | number[]
 ): NDArray
@@ -91,7 +91,7 @@ function moveaxis(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `source` | `number \| number[]` | -- | Original position(s) of the axes to move. |
 | `destination` | `number \| number[]` | -- | Target position(s) for each axis. |
 
@@ -118,12 +118,12 @@ console.log(c.shape);  // [5, 4, 3]
 Roll the specified axis backwards until it lies at the given position. Returns a view.
 
 ```typescript
-function rollaxis(a: ArrayLike, axis: number, start?: number): NDArray
+function rollaxis(a: NDArray, axis: number, start?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number` | -- | The axis to roll. |
 | `start` | `number` | `0` | The axis is rolled until it lies before this position. |
 
@@ -151,12 +151,12 @@ Permute the dimensions of an array. This is the Array API-compatible equivalent 
 Also available as `np.linalg.permute_dims(...)`.
 
 ```typescript
-function permute_dims(a: ArrayLike, axes?: number[]): NDArray
+function permute_dims(a: NDArray, axes?: number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axes` | `number[]` | -- | Permutation of dimensions. |
 
 **Returns:** `NDArray` -- View of `a` with its axes permuted.
@@ -178,12 +178,12 @@ Transpose the last two dimensions of an array. The input must have at least 2 di
 Also available as `np.linalg.matrix_transpose(...)`.
 
 ```typescript
-function matrix_transpose(a: ArrayLike): NDArray
+function matrix_transpose(a: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array with `ndim >= 2`. |
+| `a` | `NDArray` | -- | Input array with `ndim >= 2`. |
 
 **Returns:** `NDArray` -- View of `a` with the last two axes swapped.
 

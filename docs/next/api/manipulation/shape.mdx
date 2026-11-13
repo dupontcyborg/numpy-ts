@@ -9,12 +9,12 @@ noindex: true
 Change the shape of an array without changing its data. Returns a view if the array is C-contiguous, otherwise returns a copy. Use `-1` for one dimension to have its size inferred automatically.
 
 ```typescript
-function reshape(a: ArrayLike, newShape: number[]): NDArray
+function reshape(a: NDArray, newShape: number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `newShape` | `number[]` | -- | New shape. One dimension may be `-1`, in which case it is inferred from the total size. |
 
 **Returns:** `NDArray` -- Array with the specified shape. View when possible, copy otherwise.
@@ -44,12 +44,12 @@ console.log(d.shape);  // [2, 3, 4]
 Return a 1-D copy of the array. Unlike `ravel`, `flatten` always allocates new memory.
 
 ```typescript
-function flatten(a: ArrayLike): NDArray
+function flatten(a: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 
 **Returns:** `NDArray` -- A 1-D array containing all elements in row-major (C) order. Always a copy.
 
@@ -74,12 +74,12 @@ console.log(a.item(0, 0));  // 1 (unchanged)
 Return a contiguous flattened 1-D array. Returns a view if the array is already C-contiguous, otherwise returns a copy (same data as `flatten` in that case).
 
 ```typescript
-function ravel(a: ArrayLike): NDArray
+function ravel(a: NDArray): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 
 **Returns:** `NDArray` -- A 1-D array. View when the input is C-contiguous, copy otherwise.
 
@@ -104,12 +104,12 @@ console.log(r.base !== null);  // true (it is a view)
 Remove axes of length 1 from the array shape. Returns a view (no data is copied).
 
 ```typescript
-function squeeze(a: ArrayLike, axis?: number): NDArray
+function squeeze(a: NDArray, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes to squeeze. If `undefined`, all length-1 axes are removed. Raises an error if the specified axis does not have length 1. |
 
 **Returns:** `NDArray` -- View of `a` with the specified length-1 dimensions removed.
@@ -136,12 +136,12 @@ console.log(c.shape);  // [3, 1]
 Insert a new axis (dimension of length 1) at the given position. Returns a view.
 
 ```typescript
-function expand_dims(a: ArrayLike, axis: number): NDArray
+function expand_dims(a: NDArray, axis: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | -- | Position(s) where the new axis is inserted. Negative values count from the end. |
 
 **Returns:** `NDArray` -- View of `a` with an additional dimension inserted.
@@ -172,12 +172,12 @@ console.log(d.shape);  // [3, 1]
 Return a new array with the given shape. If the new size is larger, the data is repeated (cycled). If smaller, the data is truncated. Always returns a new array (not a view).
 
 ```typescript
-function resize(a: ArrayLike, new_shape: number[]): NDArray
+function resize(a: NDArray, new_shape: number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `new_shape` | `number[]` | -- | Shape of the output array. |
 
 **Returns:** `NDArray` -- New array with the specified shape, filled by repeating or truncating elements from `a`.

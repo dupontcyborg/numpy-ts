@@ -9,7 +9,7 @@ Check whether a cast between data types is possible according to the given casti
 
 ```typescript
 function can_cast(
-  from_: ArrayLike | DType,
+  from_: NDArray | DType,
   to: DType,
   casting?: 'no' | 'equiv' | 'safe' | 'same_kind' | 'unsafe'
 ): boolean
@@ -17,7 +17,7 @@ function can_cast(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `from_` | `ArrayLike \| DType` | -- | Source value or data type. |
+| `from_` | `NDArray \| DType` | -- | Source value or data type. |
 | `to` | `DType` | -- | Target data type. |
 | `casting` | `'no' \| 'equiv' \| 'safe' \| 'same_kind' \| 'unsafe'` | `'safe'` | Casting rule. `'no'` allows no casting, `'equiv'` allows byte-order changes, `'safe'` allows only casts that preserve values, `'same_kind'` allows safe casts and casts within a kind (e.g. float to float), `'unsafe'` allows all casts. |
 
@@ -40,12 +40,12 @@ can_cast('int32', 'int32', 'no');            // true
 Return the common data type that can represent all input arrays without loss of precision.
 
 ```typescript
-function common_type(...arrays: ArrayLike[]): DType
+function common_type(...arrays: NDArray[]): DType
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `...arrays` | `ArrayLike[]` | -- | One or more input arrays. |
+| `...arrays` | `NDArray[]` | -- | One or more input arrays. |
 
 **Returns:** `DType` -- The common type that can hold values from all input arrays.
 
@@ -66,12 +66,12 @@ common_type(a);       // 'float32'
 Determine the result data type from a set of arrays and/or dtypes, applying NumPy's type promotion rules.
 
 ```typescript
-function result_type(...arrays_and_dtypes: (ArrayLike | DType)[]): DType
+function result_type(...arrays_and_dtypes: (NDArray | DType)[]): DType
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `...arrays_and_dtypes` | `(ArrayLike \| DType)[]` | -- | Arrays and/or dtype strings. |
+| `...arrays_and_dtypes` | `(NDArray \| DType)[]` | -- | Arrays and/or dtype strings. |
 
 **Returns:** `DType` -- The dtype that would result from an operation on the given inputs.
 
@@ -116,12 +116,12 @@ min_scalar_type(3.14);    // 'float64'
 Check whether the first dtype is a subtype of the second. This follows NumPy's type hierarchy where, for example, all integer types are subtypes of `'integer'` and all floating types are subtypes of `'floating'`.
 
 ```typescript
-function issubdtype(dtype1: ArrayLike | DType, dtype2: DType | string): boolean
+function issubdtype(dtype1: NDArray | DType, dtype2: DType | string): boolean
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `dtype1` | `ArrayLike \| DType` | -- | The dtype (or array-like value) to test. |
+| `dtype1` | `NDArray \| DType` | -- | The dtype (or array-like value) to test. |
 | `dtype2` | `DType \| string` | -- | The dtype or abstract type category to test against (e.g. `'integer'`, `'floating'`, `'signedinteger'`, `'unsignedinteger'`, `'number'`). |
 
 **Returns:** `boolean` -- `true` if `arg1` is a subtype of `arg2`.
@@ -156,9 +156,9 @@ function typename(dtype: DType): string
 ```typescript
 import { typename } from 'numpy-ts';
 
-typename(1);   // 'int8'
-typename(5);   // 'float32'
-typename(12);  // 'float64'
+typename('int8');     // 'int8'
+typename('float32');  // 'float32'
+typename('float64');  // 'float64'
 ```
 
 ---
@@ -186,7 +186,7 @@ function mintypecode(
 ```typescript
 import { mintypecode } from 'numpy-ts';
 
-mintypecode(['f', 'd']);    // 'd'  (float64 needed for float32 + float64)
-mintypecode(['i', 'f']);    // 'd'  (float64 covers int + float32)
-mintypecode([]);            // 'd'  (default)
+mintypecode('fd');    // 'd'  (float64 needed for float32 + float64)
+mintypecode('if');    // 'd'  (float64 covers int + float32)
+mintypecode('');      // 'd'  (default)
 ```

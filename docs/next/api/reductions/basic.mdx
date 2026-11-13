@@ -8,6 +8,10 @@ noindex: true
 
 These functions reduce an array along one or more axes, returning either a scalar (when all axes are reduced) or an `NDArray` with fewer dimensions.
 
+<Note>
+Changed in v1.8.0: an `axis` that is out of bounds, not an integer, or repeated now throws, as in NumPy. `sum(a, [0, 0])` and `sum(a, [0, -2])` on a 2-D array throw "duplicate value in 'axis'" instead of returning a result, and `max(a, 1.5)` throws instead of returning `NaN`s. This applies to every reduction that takes an `axis`.
+</Note>
+
 ---
 
 ### ReductionOpts
@@ -36,7 +40,7 @@ Compute the sum of array elements over the given axis.
 
 ```typescript
 function sum(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts
@@ -45,9 +49,9 @@ function sum(
 
 | Parameter | Type | Default | Description |
 |-|-|-|-|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to sum. When `undefined`, sums over the flattened array. |
-| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. With no `axis`, the result has shape `[1, ..., 1]` instead of being a scalar. |
 | `opts` | `ReductionOpts` | `undefined` | Optional `where` mask, `initial` value, and/or `dtype` cast. See [ReductionOpts](#reductionopts). |
 
 **Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
@@ -78,7 +82,7 @@ Compute the product of array elements over the given axis.
 
 ```typescript
 function prod(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts
@@ -87,7 +91,7 @@ function prod(
 
 | Parameter | Type | Default | Description |
 |-|-|-|-|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the product. When `undefined`, operates on the flattened array. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 | `opts` | `ReductionOpts` | `undefined` | Optional `where` mask, `initial` value, and/or `dtype` cast. See [ReductionOpts](#reductionopts). |
@@ -116,7 +120,7 @@ Integer inputs are automatically converted to `float64` for the result, matching
 
 ```typescript
 function mean(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   keepdims?: boolean
 ): number | NDArray | Complex | bigint;
@@ -124,7 +128,7 @@ function mean(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the mean. When `undefined`, operates on the flattened array. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 
@@ -148,7 +152,7 @@ Compute the standard deviation along the specified axis.
 
 ```typescript
 function std(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   ddof?: number,
   keepdims?: boolean
@@ -157,7 +161,7 @@ function std(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the standard deviation. |
 | `ddof` | `number` | `0` | Delta degrees of freedom. The divisor is `N - ddof`, where `N` is the number of elements. Use `ddof=1` for the sample standard deviation. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
@@ -185,7 +189,7 @@ Compute the variance along the specified axis.
 
 ```typescript
 function variance(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   ddof?: number,
   keepdims?: boolean
@@ -194,7 +198,7 @@ function variance(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the variance. |
 | `ddof` | `number` | `0` | Delta degrees of freedom. The divisor is `N - ddof`. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
@@ -223,7 +227,7 @@ Also exported as `min`. Use `amin` to avoid shadowing `Math.min`.
 
 ```typescript
 function amin(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts
@@ -232,7 +236,7 @@ function amin(
 
 | Parameter | Type | Default | Description |
 |-|-|-|-|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to find the minimum. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 | `opts` | `ReductionOpts` | `undefined` | Optional `where` mask, `initial` value, and/or `dtype` cast. See [ReductionOpts](#reductionopts). |
@@ -261,7 +265,7 @@ Also exported as `max`. Use `amax` to avoid shadowing `Math.max`.
 
 ```typescript
 function amax(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts
@@ -270,7 +274,7 @@ function amax(
 
 | Parameter | Type | Default | Description |
 |-|-|-|-|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to find the maximum. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 | `opts` | `ReductionOpts` | `undefined` | Optional `where` mask, `initial` value, and/or `dtype` cast. See [ReductionOpts](#reductionopts). |
@@ -295,7 +299,7 @@ Compute the median along the specified axis.
 
 ```typescript
 function median(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   keepdims?: boolean
 ): number | NDArray;
@@ -303,7 +307,7 @@ function median(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the median. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 
@@ -327,9 +331,9 @@ Compute the weighted average along the specified axis.
 
 ```typescript
 function average(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number,
-  weights?: ArrayLike,
+  weights?: NDArray,
   keepdims?: boolean,
   returned?: boolean
 ): number | NDArray | Complex | bigint | [number | NDArray | Complex, number | NDArray];
@@ -337,9 +341,9 @@ function average(
 
 | Parameter | Type | Default | Description |
 |-|-|-|-|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number` | `undefined` | Axis along which to compute the average. |
-| `weights` | `ArrayLike` | `undefined` | Weights associated with the values in `a`. If `undefined`, all weights are equal (equivalent to `mean`). |
+| `weights` | `NDArray` | `undefined` | Weights associated with the values in `a`. If `undefined`, all weights are equal (equivalent to `mean`). |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 | `returned` | `boolean` | `false` | If `true`, returns a tuple `[avg, sum_of_weights]`. Without weights, `sum_of_weights` is the per-slice element count (matching NumPy). |
 
@@ -351,10 +355,10 @@ import { array, average } from 'numpy-ts';
 const a = array([1, 2, 3, 4]);
 
 average(a);                             // 2.5
-average(a, undefined, [4, 3, 2, 1]);    // 2.0  (weighted)
+average(a, undefined, array([4, 3, 2, 1]));    // 2.0  (weighted)
 
 // Return sum of weights alongside the average.
-average(a, undefined, [4, 3, 2, 1], false, true); // [2.0, 10]
+average(a, undefined, array([4, 3, 2, 1]), false, true); // [2.0, 10]
 average(a, undefined, undefined, false, true);    // [2.5, 4]  -- element count
 ```
 
@@ -366,7 +370,7 @@ Peak to peak (maximum - minimum) value along an axis.
 
 ```typescript
 function ptp(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   keepdims?: boolean
 ): number | NDArray | Complex | bigint;
@@ -374,7 +378,7 @@ function ptp(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to find the range. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 
@@ -398,7 +402,7 @@ Test whether all array elements along a given axis evaluate to `true`.
 
 ```typescript
 function all(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts
@@ -407,7 +411,7 @@ function all(
 
 | Parameter | Type | Default | Description |
 |-|-|-|-|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to perform the logical AND. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 | `opts` | `ReductionOpts` | `undefined` | Optional `where` mask, `initial` value, and/or `dtype` cast. See [ReductionOpts](#reductionopts). |
@@ -433,7 +437,7 @@ Test whether any array element along a given axis evaluates to `true`.
 
 ```typescript
 function any(
-  a: ArrayLike,
+  a: NDArray,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts
@@ -442,7 +446,7 @@ function any(
 
 | Parameter | Type | Default | Description |
 |-|-|-|-|
-| `a` | `ArrayLike` | -- | Input array. |
+| `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to perform the logical OR. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 | `opts` | `ReductionOpts` | `undefined` | Optional `where` mask, `initial` value, and/or `dtype` cast. See [ReductionOpts](#reductionopts). |

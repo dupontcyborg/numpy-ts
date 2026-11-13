@@ -219,20 +219,20 @@ Randomly select elements from an array or range.
 ```typescript
 class Generator {
   choice(
-    a: number | ArrayLike,
+    a: number | NDArray,
     size?: number | number[],
     replace?: boolean,
-    p?: ArrayLike
+    p?: NDArray
   ): NDArray | number;
 }
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `number \| ArrayLike` | -- | If an integer, samples from `arange(a)`. If an array, samples from its elements. |
+| `a` | `number \| NDArray` | -- | If an integer, samples from `arange(a)`. If an array, samples from its elements. |
 | `size` | `number \| number[]` | `undefined` | Output shape. If omitted, returns a single value. |
 | `replace` | `boolean` | `true` | Whether to sample with replacement. |
-| `p` | `ArrayLike` | `undefined` | Probabilities for each element. Must sum to 1. |
+| `p` | `NDArray` | `undefined` | Probabilities for each element. Must sum to 1. |
 
 **Returns:** `NDArray | number` -- Random sample(s).
 
@@ -256,13 +256,13 @@ Return a randomly permuted copy of an array, or a permuted range.
 
 ```typescript
 class Generator {
-  permutation(x: number | ArrayLike): NDArray;
+  permutation(x: number | NDArray): NDArray;
 }
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `number \| ArrayLike` | -- | If an integer, permute `arange(x)`. If an array, return a shuffled copy. |
+| `x` | `number \| NDArray` | -- | If an integer, permute `arange(x)`. If an array, return a shuffled copy. |
 
 **Returns:** `NDArray` -- Permuted array.
 

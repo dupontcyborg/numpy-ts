@@ -27,8 +27,8 @@ const c = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
 You can also specify a dtype explicitly:
 
 ```typescript
-const ints = np.array([1, 2, 3], { dtype: 'int32' });
-const floats = np.array([1, 2, 3], { dtype: 'float32' });
+const ints = np.array([1, 2, 3], 'int32');
+const floats = np.array([1, 2, 3], 'float32');
 ```
 
 <Tip>
@@ -193,7 +193,7 @@ a.item(1, 1);     // 40  (row 1, col 1)
 The `data` property gives you direct access to the underlying `TypedArray`:
 
 ```typescript
-const a = np.array([1, 2, 3], { dtype: 'float32' });
+const a = np.array([1, 2, 3], 'float32');
 a.data;            // Float32Array [1, 2, 3]
 a.data.buffer;     // The underlying ArrayBuffer
 ```
