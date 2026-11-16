@@ -19,6 +19,7 @@ import { allElementsEqual } from '../internal/compute';
 import { widenGatherToF64, widenToF64 } from '../internal/dtype-loops';
 import { expandEllipsis, precomputeAxisOffsets } from '../internal/indexing';
 import { buildOffsets, stepStore, stridedCopyInto } from '../internal/strided-copy';
+import { isNumericDType, logicalValues, type NumericData, storeFloat64 } from '../numeric-buffer';
 import { parseSlice } from '../slicing';
 import { ArrayStorage, assertValidShape, computeStrides } from '../storage';
 import { wasmTakeAlongAxis2D } from '../wasm/gather';
@@ -118,6 +119,30 @@ export function take(storage: ArrayStorage, indices: number[], axis?: number): A
     const result = ArrayStorage.empty([outputSize], dtype);
     const outputData = result.data;
 
+    if (isNumericDType(dtype)) {
+      // A contiguous source is read in place so a small gather does not pay to
+      // widen the whole array.
+      const out = new Float64Array(outputSize);
+      if (storage.isCContiguous) {
+        const positions = new Int32Array(outputSize);
+        for (let i = 0; i < outputSize; i++) {
+          let idx = indices[i]!;
+          if (idx < 0) idx = flatSize + idx;
+          positions[i] = storage.offset + idx;
+        }
+        widenGatherToF64(storage.data, positions, out);
+      } else {
+        const values = logicalValues(storage);
+        for (let i = 0; i < outputSize; i++) {
+          let idx = indices[i]!;
+          if (idx < 0) idx = flatSize + idx;
+          out[i] = values[idx]!;
+        }
+      }
+      storeFloat64(outputData as NumericData, out);
+      return result;
+    }
+
     const isComplex = isComplexDType(dtype);
     for (let i = 0; i < outputSize; i++) {
       let idx = indices[i]!;
@@ -165,6 +190,33 @@ export function take(storage: ArrayStorage, indices: number[], axis?: number): A
   const result = ArrayStorage.empty(outputShape, dtype);
   const outputData = result.data;
   const outputStrides = computeStrides(outputShape);
+
+  if (isNumericDType(dtype)) {
+    const contiguous = storage.isCContiguous;
+    const values = contiguous ? null : logicalValues(storage);
+    const positions = contiguous ? new Int32Array(outputSize) : null;
+    const sourceStrides = computeStrides(Array.from(shape));
+    const axisMap = indices.map((idx) => (idx < 0 ? axisSize + idx : idx));
+    const out = new Float64Array(outputSize);
+    const position = new Array<number>(ndim).fill(0);
+    for (let i = 0; i < outputSize; i++) {
+      let source = 0;
+      for (let d = 0; d < ndim; d++) {
+        const at = d === normalizedAxis ? axisMap[position[d]!]! : position[d]!;
+        source += at * sourceStrides[d]!;
+      }
+      if (positions) positions[i] = storage.offset + source;
+      else out[i] = values![source]!;
+      for (let d = ndim - 1; d >= 0; d--) {
+        position[d]!++;
+        if (position[d]! < outputShape[d]!) break;
+        position[d] = 0;
+      }
+    }
+    if (positions) widenGatherToF64(storage.data, positions, out);
+    storeFloat64(outputData as NumericData, out);
+    return result;
+  }
 
   // Iterate through output positions
   const outputIndices = new Array(ndim).fill(0);
@@ -469,6 +521,41 @@ export function take_along_axis(
   const inputOff = storage.offset;
   const indicesData = indices.data;
   const indicesOff = indices.offset;
+
+  if (isNumericDType(dtype)) {
+    const sourceValues = inputContiguous ? null : logicalValues(storage);
+    const sourcePositions = inputContiguous ? new Int32Array(outputSize) : null;
+    const indexValues = isNumericDType(indices.dtype) ? logicalValues(indices) : null;
+    const out = new Float64Array(outputSize);
+    for (let outIdx = 0; outIdx < outputSize; outIdx++) {
+      let remaining = outIdx;
+      for (let d = 0; d < ndim; d++) {
+        multiIdx[d] = (remaining / outputStrides[d]!) | 0;
+        remaining -= multiIdx[d]! * outputStrides[d]!;
+      }
+
+      let indicesLinearIdx = 0;
+      for (let d = 0; d < ndim; d++) {
+        const idx = indicesShape[d] === 1 ? 0 : multiIdx[d]!;
+        indicesLinearIdx += idx * indicesStrides[d]!;
+      }
+      let indexValue = indexValues
+        ? indexValues[indicesLinearIdx]!
+        : Number(indices.iget(indicesLinearIdx));
+      if (indexValue < 0) indexValue = axisSize + indexValue;
+
+      let srcLinearIdx = 0;
+      for (let d = 0; d < ndim; d++) {
+        const idx = d === normalizedAxis ? indexValue : shape[d] === 1 ? 0 : multiIdx[d]!;
+        srcLinearIdx += idx * inputStrides[d]!;
+      }
+      if (sourcePositions) sourcePositions[outIdx] = inputOff + srcLinearIdx;
+      else out[outIdx] = sourceValues![srcLinearIdx]!;
+    }
+    if (sourcePositions) widenGatherToF64(inputData, sourcePositions, out);
+    storeFloat64(outputData as NumericData, out);
+    return result;
+  }
 
   for (let outIdx = 0; outIdx < outputSize; outIdx++) {
     // Convert outIdx to multi-index using precomputed strides (no allocation)
