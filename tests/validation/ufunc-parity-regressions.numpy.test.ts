@@ -1,7 +1,9 @@
 /**
- * Regressions for binary ufuncs that skipped broadcasting one or both operands,
- * and where() ignoring y's dtype. Small cases take the JS paths; the 64-element
- * case is large enough to reach the WASM kernels.
+ * Regressions for binary ufuncs that skipped broadcasting, where() ignoring
+ * y's dtype, std/var along the only axis of a 1-D array, floor and truncated
+ * remainders with huge or infinite divisors, and nan_to_num on narrow floats.
+ * Small cases take the JS paths; the 64-element cases are large enough to reach
+ * the WASM kernels.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../src';
@@ -19,6 +21,13 @@ function expectMatches(result: np.NDArray, py: string): void {
   expect(result.shape).toEqual(expected.shape);
   expect(result.dtype).toBe(expected.dtype);
   expect(arraysClose(result.toArray(), expected.value)).toBe(true);
+}
+
+/** Signed zeros are invisible to arraysClose, so compare signbit separately. */
+function expectSignbits(result: np.NDArray, py: string): void {
+  const expected = runNumPy(`${py}\nresult = np.signbit(result)`);
+  const flat = (result.flatten().toArray() as number[]).map((v) => Object.is(v, -0) || v < 0);
+  expect(flat).toEqual((expected.value as boolean[]).flat(Infinity));
 }
 
 describe('NumPy Validation: ufunc parity regressions', () => {
@@ -170,5 +179,115 @@ describe('NumPy Validation: ufunc parity regressions', () => {
         expectMatches(call() as np.NDArray, `result = np.where(np.array([True, False]), ${args})`);
       });
     }
+  });
+
+  describe('std and var along the only axis of a 1-D array', () => {
+    for (const axis of [0, -1]) {
+      for (const ddof of [0, 1]) {
+        it(`axis=${axis} ddof=${ddof}`, () => {
+          const expectedStd = runNumPy(
+            `result = np.std(np.array([7, 9, 255]), axis=${axis}, ddof=${ddof})`,
+          );
+          const expectedVar = runNumPy(
+            `result = np.var(np.array([7, 9, 255]), axis=${axis}, ddof=${ddof})`,
+          );
+          expect(np.std(array([7, 9, 255]), axis, ddof)).toBeCloseTo(
+            expectedStd.value as number,
+            10,
+          );
+          expect(array([7, 9, 255]).var(axis, ddof)).toBeCloseTo(expectedVar.value as number, 8);
+        });
+      }
+    }
+
+    it('rejects an out-of-bounds axis', () => {
+      expect(() => np.std(array([7, 9, 255]), 1)).toThrow(/out of bounds/);
+    });
+  });
+
+  describe('mod, fmod and divmod with huge or infinite divisors', () => {
+    const x = [5, -5, 13, -13, 0, 7];
+    const d = [1e17, 1e300, Infinity, -Infinity, -Infinity, -3];
+
+    for (const n of [x.length, 64]) {
+      const path = n === x.length ? 'JS' : 'WASM';
+      const xs = tile(x, n);
+      const ds = tile(d, n);
+      // JSON turns +-Infinity into null, so encode the divisors by hand.
+      const dsPy = `[${ds.map((v) => (v === Infinity ? 'np.inf' : v === -Infinity ? '-np.inf' : String(v))).join(', ')}]`;
+
+      it(`mod, array divisor (${path})`, () => {
+        const result = np.mod(array(xs), array(ds));
+        const code = `result = np.mod(np.array(${JSON.stringify(xs)}, dtype=float), np.array(${dsPy}))`;
+        expectMatches(result, code);
+        expectSignbits(result, code);
+      });
+
+      it(`fmod, array divisor (${path})`, () => {
+        const result = np.fmod(array(xs), array(ds));
+        const code = `result = np.fmod(np.array(${JSON.stringify(xs)}, dtype=float), np.array(${dsPy}))`;
+        expectMatches(result, code);
+        expectSignbits(result, code);
+      });
+
+      it(`divmod remainder, array divisor (${path})`, () => {
+        const [, rem] = np.divmod(array(xs), array(ds));
+        expectMatches(
+          rem,
+          `result = np.divmod(np.array(${JSON.stringify(xs)}, dtype=float), np.array(${dsPy}))[1]`,
+        );
+      });
+
+      for (const s of [Infinity, -Infinity, 1e300]) {
+        const sPy = s === Infinity ? 'np.inf' : s === -Infinity ? '-np.inf' : String(s);
+        for (const [fn, f] of Object.entries({ mod: np.mod, fmod: np.fmod })) {
+          it(`${fn}, scalar divisor ${s} (${path})`, () => {
+            const code = `result = np.${fn}(np.array(${JSON.stringify(xs)}, dtype=float), ${sPy})`;
+            expectMatches(f(array(xs), s), code);
+          });
+        }
+        it(`mod float32, scalar divisor ${s} (${path})`, () => {
+          const code = `result = np.mod(np.array(${JSON.stringify(xs)}, dtype=np.float32), np.float32(${sPy}))`;
+          expectMatches(np.mod(array(xs, 'float32'), s), code);
+        });
+      }
+    }
+
+    it('mod gives a zero the divisor sign', () => {
+      const code =
+        'result = np.mod(np.array([3.0, -3.0, 0.0, -0.0]), np.array([-3.0, 3.0, -3.0, 3.0]))';
+      expectSignbits(np.mod(array([3, -3, 0, -0]), array([-3, 3, -3, 3])), code);
+    });
+  });
+
+  describe('nan_to_num defaults to the dtype maximum', () => {
+    for (const dtype of ['float16', 'float32', 'float64'] as const) {
+      it(dtype, () => {
+        expectMatches(
+          np.nan_to_num(array([Infinity, -Infinity, NaN, 1.5], dtype)),
+          `result = np.nan_to_num(np.array([np.inf, -np.inf, np.nan, 1.5], dtype=np.${dtype}))`,
+        );
+      });
+    }
+
+    it('complex64', () => {
+      const z = array([new np.Complex(Infinity, -Infinity)], 'complex64');
+      expectMatches(
+        np.nan_to_num(z),
+        'result = np.nan_to_num(np.array([complex(np.inf, -np.inf)], dtype=np.complex64))',
+      );
+    });
+
+    it('reads a sliced view from its offset', () => {
+      const a = array([NaN, 1, Infinity, 4, NaN]);
+      expectMatches(
+        np.nan_to_num(a.slice('1:')),
+        'result = np.nan_to_num(np.array([np.nan, 1.0, np.inf, 4.0, np.nan])[1:])',
+      );
+      expectMatches(
+        np.nan_to_num(a.slice('::2')),
+        'result = np.nan_to_num(np.array([np.nan, 1.0, np.inf, 4.0, np.nan])[::2])',
+      );
+    });
   });
 });

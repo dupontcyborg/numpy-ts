@@ -34,6 +34,9 @@ Correctness release: calls that type-checked but silently did the wrong thing no
 * A copying `reshape` no longer loses its data when its `base` is disposed, and `asfortranarray` frees its memory on `dispose()`.
 * `hypot`, `arctan2`, `logaddexp`, `logaddexp2`, `float_power`, `ldexp` and `heaviside` broadcast both operands. They returned `NaN` or the wrong shape when an operand needed stretching, for example `hypot(a, np.array([4]))`.
 * `where` promotes `x` and `y` together instead of using `x`'s dtype, which truncated values and threw on an `int64` `y`. A plain number adopts the other operand's dtype, as NumPy's weak scalars do, so `where(mask, int32Arr, 0)` stays `int32`.
+* `std` and `var` with an `axis` on a 1-D array return a value instead of throwing.
+* `mod`, `remainder`, `fmod` and `divmod` handle very large and infinite divisors on both the JS and WASM paths: `mod(5, 1e17)` is `5` and `mod(-5, inf)` is `inf`, where they were `0` and `NaN`.
+* `nan_to_num` replaces infinities in `float16`, `float32` and `complex64` arrays with that dtype's largest value instead of leaving them infinite, and reads sliced views from the right offset.
 
 </Update>
 

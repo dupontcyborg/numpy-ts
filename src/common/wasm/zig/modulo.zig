@@ -5,47 +5,64 @@
 //!   floordiv : q = floor(a/s)
 //!   fmod     : r = a − trunc(a/s)·s   (C fmod: sign of dividend)
 //!
-//! Float paths are SIMD (2-wide f64, 4-wide f32). Integer paths are scalar
-//! (WASM has no SIMD integer divide) but still beat JS — especially i64/u64,
-//! where the JS fallback pays BigInt costs. Division by zero writes 0, matching
-//! the existing divmod kernel and NumPy's integer behavior.
+//! Float paths are SIMD (2-wide f64, 4-wide f32), with float_rem.zig repairing
+//! the lanes where v − q·s is NaN because the divisor is infinite. Integer
+//! paths are scalar (WASM has no SIMD integer divide) but still beat JS —
+//! especially i64/u64, where the JS fallback pays BigInt costs. Division by zero
+//! writes 0, matching the existing divmod kernel and NumPy's integer behavior.
 
 const simd = @import("simd.zig");
+const frem = @import("float_rem.zig");
 
 const Op = enum { mod_, floordiv, fmod_ };
 
+/// One scalar element of op, used for the tail after the SIMD loop.
+inline fn finishScalar(comptime op: Op, comptime T: type, a: T, s: T) T {
+    return switch (op) {
+        .floordiv => @floor(a / s),
+        .mod_ => frem.floorRem(T, a, s),
+        .fmod_ => frem.truncRem(T, a, s),
+    };
+}
+
 // --- Float (SIMD) ---
 
-inline fn modF64(comptime op: Op, a: [*]const f64, out: [*]f64, N: u32, scalar: f64) void {
-    const s: simd.V2f64 = @splat(scalar);
-    const n_simd = N & ~@as(u32, 1);
+/// Float kernel for op. The divisor for element i is b[i * b_stride], so a
+/// scalar divisor passes a pointer to itself with stride 0. Lanes that
+/// float_rem.zig flags are repaired in a second pass, only when there are any.
+inline fn modFloat(comptime op: Op, comptime T: type, a: [*]const T, b: [*]const T, comptime b_stride: u32, out: [*]T, N: u32) void {
+    const n = if (T == f64) 2 else 4;
+    const V = @Vector(n, T);
+    const n_simd = N & ~@as(u32, n - 1);
+    var bad: @Vector(n, bool) = @splat(false);
     var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        const v = simd.load2_f64(a, i);
+    if (op != .floordiv and b_stride == 0 and frem.isInf(T, b[0])) {
+        while (i < N) : (i += 1) out[i] = finishScalar(op, T, a[i], b[0]);
+        return;
+    }
+    while (i < n_simd) : (i += n) {
+        const v: V = if (T == f64) simd.load2_f64(a, i) else simd.load4_f32(a, i);
+        const s: V = if (b_stride == 0) @splat(b[0]) else if (T == f64) simd.load2_f64(b, i) else simd.load4_f32(b, i);
         const q = if (op == .fmod_) @trunc(v / s) else @floor(v / s);
-        const r = if (op == .floordiv) q else simd.nmulAdd_f64x2(q, s, v); // v − q·s
-        simd.store2_f64(out, i, r);
+        const r = if (T == f64) simd.nmulAdd_f64x2(q, s, v) else simd.nmulAdd_f32x4(q, s, v); // v − q·s
+        if (op != .floordiv and b_stride != 0) frem.flag(V, r, &bad);
+        const res = if (op == .floordiv) q else r;
+        if (T == f64) simd.store2_f64(out, i, res) else simd.store4_f32(out, i, res);
+    }
+    if (op != .floordiv and @reduce(.Or, bad)) {
+        if (op == .mod_) frem.repairFloor(T, a, b, b_stride, out, n_simd) else frem.repairTrunc(T, a, b, b_stride, out, n_simd);
     }
     while (i < N) : (i += 1) {
-        const q = if (op == .fmod_) @trunc(a[i] / scalar) else @floor(a[i] / scalar);
-        out[i] = if (op == .floordiv) q else a[i] - q * scalar;
+        out[i] = finishScalar(op, T, a[i], b[i * b_stride]);
     }
 }
 
+inline fn modF64(comptime op: Op, a: [*]const f64, out: [*]f64, N: u32, scalar: f64) void {
+    modFloat(op, f64, a, @ptrCast(&scalar), 0, out, N);
+}
+
 inline fn modF32(comptime op: Op, a: [*]const f32, out: [*]f32, N: u32, scalar: f32) void {
-    const s: simd.V4f32 = @splat(scalar);
-    const n_simd = N & ~@as(u32, 3);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 4) {
-        const v = simd.load4_f32(a, i);
-        const q = if (op == .fmod_) @trunc(v / s) else @floor(v / s);
-        const r = if (op == .floordiv) q else simd.nmulAdd_f32x4(q, s, v);
-        simd.store4_f32(out, i, r);
-    }
-    while (i < N) : (i += 1) {
-        const q = if (op == .fmod_) @trunc(a[i] / scalar) else @floor(a[i] / scalar);
-        out[i] = if (op == .floordiv) q else a[i] - q * scalar;
-    }
+    modFloat(op, f32, a, @ptrCast(&scalar), 0, out, N);
 }
 
 export fn mod_scalar_f64(a: [*]const f64, out: [*]f64, N: u32, s: f64) void {
@@ -160,35 +177,11 @@ export fn fmod_scalar_u8(a: [*]const u8, out: [*]u8, N: u32, s: u8) void {
 // --- Array / array (same dtype, same shape) ---
 
 inline fn modF64Arr(comptime op: Op, a: [*]const f64, b: [*]const f64, out: [*]f64, N: u32) void {
-    const n_simd = N & ~@as(u32, 1);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        const v = simd.load2_f64(a, i);
-        const s = simd.load2_f64(b, i);
-        const q = if (op == .fmod_) @trunc(v / s) else @floor(v / s);
-        const r = if (op == .floordiv) q else simd.nmulAdd_f64x2(q, s, v); // v − q·s
-        simd.store2_f64(out, i, r);
-    }
-    while (i < N) : (i += 1) {
-        const q = if (op == .fmod_) @trunc(a[i] / b[i]) else @floor(a[i] / b[i]);
-        out[i] = if (op == .floordiv) q else a[i] - q * b[i];
-    }
+    modFloat(op, f64, a, b, 1, out, N);
 }
 
 inline fn modF32Arr(comptime op: Op, a: [*]const f32, b: [*]const f32, out: [*]f32, N: u32) void {
-    const n_simd = N & ~@as(u32, 3);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 4) {
-        const v = simd.load4_f32(a, i);
-        const s = simd.load4_f32(b, i);
-        const q = if (op == .fmod_) @trunc(v / s) else @floor(v / s);
-        const r = if (op == .floordiv) q else simd.nmulAdd_f32x4(q, s, v);
-        simd.store4_f32(out, i, r);
-    }
-    while (i < N) : (i += 1) {
-        const q = if (op == .fmod_) @trunc(a[i] / b[i]) else @floor(a[i] / b[i]);
-        out[i] = if (op == .floordiv) q else a[i] - q * b[i];
-    }
+    modFloat(op, f32, a, b, 1, out, N);
 }
 
 inline fn modIntArr(comptime T: type, comptime op: Op, a: [*]const T, b: [*]const T, out: [*]T, N: u32) void {

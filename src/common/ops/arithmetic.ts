@@ -1361,8 +1361,19 @@ export function mod(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   const wasmArr = wasmMod(a, b);
   if (wasmArr) return wasmArr;
 
-  // NumPy uses floor modulo: ((x % y) + y) % y for proper sign handling
-  return elementwiseBinaryOp(a, b, (x, y) => ((x % y) + y) % y, 'mod');
+  return elementwiseBinaryOp(a, b, floorMod, 'mod');
+}
+
+/**
+ * Floor modulo the way NumPy computes it: C fmod (JS %, which is exact), then
+ * shifted into the divisor's sign. The shorter ((x % y) + y) % y loses x % y
+ * whenever y dwarfs it and gives NaN for an infinite y.
+ * @private
+ */
+function floorMod(x: number, y: number): number {
+  const r = x % y;
+  if (r === 0) return y < 0 ? -0 : 0;
+  return r < 0 !== y < 0 ? r + y : r;
 }
 
 /**
@@ -1403,12 +1414,12 @@ function modScalar(storage: ArrayStorage, divisor: number): ArrayStorage {
     if (contiguous) {
       for (let i = 0; i < size; i++) {
         const val = Number(data[off + i]!);
-        resultData[i] = ((val % divisor) + divisor) % divisor;
+        resultData[i] = floorMod(val, divisor);
       }
     } else {
       for (let i = 0; i < size; i++) {
         const val = Number(storage.iget(i));
-        resultData[i] = ((val % divisor) + divisor) % divisor;
+        resultData[i] = floorMod(val, divisor);
       }
     }
   }
@@ -2136,7 +2147,7 @@ export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
   const wasmArr = wasmFmod(x1, x2);
   if (wasmArr) return wasmArr;
 
-  return elementwiseBinaryOp(x1, x2, (a, b) => a - Math.trunc(a / b) * b, 'fmod');
+  return elementwiseBinaryOp(x1, x2, truncMod, 'fmod');
 }
 
 /**
@@ -2158,10 +2169,23 @@ function fmodScalar(x1: ArrayStorage, x2: number): ArrayStorage {
   }
   for (let i = 0; i < size; i++) {
     const val = Number(resultData[i]!);
-    resultData[i] = val - Math.trunc(val / x2) * x2;
+    resultData[i] = truncMod(val, x2);
   }
 
   return result;
+}
+
+/**
+ * C fmod. The quotient formula is much faster than JS % on doubles, and it is
+ * exact whenever its result lands in range with the dividend's sign. An infinite
+ * divisor or a quotient past the mantissa breaks that, so those fall back to %.
+ * @private
+ */
+function truncMod(x: number, y: number): number {
+  const r = x - Math.trunc(x / y) * y;
+  if (r === 0) return x < 0 || Object.is(x, -0) ? -0 : 0;
+  if (Math.abs(r) < Math.abs(y) && r < 0 === x < 0) return r;
+  return x % y;
 }
 
 /**
@@ -3005,9 +3029,16 @@ export function nan_to_num(
   const shape = Array.from(x.shape);
   const size = x.size;
 
-  // Default to dtype max/min values
-  const posinfVal = posinf !== undefined ? posinf : Number.MAX_VALUE;
-  const neginfVal = neginf !== undefined ? neginf : -Number.MAX_VALUE;
+  // Default to the largest finite value of the float (or complex component)
+  // dtype; a float64 maximum would overflow back to inf in a narrower array.
+  const finiteMax =
+    dtype === 'float16'
+      ? 65504
+      : dtype === 'float32' || dtype === 'complex64'
+        ? 3.4028234663852886e38
+        : Number.MAX_VALUE;
+  const posinfVal = posinf !== undefined ? posinf : finiteMax;
+  const neginfVal = neginf !== undefined ? neginf : -finiteMax;
 
   if (isComplexDType(dtype)) {
     // Apply nan_to_num to real and imaginary parts independently
@@ -3038,15 +3069,17 @@ export function nan_to_num(
 
   const result = ArrayStorage.empty(shape, dtype);
   const resultData = result.data;
-  const xData = x.data;
+  const src = x.isCContiguous ? x : x.copy();
+  const xData = src.data;
+  const off = src.offset;
 
   if (isIntegerDType(dtype)) {
     // Integer types can never contain NaN or Inf, just bulk copy
     // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
-    (resultData as any).set((xData as any).subarray(x.offset, x.offset + size));
+    (resultData as any).set((xData as any).subarray(off, off + size));
   } else {
     for (let i = 0; i < size; i++) {
-      const val = Number(xData[i]!);
+      const val = Number(xData[off + i]!);
       if (Number.isNaN(val)) {
         resultData[i] = nan;
       } else if (val === Infinity) {
@@ -3059,6 +3092,7 @@ export function nan_to_num(
     }
   }
 
+  if (src !== x) src.dispose();
   return result;
 }
 
