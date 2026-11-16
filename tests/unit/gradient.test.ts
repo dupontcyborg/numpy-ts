@@ -83,6 +83,28 @@ describe('Gradient Operations', () => {
   });
 
   describe('ediff1d', () => {
+    it.each(['int64', 'uint64'] as const)(
+      'matches element-by-element differences for %s past the WASM size threshold',
+      (dtype) => {
+        const values = Array.from({ length: 200 }, (_, i) => BigInt((i * i * 31 + 7 * i) % 10007));
+        const arr = array(values as unknown as number[], dtype);
+        const mod = 2n ** 64n;
+        const expected = values.slice(1).map((v, i) => {
+          const d = v - values[i]!;
+          return dtype === 'uint64' ? ((d % mod) + mod) % mod : d;
+        });
+        expect(ediff1d(arr).toArray()).toEqual(expected);
+      },
+    );
+
+    it('differences a sliced view of a contiguous array', () => {
+      const arr = array(Array.from({ length: 100 }, (_, i) => i * i));
+      const result = ediff1d(arr.slice('10:'));
+      expect(result.toArray()).toEqual(
+        Array.from({ length: 89 }, (_, i) => (i + 11) ** 2 - (i + 10) ** 2),
+      );
+    });
+
     it('computes differences for flattened array', () => {
       const arr = array([1, 2, 4, 7, 0]);
       const result = ediff1d(arr);
