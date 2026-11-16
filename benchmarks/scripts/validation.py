@@ -33,6 +33,8 @@ def setup_arrays(setup_config):
                 arrays[key] = shape
                 if dtype != "float64":
                     arrays["dtype"] = dtype
+            elif key == "n" and dtype != "float64":
+                arrays["dtype"] = dtype
             continue
 
         # Handle indices array
@@ -106,26 +108,27 @@ def run_operation(spec):
     operation = spec["operation"]
 
     # Execute operation
+    creation_dtype = arrays.get("dtype", "float64")
     if operation == "zeros":
-        result = np.zeros(arrays["shape"])
+        result = np.zeros(arrays["shape"], dtype=creation_dtype)
     elif operation == "ones":
-        result = np.ones(arrays["shape"])
+        result = np.ones(arrays["shape"], dtype=creation_dtype)
     elif operation == "arange":
-        result = np.arange(0, arrays["n"])
+        result = np.arange(0, arrays["n"], 1, dtype=creation_dtype)
     elif operation == "linspace":
-        result = np.linspace(0, 100, arrays["n"])
+        result = np.linspace(0, 100, arrays["n"], dtype=creation_dtype)
     elif operation == "logspace":
-        result = np.logspace(0, 3, arrays["n"])
+        result = np.logspace(0, 3, arrays["n"], dtype=creation_dtype)
     elif operation == "geomspace":
-        result = np.geomspace(1, 1000, arrays["n"])
+        result = np.geomspace(1, 1000, arrays["n"], dtype=creation_dtype)
     elif operation == "eye":
-        result = np.eye(arrays["n"])
+        result = np.eye(arrays["n"], dtype=creation_dtype)
     elif operation == "identity":
-        result = np.identity(arrays["n"])
+        result = np.identity(arrays["n"], dtype=creation_dtype)
     elif operation == "empty":
-        result = np.empty(arrays["shape"])
+        result = np.empty(arrays["shape"], dtype=creation_dtype)
     elif operation == "full":
-        result = np.full(arrays["shape"], arrays["fill_value"])
+        result = np.full(arrays["shape"], arrays["fill_value"], dtype=creation_dtype)
     elif operation == "copy":
         result = arrays["a"].copy()
     elif operation == "zeros_like":
@@ -501,7 +504,7 @@ def run_operation(spec):
     elif operation == "diag":
         result = np.diag(arrays["a"])
     elif operation == "tri":
-        result = np.tri(arrays["shape"][0], arrays["shape"][1])
+        result = np.tri(arrays["shape"][0], arrays["shape"][1], dtype=arrays.get("dtype", "float64"))
     elif operation == "tril":
         result = np.tril(arrays["a"])
     elif operation == "triu":

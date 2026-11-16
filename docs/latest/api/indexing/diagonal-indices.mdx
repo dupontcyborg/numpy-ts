@@ -27,9 +27,7 @@ const [di, dj] = np.diag_indices(3);
 
 // Use to set the diagonal of a matrix
 const a = np.zeros([3, 3]);
-for (let k = 0; k < 3; k++) {
-  a.set([Number(di.get([k])), Number(dj.get([k]))], 1);
-}
+np.fill_diagonal(a, 1);
 // array([[1, 0, 0],
 //        [0, 1, 0],
 //        [0, 0, 1]])
@@ -269,13 +267,13 @@ const a = np.arange(16).reshape([4, 4]);
 Fill the main diagonal of the given array in-place.
 
 ```typescript
-function fill_diagonal(a: NDArray, val: number, wrap?: boolean): void
+function fill_diagonal(a: NDArray, val: number | NDArray, wrap?: boolean): void
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `NDArray` | -- | Array to modify. Must be at least 2-D. |
-| `val` | `number` | -- | Value to write on the diagonal. |
+| `val` | `number \| NDArray` | -- | Value(s) to write on the diagonal. If an array, values are repeated cyclically to fill the entire diagonal. |
 | `wrap` | `boolean` | `false` | For tall matrices (rows > cols), if `true`, the diagonal wraps after reaching the last column. |
 
 **Returns:** `void` -- The array `a` is modified in-place.
@@ -288,4 +286,10 @@ np.fill_diagonal(a, 5);
 // array([[5, 0, 0],
 //        [0, 5, 0],
 //        [0, 0, 5]])
+
+const b = np.zeros([3, 3]);
+np.fill_diagonal(b, np.array([1, 2, 3]));
+// array([[1, 0, 0],
+//        [0, 2, 0],
+//        [0, 0, 3]])
 ```

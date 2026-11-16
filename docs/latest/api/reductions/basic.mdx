@@ -7,6 +7,10 @@ description: "Core reduction functions: sum, prod, mean, std, variance, min, max
 
 These functions reduce an array along one or more axes, returning either a scalar (when all axes are reduced) or an `NDArray` with fewer dimensions.
 
+<Note>
+Changed in v1.8.0: an `axis` that is out of bounds, not an integer, or repeated now throws, as in NumPy. `sum(a, [0, 0])` and `sum(a, [0, -2])` on a 2-D array throw "duplicate value in 'axis'" instead of returning a result, and `max(a, 1.5)` throws instead of returning `NaN`s. This applies to every reduction that takes an `axis`.
+</Note>
+
 ---
 
 ### ReductionOpts
@@ -46,7 +50,7 @@ function sum(
 |-|-|-|-|
 | `a` | `NDArray` | -- | Input array. |
 | `axis` | `number \| number[]` | `undefined` | Axis or axes along which to sum. When `undefined`, sums over the flattened array. |
-| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. With no `axis`, the result has shape `[1, ..., 1]` instead of being a scalar. |
 | `opts` | `ReductionOpts` | `undefined` | Optional `where` mask, `initial` value, and/or `dtype` cast. See [ReductionOpts](#reductionopts). |
 
 **Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.

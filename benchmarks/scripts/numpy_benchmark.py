@@ -48,8 +48,8 @@ def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.n
                 arrays[key] = shape[0]
             else:
                 arrays[key] = tuple(shape)
-            # Store dtype for operations that need it (e.g., randint)
-            if key == "shape" and dtype != "float64":
+            # Store dtype for operations that need it (e.g., randint, zeros, arange)
+            if key in ("shape", "n") and dtype != "float64":
                 arrays["dtype"] = dtype
             continue
 
@@ -100,6 +100,13 @@ def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.n
                 arrays[key] = np.array([complex((i % 10) + 1, (i % 10) + 1) for i in range(size)], dtype=cdtype).reshape(shape)
             else:
                 arrays[key] = np.array([complex(i+1, i+1) for i in range(size)], dtype=cdtype).reshape(shape)
+        elif fill_type == "complex_invertible":
+            # Diagonally dominant; real and imaginary parts use different periods so no two rows repeat
+            n = shape[0]
+            size = int(np.prod(shape))
+            cdtype = np.complex64 if dtype == "complex64" else np.complex128
+            vals = [complex((i % 13) + 1 + (n * n if i // n == i % n else 0), (i % 7) + 1) for i in range(size)]
+            arrays[key] = np.array(vals, dtype=cdtype).reshape(shape)
 
     # Pre-serialize data for parsing benchmarks
     if operation == "parseNpy" and "a" in arrays:
@@ -278,16 +285,16 @@ def _histogram2d(a):
 
 OPERATIONS: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     # Array creation
-    "zeros": lambda a: np.zeros(a["shape"]),
-    "ones": lambda a: np.ones(a["shape"]),
-    "empty": lambda a: np.empty(a["shape"]),
-    "full": lambda a: np.full(a["shape"], a["fill_value"]),
-    "arange": lambda a: np.arange(a["n"]),
-    "linspace": lambda a: np.linspace(0, 100, a["n"]),
-    "logspace": lambda a: np.logspace(0, 3, a["n"]),
-    "geomspace": lambda a: np.geomspace(1, 1000, a["n"]),
-    "eye": lambda a: np.eye(a["n"]),
-    "identity": lambda a: np.identity(a["n"]),
+    "zeros": lambda a: np.zeros(a["shape"], dtype=a.get("dtype", "float64")),
+    "ones": lambda a: np.ones(a["shape"], dtype=a.get("dtype", "float64")),
+    "empty": lambda a: np.empty(a["shape"], dtype=a.get("dtype", "float64")),
+    "full": lambda a: np.full(a["shape"], a["fill_value"], dtype=a.get("dtype", "float64")),
+    "arange": lambda a: np.arange(0, a["n"], 1, dtype=a.get("dtype", "float64")),
+    "linspace": lambda a: np.linspace(0, 100, a["n"], dtype=a.get("dtype", "float64")),
+    "logspace": lambda a: np.logspace(0, 3, a["n"], dtype=a.get("dtype", "float64")),
+    "geomspace": lambda a: np.geomspace(1, 1000, a["n"], dtype=a.get("dtype", "float64")),
+    "eye": lambda a: np.eye(a["n"], dtype=a.get("dtype", "float64")),
+    "identity": lambda a: np.identity(a["n"], dtype=a.get("dtype", "float64")),
     "copy": lambda a: np.copy(a["a"]),
     "zeros_like": lambda a: np.zeros_like(a["a"]),
     "ones_like": lambda a: np.ones_like(a["a"]),
@@ -456,7 +463,7 @@ OPERATIONS: Dict[str, Callable[[Dict[str, Any]], Any]] = {
 
     # Creation - misc
     "diag": lambda a: np.diag(a["a"]),
-    "tri": lambda a: np.tri(a["shape"][0], a["shape"][1]),
+    "tri": lambda a: np.tri(a["shape"][0], a["shape"][1], dtype=a.get("dtype", "float64")),
     "tril": lambda a: np.tril(a["a"]),
     "triu": lambda a: np.triu(a["a"]),
 

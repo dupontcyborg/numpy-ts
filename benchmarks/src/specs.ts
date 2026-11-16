@@ -101,6 +101,23 @@ export const SKIP_DTYPE_OPERATIONS = new Set([
   'unravel_index', // index dtype pinned manually (int32, int64, float64)
   'packbits', // always uint8
   'unpackbits', // always uint8
+  // Shape/count-only ops whose result dtype is not a parameter: index helpers
+  // always return integers, fftfreq returns float64, and the random draws are
+  // fixed by their distribution. A swept dtype would be stamped on the spec and
+  // never read, so every variant would time the same work under a different label.
+  'diag_indices',
+  'tril_indices',
+  'triu_indices',
+  'indices',
+  'fftfreq',
+  'rfftfreq',
+  'random_binomial',
+  'random_choice',
+  'random_geometric',
+  'random_permutation',
+  'random_poisson',
+  'gen_integers',
+  'gen_permutation',
 ]);
 
 // Operations to skip for float16 dtype variants (precision too low for numerical algorithms)
@@ -183,6 +200,8 @@ export const SKIP_NARROW_INT_OPERATIONS = new Set([
   // its boost to the dtype would win them back.
   'linalg_inv',
   'linalg_solve',
+  'linalg_det',
+  'linalg_pinv',
   // Products overflow differently at int8/int16
   'unwrap',
   'searchsorted', // overflow affects sort order
@@ -3450,7 +3469,7 @@ export function getBenchmarkSpecs(
       category: 'random',
       operation: 'random_permutation',
       setup: {
-        n: { shape: [scaledSizes.d1], dtype: 'int64' },
+        n: { shape: [scaledSizes.d1] },
       },
       iterations,
       warmup,

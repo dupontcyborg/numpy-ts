@@ -21,7 +21,7 @@ function logical_and(x1: NDArray, x2: NDArray | number): NDArray
 ```typescript
 import * as np from 'numpy-ts';
 
-const result = np.logical_and(np.array([true, true, false, false], 'bool'), np.array([true, false, true, false], 'bool'));
+const result = np.logical_and(np.array([true, true, false, false]), np.array([true, false, true, false]));
 // array([true, false, false, false])
 
 // Works with numeric arrays (0 is false, non-zero is true)
@@ -49,7 +49,7 @@ function logical_or(x1: NDArray, x2: NDArray | number): NDArray
 ```typescript
 import * as np from 'numpy-ts';
 
-const result = np.logical_or(np.array([true, true, false, false], 'bool'), np.array([true, false, true, false], 'bool'));
+const result = np.logical_or(np.array([true, true, false, false]), np.array([true, false, true, false]));
 // array([true, true, true, false])
 
 np.logical_or(np.array([0, 0, 1]), np.array([0, 1, 0]));
@@ -75,7 +75,7 @@ function logical_not(x: NDArray): NDArray
 ```typescript
 import * as np from 'numpy-ts';
 
-const result = np.logical_not(np.array([true, false, true], 'bool'));
+const result = np.logical_not(np.array([true, false, true]));
 // array([false, true, false])
 
 np.logical_not(np.array([0, 1, -1, 0.0]));
@@ -102,7 +102,7 @@ function logical_xor(x1: NDArray, x2: NDArray | number): NDArray
 ```typescript
 import * as np from 'numpy-ts';
 
-const result = np.logical_xor(np.array([true, true, false, false], 'bool'), np.array([true, false, true, false], 'bool'));
+const result = np.logical_xor(np.array([true, true, false, false]), np.array([true, false, true, false]));
 // array([false, true, true, false])
 
 np.logical_xor(np.array([1, 0, 1]), np.array([1, 1, 0]));

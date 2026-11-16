@@ -72,7 +72,7 @@ console.log(np.linalg.matrix_norm(A, Infinity)); // max row sum
 
 // Batch Frobenius norm for two 3×4 matrices
 const batch = np.ones([2, 3, 4]);
-const norms = np.linalg.matrix_norm(batch, 'fro');
+const norms = np.linalg.matrix_norm(batch, 'fro') as np.NDArray;
 console.log(norms.shape);  // [2]
 ```
 
@@ -192,7 +192,7 @@ import * as np from 'numpy-ts';
 
 const A = np.array([[1, 2], [3, 4]]);
 
-const { sign, logabsdet } = np.linalg.slogdet(A);
+const { sign, logabsdet } = np.linalg.slogdet(A) as { sign: number; logabsdet: number };
 console.log(sign);    // -1
 console.log(logabsdet);  // ln(2) ≈ 0.6931
 

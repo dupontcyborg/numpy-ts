@@ -809,17 +809,7 @@
     "uint8"
   ],
   "diag_indices": [
-    "float16",
-    "float32",
-    "float64",
-    "int16",
-    "int32",
-    "int64",
-    "int8",
-    "uint16",
-    "uint32",
-    "uint64",
-    "uint8"
+    "float64"
   ],
   "diag_indices_from": [
     "float16",
@@ -1144,10 +1134,6 @@
     "float64"
   ],
   "fftfreq": [
-    "complex128",
-    "complex64",
-    "float16",
-    "float32",
     "float64"
   ],
   "fftn": [
@@ -1603,17 +1589,7 @@
     "uint8"
   ],
   "indices": [
-    "float16",
-    "float32",
-    "float64",
-    "int16",
-    "int32",
-    "int64",
-    "int8",
-    "uint16",
-    "uint32",
-    "uint64",
-    "uint8"
+    "float64"
   ],
   "inner": [
     "complex128",
@@ -1936,14 +1912,10 @@
     "complex64",
     "float32",
     "float64",
-    "int16",
     "int32",
     "int64",
-    "int8",
-    "uint16",
     "uint32",
-    "uint64",
-    "uint8"
+    "uint64"
   ],
   "linalg_eigh": [
     "float64"
@@ -2019,14 +1991,10 @@
   "linalg_pinv": [
     "float32",
     "float64",
-    "int16",
     "int32",
     "int64",
-    "int8",
-    "uint16",
     "uint32",
-    "uint64",
-    "uint8"
+    "uint64"
   ],
   "linalg_qr": [
     "float32",
@@ -3047,7 +3015,7 @@
     "float64"
   ],
   "random_permutation": [
-    "int64"
+    "float64"
   ],
   "random_poisson": [
     "int64"
@@ -3246,10 +3214,6 @@
     "float64"
   ],
   "rfftfreq": [
-    "complex128",
-    "complex64",
-    "float16",
-    "float32",
     "float64"
   ],
   "rfftn": [
@@ -3816,17 +3780,7 @@
     "uint8"
   ],
   "tril_indices": [
-    "float16",
-    "float32",
-    "float64",
-    "int16",
-    "int32",
-    "int64",
-    "int8",
-    "uint16",
-    "uint32",
-    "uint64",
-    "uint8"
+    "float64"
   ],
   "tril_indices_from": [
     "float16",
@@ -3870,17 +3824,7 @@
     "uint8"
   ],
   "triu_indices": [
-    "float16",
-    "float32",
-    "float64",
-    "int16",
-    "int32",
-    "int64",
-    "int8",
-    "uint16",
-    "uint32",
-    "uint64",
-    "uint8"
+    "float64"
   ],
   "triu_indices_from": [
     "float16",

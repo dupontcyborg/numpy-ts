@@ -16,6 +16,7 @@ export interface BenchmarkSetup {
       | 'shuffled'
       | 'complex'
       | 'complex_small'
+      | 'complex_invertible'
       | 'invertible';
     value?: number;
   };

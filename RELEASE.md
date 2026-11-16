@@ -119,7 +119,37 @@ This runs `scripts/generate-bench-docs.py` and `scripts/generate-overview-charts
 
 Do not skip this on a release where performance changed. Skipping it is why `v1.6.x` shipped serving `v1.5.x` benchmark data.
 
-### 4f. Reseed `docs/next/` for the next cycle
+### 4f. Update the hand-written benchmark narrative
+
+`bench:docs` only regenerates the four data pages (`vs-numpy`, `vs-pyodide`, `size-scaling`, `deno-bun`) and the charts. Every sentence that quotes a number lives in a page it does not touch, so the prose silently keeps the previous release's figures until someone edits it. `docs:check` cannot catch this.
+
+Print the current values from the generated pages:
+
+```bash
+python3 - <<'E'
+import json
+def load(p):
+    for l in open(p):
+        if l.startswith("export const benchmarkData"):
+            return json.loads(l.split(" = ", 1)[1].rstrip().rstrip(";"))
+v = load("docs/latest/performance/vs-numpy.mdx")
+s = load("docs/latest/performance/size-scaling.mdx")
+print("overall", v["summary"])
+print("categories", [(c["name"], c["avgSpeedup"]) for c in sorted(v["categories"], key=lambda c: -c["avgSpeedup"])])
+print("dtypes", [(d["dtype"], d["avgSpeedup"]) for d in sorted(v["dtypeStats"], key=lambda d: -d["avgSpeedup"])])
+print("sizes", [(x["label"], x["summary"]["avgSpeedup"]) for x in s["sizes"]])
+E
+```
+
+Then update every place that quotes them:
+
+- `docs/latest/performance/overview.mdx`: the overall average and benchmark count, the top categories and which categories NumPy still leads, the best and worst dtypes, and the small and large array speedups. Re-read the qualitative claims too ("complex types lag", "faster at every scale") and confirm they still hold.
+- `docs/latest/performance/methodology.mdx`: the spec count, category count, benchmarks per run, and combined total. Recount specs from `benchmarks/results/latest-full.json` rather than trusting the old figure.
+- `docs/latest/api/overview.mdx`, `docs/index.mdx` and `README.md`: the one-line headline (average speedup, benchmark count, "faster in N of 18 categories").
+
+Finish with `grep -rn '<previous average>x\|<previous total>' docs/latest docs/index.mdx README.md`, using the old release's figures, to catch any leftovers. This step must come before 4g, because `next/` is seeded from `latest/`.
+
+### 4g. Reseed `docs/next/` for the next cycle
 
 ```bash
 rm -rf docs/next && cp -R docs/latest docs/next
@@ -128,7 +158,7 @@ python3 scripts/archive-docs-version.py set-noindex next
 
 `docs/next/` must stay `noindex` — it is a byte-identical copy of `latest/` and would otherwise be crawled as duplicate content.
 
-### 4g. Verify locally
+### 4h. Verify locally
 
 ```bash
 mintlify dev

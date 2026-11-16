@@ -20,6 +20,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { executeOperation, setupArrays } from '../../benchmarks/src/bench-utils';
 import {
   CATEGORY_DTYPE_SUPPORT,
   DATA_ARRAY_KEYS,
@@ -422,6 +423,47 @@ const NOT_PERF_COMPARABLE = new Set<string>([
   // engine one. Correctness is covered in tests/validation.
   'fromfunction',
 ]);
+
+describe('benchmark dtype reaches the operation', () => {
+  // A spec with no array operand carries its dtype on the shape or count entry.
+  // If the operation never reads it, the variant times float64 work under a
+  // different label, which is how zeros through eye reported identical numbers
+  // for every dtype. Running each variant and checking the result dtype catches
+  // an operation that drops the dtype it was swept with.
+  const shapeOnly = specs.filter((s) => {
+    if (dtypeOf(s.name) === 'float64' && !ALL_DTYPES.some((d) => s.name.endsWith(` ${d}`))) {
+      return false;
+    }
+    const keys = Object.keys(s.setup);
+    return (
+      !keys.some((k) => ['a', 'b', 'c'].includes(k)) && keys.some((k) => k === 'n' || k === 'shape')
+    );
+  });
+
+  it('finds shape-only variants to check', () => {
+    expect(shapeOnly.length).toBeGreaterThan(50);
+  });
+
+  it('every shape-only variant produces its labelled dtype', () => {
+    const wrong: string[] = [];
+    for (const spec of shapeOnly) {
+      const arrays = setupArrays(spec.setup, spec.operation);
+      const result = executeOperation(spec.operation, arrays);
+      const want = dtypeOf(spec.name);
+      if (result?.dtype !== want) {
+        wrong.push(`${spec.name} (${spec.operation}) produced ${result?.dtype}`);
+      }
+      result?.dispose?.();
+    }
+    expect(
+      wrong,
+      'These variants are labelled with a dtype their operation did not produce. ' +
+        'Either the operation in benchmarks/src/bench-utils.ts (and its Python twins) ' +
+        'ignores the swept dtype, or the op cannot take one and belongs in ' +
+        'SKIP_DTYPE_OPERATIONS.\n',
+    ).toEqual([]);
+  });
+});
 
 describe('benchmark function coverage', () => {
   const publicFunctions = Object.entries(np)

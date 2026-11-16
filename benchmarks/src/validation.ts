@@ -415,7 +415,32 @@ function arraysEqual(a: any, b: any, tolerance: number = FLOAT64_TOLERANCE): boo
 /**
  * Run a single benchmark operation with numpy-ts
  */
-function runNumpyTsOperation(spec: BenchmarkCase): any {
+/**
+ * Owns the arrays of one spec being validated and frees them when the scope
+ * ends, on every path out of the loop body. The validation loop never yields, so
+ * the finalizers that would otherwise reclaim WASM memory cannot run. The result
+ * is freed first because it can be a view of an input.
+ */
+class SpecScope implements Disposable {
+  private inputs: any[] = [];
+  private result: any;
+
+  addInputs(inputs: any[]): void {
+    this.inputs.push(...inputs);
+  }
+
+  adoptResult(result: any): void {
+    this.result = result;
+  }
+
+  [Symbol.dispose](): void {
+    const parts = Array.isArray(this.result) ? this.result : [this.result];
+    for (const part of parts) part?.dispose?.();
+    for (const input of this.inputs) input.dispose?.();
+  }
+}
+
+function runNumpyTsOperation(spec: BenchmarkCase, scope: SpecScope): any {
   // Setup arrays
   const arrays: Record<string, any> = {};
 
@@ -430,6 +455,8 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       if (key === 'new_shape' || key === 'shape' || key === 'target_shape' || key === 'dims') {
         arrays[key] = shape;
         if (dtype !== 'float64') arrays['dtype'] = dtype;
+      } else if (key === 'n' && dtype !== 'float64') {
+        arrays['dtype'] = dtype;
       }
       continue;
     }
@@ -510,29 +537,31 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     }
   }
 
+  scope.addInputs(Object.values(arrays).filter((v) => typeof v?.dispose === 'function'));
+
   // Execute operation
   switch (spec.operation) {
     // Creation
     case 'zeros':
-      return np.zeros(arrays.shape);
+      return np.zeros(arrays.shape, arrays.dtype ?? 'float64');
     case 'ones':
-      return np.ones(arrays.shape);
+      return np.ones(arrays.shape, arrays.dtype ?? 'float64');
     case 'arange':
-      return np.arange(0, arrays.n);
+      return np.arange(0, arrays.n, 1, arrays.dtype ?? 'float64');
     case 'linspace':
-      return np.linspace(0, 100, arrays.n);
+      return np.linspace(0, 100, arrays.n, arrays.dtype);
     case 'logspace':
-      return np.logspace(0, 3, arrays.n);
+      return np.logspace(0, 3, arrays.n, 10, arrays.dtype);
     case 'geomspace':
-      return np.geomspace(1, 1000, arrays.n);
+      return np.geomspace(1, 1000, arrays.n, arrays.dtype);
     case 'eye':
-      return np.eye(arrays.n);
+      return np.eye(arrays.n, undefined, 0, arrays.dtype);
     case 'identity':
-      return np.identity(arrays.n);
+      return np.identity(arrays.n, arrays.dtype);
     case 'empty':
-      return np.empty(arrays.shape);
+      return np.empty(arrays.shape, arrays.dtype ?? 'float64');
     case 'full':
-      return np.full(arrays.shape, arrays.fill_value);
+      return np.full(arrays.shape, arrays.fill_value, arrays.dtype ?? 'float64');
     case 'copy':
       return arrays.a.copy();
     case 'zeros_like':
@@ -762,7 +791,7 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     case 'diag':
       return np.diag(arrays.a);
     case 'tri':
-      return np.tri(arrays.shape[0], arrays.shape[1]);
+      return np.tri(arrays.shape[0], arrays.shape[1], 0, arrays.dtype);
     case 'tril':
       return np.tril(arrays.a);
     case 'triu':
@@ -1542,8 +1571,10 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
           const spec = specs[i]!;
           const numpyResult = numpyResults[i];
           let numpytsResult: any;
+          using scope = new SpecScope();
           try {
-            numpytsResult = runNumpyTsOperation(spec);
+            numpytsResult = runNumpyTsOperation(spec, scope);
+            scope.adoptResult(numpytsResult);
 
             // Convert numpy-ts result to comparable format
             let tsValue: any;
@@ -1614,7 +1645,6 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
                 console.error(
                   `  ❌ ${spec.name}: Shape mismatch: TS ${tsShape} vs NumPy ${npShape}`,
                 );
-                numpytsResult?.dispose?.();
                 continue;
               }
             }
@@ -1699,7 +1729,6 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
                 console.error(
                   `  ❌ ${spec.name}: Dtype mismatch: TS '${tsDtype}' vs NumPy '${npDtype}'`,
                 );
-                numpytsResult?.dispose?.();
                 continue;
               }
             }
@@ -1806,8 +1835,6 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
             failed++;
             console.error(`  ❌ ${spec.name}: Error - ${err}`);
           }
-          // Eagerly free WASM-backed memory to prevent heap exhaustion
-          (numpytsResult as any)?.dispose?.();
         }
 
         if (failed > 0) {

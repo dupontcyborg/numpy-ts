@@ -221,7 +221,7 @@ class Generator {
     a: number | NDArray,
     size?: number | number[],
     replace?: boolean,
-    p?: ArrayLike
+    p?: NDArray
   ): NDArray | number;
 }
 ```
@@ -231,7 +231,7 @@ class Generator {
 | `a` | `number \| NDArray` | -- | If an integer, samples from `arange(a)`. If an array, samples from its elements. |
 | `size` | `number \| number[]` | `undefined` | Output shape. If omitted, returns a single value. |
 | `replace` | `boolean` | `true` | Whether to sample with replacement. |
-| `p` | `ArrayLike` | `undefined` | Probabilities for each element. Must sum to 1. |
+| `p` | `NDArray` | `undefined` | Probabilities for each element. Must sum to 1. |
 
 **Returns:** `NDArray | number` -- Random sample(s).
 

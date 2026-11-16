@@ -46,7 +46,7 @@ function unravel_index(indices: NDArray | number, shape: number[]): NDArray[]
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `indices` | `NDArray \| number` | -- | Array of flat indices to convert, or a single flat index. |
+| `indices` | `NDArray \| number` | -- | Array of flat indices to convert. |
 | `shape` | `number[]` | -- | Shape of the array used for unraveling. |
 
 **Returns:** `NDArray[]` -- Tuple of index arrays, one per dimension. Each array has the same shape as `indices`.
@@ -61,7 +61,7 @@ const coords = np.unravel_index(np.array([1, 3, 8]), [3, 3]);
 // Find the position of the max element in a 2D array
 const a = np.array([[1, 5, 3], [9, 2, 7]]);
 const maxIdx = np.argmax(a);
-const [row, col] = np.unravel_index(maxIdx, [...a.shape]);
+const [row, col] = np.unravel_index(maxIdx, a.shape);
 // row: array([1]), col: array([0])  -- max is at position [1, 0]
 ```
 
@@ -117,7 +117,7 @@ function bindex(a: NDArray, mask: NDArray, axis?: number): NDArray
 import * as np from 'numpy-ts';
 
 const a = np.array([1, 2, 3, 4, 5]);
-np.bindex(a, np.array([true, false, true, false, true], 'bool'));
+np.bindex(a, np.array([true, false, true, false, true]));
 // array([1, 3, 5])
 
 // Common pattern: filter by condition
