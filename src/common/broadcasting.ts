@@ -126,6 +126,29 @@ export function broadcastTo(storage: ArrayStorage, targetShape: readonly number[
 }
 
 /**
+ * Broadcast two operands to their common shape. An operand already at that
+ * shape comes back unchanged, so same-shape callers keep their contiguous and
+ * WASM fast paths; a stretched operand becomes a stride-0 view, which those
+ * paths reject in favour of strided iteration.
+ *
+ * @param a - First operand
+ * @param b - Second operand
+ * @returns Both operands at the broadcast shape
+ * @throws Error if the shapes are not broadcast-compatible
+ */
+export function broadcastPair(a: ArrayStorage, b: ArrayStorage): [ArrayStorage, ArrayStorage] {
+  const shape = computeBroadcastShape([Array.from(a.shape), Array.from(b.shape)]);
+  if (shape === null) {
+    throw new Error(
+      `operands could not be broadcast together with shapes ${JSON.stringify(Array.from(a.shape))} ${JSON.stringify(Array.from(b.shape))}`,
+    );
+  }
+  const fits = (s: ArrayStorage) =>
+    s.shape.length === shape.length && s.shape.every((d, i) => d === shape[i]);
+  return [fits(a) ? a : broadcastTo(a, shape), fits(b) ? b : broadcastTo(b, shape)];
+}
+
+/**
  * Broadcast multiple ArrayStorage objects to a common shape
  *
  * Returns views of the input arrays broadcast to the same shape.

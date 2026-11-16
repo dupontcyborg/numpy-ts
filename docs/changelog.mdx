@@ -32,6 +32,7 @@ Correctness release: calls that type-checked but silently did the wrong thing no
 * `promote_types`, `result_type`, `can_cast`, `min_scalar_type`, `mintypecode` and `isscalar(Complex)` follow NumPy.
 * `isin` compares `uint64` with signed integers exactly.
 * A copying `reshape` no longer loses its data when its `base` is disposed, and `asfortranarray` frees its memory on `dispose()`.
+* `hypot`, `arctan2`, `logaddexp`, `logaddexp2`, `float_power`, `ldexp` and `heaviside` broadcast both operands. They returned `NaN` or the wrong shape when an operand needed stretching, for example `hypot(a, np.array([4]))`.
 
 </Update>
 
