@@ -1,7 +1,7 @@
 /**
- * Regressions for binary ufuncs that skipped broadcasting one or both operands.
- * Small cases take the JS paths; the 64-element case is large enough to reach
- * the WASM kernels.
+ * Regressions for binary ufuncs that skipped broadcasting one or both operands,
+ * and where() ignoring y's dtype. Small cases take the JS paths; the 64-element
+ * case is large enough to reach the WASM kernels.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../src';
@@ -96,5 +96,79 @@ describe('NumPy Validation: ufunc parity regressions', () => {
     it('rejects incompatible shapes', () => {
       expect(() => np.hypot(array([1, 2, 3]), array([1, 2]))).toThrow(/could not be broadcast/);
     });
+  });
+
+  describe('where promotes x and y together', () => {
+    const cases: [string, string, string, string, string][] = [
+      ['int32 / float64', '[1, 2]', 'int32', '[0.5, 2.5]', 'float64'],
+      ['uint8 / uint32', '[0, 1]', 'uint8', '[256, 32767]', 'uint32'],
+      ['float64 / int64', '[1.5, 2.5]', 'float64', '[2, 3]', 'int64'],
+      ['bool / int8', '[1, 0]', 'bool', '[-5, 7]', 'int8'],
+    ];
+    for (const [label, x, xd, y, yd] of cases) {
+      it(label, () => {
+        const xs = JSON.parse(x) as number[];
+        const ys = JSON.parse(y) as number[];
+        const xArr = xd === 'bool' ? array(xs.map(Boolean)) : array(xs, xd as np.DType);
+        const yArr = yd === 'int64' ? array(ys.map(BigInt), 'int64') : array(ys, yd as np.DType);
+        const result = np.where(array([true, false]), xArr, yArr) as np.NDArray;
+        expectMatches(
+          result,
+          `result = np.where(np.array([True, False]), np.array(${x}, dtype=np.${xd === 'bool' ? 'bool_' : xd}), np.array(${y}, dtype=np.${yd}))`,
+        );
+      });
+    }
+
+    it('promotes while broadcasting a 0-d operand', () => {
+      const result = np.where(
+        array([true, false, true]),
+        array(1, 'int16'),
+        array([7.5, 8.5, 9.5], 'float32'),
+      ) as np.NDArray;
+      expectMatches(
+        result,
+        'result = np.where(np.array([True, False, True]), np.array(1, dtype=np.int16), np.array([7.5, 8.5, 9.5], dtype=np.float32))',
+      );
+    });
+
+    // A JS number is a weak scalar: it adopts the array's dtype, wrapping when
+    // an integer is out of range, unless it is fractional and the array is not.
+    const scalarCases: [string, () => unknown, string][] = [
+      [
+        'int32 array, integer scalar',
+        () => np.where(array([true, false]), array([1, 2], 'int32'), 0),
+        'np.array([1, 2], dtype=np.int32), 0',
+      ],
+      [
+        'integer scalar, int32 array',
+        () => np.where(array([true, false]), 0, array([1, 2], 'int32')),
+        '0, np.array([1, 2], dtype=np.int32)',
+      ],
+      [
+        'float32 array, fractional scalar',
+        () => np.where(array([true, false]), array([1, 2], 'float32'), 0.5),
+        'np.array([1, 2], dtype=np.float32), 0.5',
+      ],
+      [
+        'int32 array, fractional scalar',
+        () => np.where(array([true, false]), array([1, 2], 'int32'), 0.5),
+        'np.array([1, 2], dtype=np.int32), 0.5',
+      ],
+      [
+        'int8 array, boolean scalar',
+        () => np.where(array([true, false]), array([1, 2], 'int8'), true),
+        'np.array([1, 2], dtype=np.int8), True',
+      ],
+      [
+        'uint8 array, out-of-range scalar wraps',
+        () => np.where(array([true, false]), array([1, 2], 'uint8'), -1),
+        'np.array([1, 2], dtype=np.uint8), -1',
+      ],
+    ];
+    for (const [label, call, args] of scalarCases) {
+      it(`treats a JS scalar as weak: ${label}`, () => {
+        expectMatches(call() as np.NDArray, `result = np.where(np.array([True, False]), ${args})`);
+      });
+    }
   });
 });
