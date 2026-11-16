@@ -235,7 +235,7 @@ function choice(
   a: number | NDArray,
   size?: number | number[],
   replace?: boolean,
-  p?: ArrayLike
+  p?: NDArray
 ): NDArray | number
 ```
 
@@ -244,7 +244,7 @@ function choice(
 | `a` | `number \| NDArray` | -- | If `number`, sample from `0..a-1`; otherwise sample from the provided values. |
 | `size` | `number \| number[]` | `undefined` | Output shape. |
 | `replace` | `boolean` | `true` | Whether sampling is with replacement. |
-| `p` | `ArrayLike` | `undefined` | Optional probabilities for each entry in `a`. |
+| `p` | `NDArray` | `undefined` | Optional probabilities for each entry in `a`. |
 
 ---
 

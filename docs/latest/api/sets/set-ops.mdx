@@ -166,27 +166,41 @@ np.unique_values(np.array([3, 1, 2, 1, 3]));
 ### in1d
 
 <Warning>
-**Deprecated in v1.3.0** to match NumPy 2.4. Use [`isin`](#isin) instead — `isin` preserves the input shape.
+**Deprecated in v1.3.0** to match NumPy 2.4. Use [`isin`](#isin) instead — `isin` preserves the input shape and supports the same `invert` option.
 </Warning>
 
 Test whether each element of a 1D array is also present in a second array. Returns a flattened boolean array.
 
 ```typescript
-function in1d(ar1: NDArray, ar2: NDArray): NDArray
+function in1d(
+  ar1: NDArray,
+  ar2: NDArray,
+  assume_unique?: boolean,
+  invert?: boolean
+): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `ar1` | `NDArray` | -- | Input array to test. |
 | `ar2` | `NDArray` | -- | Values to test against. |
+| `assume_unique` | `boolean` | `false` | If `true`, assume both arrays contain unique elements. |
+| `invert` | `boolean` | `false` | If `true`, invert the result: return `true` where elements of `ar1` are *not* in `ar2`. |
 
 **Returns:** `NDArray` -- Boolean array of the same length as `ar1` (flattened).
+
+<Note>
+Changed in v1.8.0: `NaN` no longer matches `NaN`, so `np.in1d(np.array([NaN, 3]), np.array([NaN]))` gives `[false, false]`. This matches NumPy, where `NaN` never compares equal to itself. Use `np.isnan` to find `NaN` entries explicitly.
+</Note>
 
 ```typescript
 import * as np from 'numpy-ts';
 
 np.in1d(np.array([1, 2, 3, 4]), np.array([2, 4]));
 // array([false, true, false, true])
+
+np.in1d(np.array([1, 2, 3, 4]), np.array([2, 4]), false, true);
+// array([true, false, true, false])  -- inverted
 ```
 
 ---
@@ -196,15 +210,26 @@ np.in1d(np.array([1, 2, 3, 4]), np.array([2, 4]));
 Test whether each element of an array is present in a set of test elements. Unlike `in1d`, this preserves the shape of the input.
 
 ```typescript
-function isin(element: NDArray, testElements: NDArray): NDArray
+function isin(
+  element: NDArray,
+  testElements: NDArray,
+  assume_unique?: boolean,
+  invert?: boolean
+): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `element` | `NDArray` | -- | Input array to test. |
 | `testElements` | `NDArray` | -- | Values to test against. Flattened internally. |
+| `assume_unique` | `boolean` | `false` | If `true`, assume both arrays contain unique elements. |
+| `invert` | `boolean` | `false` | If `true`, return `true` where elements are *not* in `testElements`. |
 
 **Returns:** `NDArray` -- Boolean array with the same shape as `element`.
+
+<Note>
+Changed in v1.8.0: `NaN` no longer matches `NaN`, so `np.isin(np.array([NaN, 3]), np.array([NaN]))` gives `[false, false]`. This matches NumPy, where `NaN` never compares equal to itself. Use `np.isnan` to find `NaN` entries explicitly.
+</Note>
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -219,27 +244,34 @@ np.isin(a, np.array([2, 3]));
 
 ### intersect1d
 
-Find the sorted intersection of two arrays.
+Find the sorted intersection of two arrays. Optionally return the indices of the intersecting elements in the original arrays.
 
 ```typescript
 function intersect1d(
   ar1: NDArray,
-  ar2: NDArray
-): NDArray
+  ar2: NDArray,
+  assume_unique?: boolean,
+  return_indices?: boolean
+): NDArray | [NDArray, NDArray<'int32'>, NDArray<'int32'>]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `ar1` | `NDArray` | -- | First input array. |
 | `ar2` | `NDArray` | -- | Second input array. |
+| `assume_unique` | `boolean` | `false` | If `true`, assume both arrays contain unique elements. |
+| `return_indices` | `boolean` | `false` | If `true`, also return the indices of the common values in `ar1` and `ar2`. |
 
-**Returns:** `NDArray` of sorted common values.
+**Returns:** `NDArray` of sorted common values, or a `[values, indices1, indices2]` tuple when `return_indices` is `true`.
 
 ```typescript
 import * as np from 'numpy-ts';
 
 np.intersect1d(np.array([1, 2, 3, 4]), np.array([3, 4, 5, 6]));
 // array([3, 4])
+
+const [values, i1, i2] = np.intersect1d(np.array([1, 2, 3, 4]), np.array([3, 4, 5, 6]), false, true);
+// values: array([3, 4]), i1: array([2, 3]), i2: array([0, 1])
 ```
 
 ---
@@ -247,6 +279,8 @@ np.intersect1d(np.array([1, 2, 3, 4]), np.array([3, 4, 5, 6]));
 ### union1d
 
 Find the sorted union of two arrays.
+
+The result dtype is the promotion of both input dtypes.
 
 ```typescript
 function union1d(ar1: NDArray, ar2: NDArray): NDArray
@@ -273,13 +307,14 @@ np.union1d(np.array([1, 2, 3]), np.array([2, 3, 4, 5]));
 Find the set difference: elements in `ar1` that are not in `ar2`.
 
 ```typescript
-function setdiff1d(ar1: NDArray, ar2: NDArray): NDArray
+function setdiff1d(ar1: NDArray, ar2: NDArray, assume_unique?: boolean): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `ar1` | `NDArray` | -- | Input array. |
 | `ar2` | `NDArray` | -- | Elements to exclude. |
+| `assume_unique` | `boolean` | `false` | If `true`, assume both arrays contain unique elements. |
 
 **Returns:** `NDArray` -- Sorted 1D array of values in `ar1` that are not in `ar2`.
 
@@ -297,13 +332,14 @@ np.setdiff1d(np.array([1, 2, 3, 4, 5]), np.array([2, 4]));
 Find the symmetric difference: elements that are in either of two arrays, but not in both.
 
 ```typescript
-function setxor1d(ar1: NDArray, ar2: NDArray): NDArray
+function setxor1d(ar1: NDArray, ar2: NDArray, assume_unique?: boolean): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `ar1` | `NDArray` | -- | First input array. |
 | `ar2` | `NDArray` | -- | Second input array. |
+| `assume_unique` | `boolean` | `false` | If `true`, assume both arrays contain unique elements. |
 
 **Returns:** `NDArray` -- Sorted 1D array of values in exactly one of the two inputs.
 

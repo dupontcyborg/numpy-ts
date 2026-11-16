@@ -48,8 +48,9 @@ np.vindex(m, ind, ind);
 //  [5, 9]]
 
 np.vindex(m, '1:2', ind);
-// [[[4, 5], [5, 6]]]
-// shape (1, 2, 2)
+// [[[4, 5],
+//   [5, 6]]]
+// shape (1, 2, 2), matching NumPy
 ```
 
 Normally `vindex` is called with `NDArray` or `number[]` objects, but you can also freely mix in any of the arguments `slice` accepts. The order of dimensions in the result matches [NumPy's behaviour](https://numpy.org/doc/stable/user/basics.indexing.html#combining-advanced-and-basic-indexing): if the advanced indices are contiguous, they replace in place; otherwise they are transposed to be the first dimensions.
@@ -67,7 +68,7 @@ function take(
   axis?: number
 ): NDArray
 
-type ArrayLike = NDArrayCore | number | bigint | number[] | number[][] | number[][][];
+type NDArray = NDArrayCore | number | bigint | number[] | number[][] | number[][][];
 ```
 
 |-|-|-|-|
@@ -189,11 +190,11 @@ import * as np from 'numpy-ts';
 
 const a = np.array([[1, 2], [3, 4], [5, 6]]);
 
-np.compress(np.array([true, false, true], 'bool'), a, 0);
+np.compress(np.array([true, false, true]), a, 0);
 // array([[1, 2],
 //        [5, 6]])
 
-np.compress(np.array([true, false], 'bool'), a, 1);
+np.compress(np.array([true, false]), a, 1);
 // array([[1],
 //        [3],
 //        [5]])
@@ -336,7 +337,7 @@ Put values into an array by matching indices along an axis.
 function put_along_axis(
   arr: NDArray,
   indices: NDArray,
-  values: NDArray,
+  values: NDArray | number | bigint | Complex,
   axis: number
 ): void
 ```
@@ -345,7 +346,7 @@ function put_along_axis(
 |------|------|---------|-------------|
 | `arr` | `NDArray` | -- | Destination array. Modified in-place. |
 | `indices` | `NDArray` | -- | Indices along `axis` where values are placed. |
-| `values` | `NDArray` | -- | Values to insert. Must be broadcastable to `indices`. |
+| `values` | `NDArray \| number \| bigint \| Complex` | -- | Values to insert. A scalar is broadcast to every position; an array must be broadcastable to `indices`. |
 | `axis` | `number` | -- | The axis along which to put values. |
 
 **Returns:** `void` -- The array `arr` is modified in-place.
@@ -355,7 +356,7 @@ import * as np from 'numpy-ts';
 
 const a = np.zeros([2, 3]);
 const idx = np.array([[1], [2]]);
-np.put_along_axis(a, idx, np.array([[99], [99]]), 1);
+np.put_along_axis(a, idx, 99, 1);
 // a is now array([[0, 99, 0],
 //                 [0, 0, 99]])
 ```

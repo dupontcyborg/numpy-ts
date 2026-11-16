@@ -80,7 +80,7 @@ Compute the q-th percentile of the data along the specified axis.
 ```typescript
 function percentile(
   a: NDArray,
-  q: number,
+  q: number | NDArray,
   axis?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -89,11 +89,15 @@ function percentile(
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `a` | `NDArray` | -- | Input array. |
-| `q` | `number` | -- | Percentile to compute, in the range `[0, 100]`. |
+| `q` | `number \| NDArray` | -- | Percentile(s) to compute, in the range `[0, 100]`. A value outside the range throws an `Error` reading "Percentiles must be in the range [0, 100]". |
 | `axis` | `number` | `undefined` | Axis along which to compute percentiles. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 
-**Returns:** `number` over all axes, `NDArray` when computing along a specific axis.
+**Returns:** `number` for a scalar `q` over all axes, `NDArray` along a specific axis or with `keepdims`. An `NDArray` `q` gives an array of shape `q.shape` followed by the reduced shape (or `q.shape` followed by the `keepdims` shape); a 0-d `q` gives a 0-d `NDArray`.
+
+<Note>
+Changed in v1.8.0: a `NaN` in the input now makes the result `NaN`, matching NumPy; previously `NaN` was sorted to the end and could be skipped. Use [`nanpercentile`](./nan-safe#nanpercentile) to ignore `NaN`. A `q` outside `[0, 100]` throws NumPy's error message instead of the old "Quantile must be between 0 and 1".
+</Note>
 
 ```typescript
 import { array, percentile } from 'numpy-ts';
@@ -101,7 +105,7 @@ import { array, percentile } from 'numpy-ts';
 const a = array([1, 2, 3, 4, 5]);
 
 percentile(a, 50);       // 3
-percentile(a, 25);       // 2
+percentile(a, array([25, 75])); // array([2, 4])
 
 const b = array([[10, 20], [30, 40]]);
 percentile(b, 50, 0);   // array([20, 30])
@@ -118,7 +122,7 @@ Equivalent to `percentile` but with `q` in the range `[0, 1]` instead of `[0, 10
 ```typescript
 function quantile(
   a: NDArray,
-  q: number,
+  q: number | NDArray,
   axis?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -127,11 +131,15 @@ function quantile(
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `a` | `NDArray` | -- | Input array. |
-| `q` | `number` | -- | Quantile to compute, in the range `[0, 1]`. |
+| `q` | `number \| NDArray` | -- | Quantile(s) to compute, in the range `[0, 1]`. A value outside the range throws an `Error` reading "Quantiles must be in the range [0, 1]". |
 | `axis` | `number` | `undefined` | Axis along which to compute quantiles. |
 | `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
 
-**Returns:** `number` over all axes, `NDArray` when computing along a specific axis.
+**Returns:** `number` for a scalar `q` over all axes, `NDArray` along a specific axis or with `keepdims`. An `NDArray` `q` gives an array of shape `q.shape` followed by the reduced shape (or `q.shape` followed by the `keepdims` shape); a 0-d `q` gives a 0-d `NDArray`.
+
+<Note>
+Changed in v1.8.0: a `NaN` in the input now makes the result `NaN`, matching NumPy; previously `NaN` was sorted to the end and could be skipped. Use [`nanquantile`](./nan-safe#nanquantile) to ignore `NaN`. A `q` outside `[0, 1]` throws NumPy's error message instead of the old "Quantile must be between 0 and 1".
+</Note>
 
 ```typescript
 import { array, quantile } from 'numpy-ts';
@@ -139,7 +147,7 @@ import { array, quantile } from 'numpy-ts';
 const a = array([1, 2, 3, 4, 5]);
 
 quantile(a, 0.5);          // 3
-quantile(a, 0.25);         // 2
+quantile(a, array([0.25, 0.75])); // array([2, 4])
 
 const b = array([[10, 20], [30, 40]]);
 quantile(b, 0.5, 0);       // array([20, 30])

@@ -14,7 +14,7 @@ function bitwise_and(x1: NDArray, x2: NDArray | number): NDArray
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `x1` | `NDArray` | -- | First input array. |
-| `x2` | `NDArray` | -- | Second input array. Broadcasting is applied if shapes differ. |
+| `x2` | `NDArray \| number` | -- | Second input array. Broadcasting is applied if shapes differ. |
 
 **Returns:** `NDArray` -- Element-wise bit-wise AND of `x1` and `x2`.
 
@@ -41,7 +41,7 @@ function bitwise_or(x1: NDArray, x2: NDArray | number): NDArray
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `x1` | `NDArray` | -- | First input array. |
-| `x2` | `NDArray` | -- | Second input array. Broadcasting is applied if shapes differ. |
+| `x2` | `NDArray \| number` | -- | Second input array. Broadcasting is applied if shapes differ. |
 
 **Returns:** `NDArray` -- Element-wise bit-wise OR of `x1` and `x2`.
 
@@ -68,7 +68,7 @@ function bitwise_xor(x1: NDArray, x2: NDArray | number): NDArray
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `x1` | `NDArray` | -- | First input array. |
-| `x2` | `NDArray` | -- | Second input array. Broadcasting is applied if shapes differ. |
+| `x2` | `NDArray \| number` | -- | Second input array. Broadcasting is applied if shapes differ. |
 
 **Returns:** `NDArray` -- Element-wise bit-wise XOR of `x1` and `x2`.
 
@@ -151,7 +151,7 @@ function left_shift(x1: NDArray, x2: NDArray | number): NDArray
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `x1` | `NDArray` | -- | Input values. |
-| `x2` | `NDArray` | -- | Number of positions to shift `x1` to the left. Broadcasting is applied if shapes differ. |
+| `x2` | `NDArray \| number` | -- | Number of positions to shift `x1` to the left. Broadcasting is applied if shapes differ. |
 
 **Returns:** `NDArray` -- `x1` with bits shifted `x2` positions to the left.
 
@@ -180,7 +180,7 @@ function right_shift(x1: NDArray, x2: NDArray | number): NDArray
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `x1` | `NDArray` | -- | Input values. |
-| `x2` | `NDArray` | -- | Number of positions to shift `x1` to the right. Broadcasting is applied if shapes differ. |
+| `x2` | `NDArray \| number` | -- | Number of positions to shift `x1` to the right. Broadcasting is applied if shapes differ. |
 
 **Returns:** `NDArray` -- `x1` with bits shifted `x2` positions to the right.
 
