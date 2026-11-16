@@ -37,6 +37,7 @@ Correctness release: calls that type-checked but silently did the wrong thing no
 * `std` and `var` with an `axis` on a 1-D array return a value instead of throwing.
 * `mod`, `remainder`, `fmod` and `divmod` handle very large and infinite divisors on both the JS and WASM paths: `mod(5, 1e17)` is `5` and `mod(-5, inf)` is `inf`, where they were `0` and `NaN`.
 * `nan_to_num` replaces infinities in `float16`, `float32` and `complex64` arrays with that dtype's largest value instead of leaving them infinite, and reads sliced views from the right offset.
+* `max`, `min` and `var` with an axis, and the aliases `amax`, `amin`, `true_divide` and `row_stack`, return an `NDArray` rather than a bare `NDArrayCore` without its methods.
 
 </Update>
 

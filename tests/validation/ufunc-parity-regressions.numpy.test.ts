@@ -1,9 +1,9 @@
 /**
  * Regressions for binary ufuncs that skipped broadcasting, where() ignoring
  * y's dtype, std/var along the only axis of a 1-D array, floor and truncated
- * remainders with huge or infinite divisors, and nan_to_num on narrow floats.
- * Small cases take the JS paths; the 64-element cases are large enough to reach
- * the WASM kernels.
+ * remainders with huge or infinite divisors, nan_to_num on narrow floats, and
+ * function aliases that returned a bare NDArrayCore. Small cases take the JS
+ * paths; the 64-element cases are large enough to reach the WASM kernels.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../src';
@@ -289,5 +289,28 @@ describe('NumPy Validation: ufunc parity regressions', () => {
         'result = np.nan_to_num(np.array([np.nan, 1.0, np.inf, 4.0, np.nan])[::2])',
       );
     });
+  });
+
+  describe('aliases return NDArray', () => {
+    const m = array([
+      [1, -2],
+      [3, 4],
+    ]);
+    const cases: [string, () => unknown][] = [
+      ['true_divide', () => np.true_divide(m, m)],
+      ['amax', () => np.amax(m, 0)],
+      ['amin', () => np.amin(m, 0)],
+      ['max', () => np.max(m, 0)],
+      ['min', () => np.min(m, 0)],
+      ['var', () => np.var(m, 0)],
+      ['row_stack', () => np.row_stack([m, m])],
+      ['cumulative_sum', () => np.cumulative_sum(m, 0)],
+      ['atan2', () => np.atan2(m, m)],
+    ];
+    for (const [name, call] of cases) {
+      it(name, () => {
+        expect(call()).toBeInstanceOf(np.NDArray);
+      });
+    }
   });
 });
