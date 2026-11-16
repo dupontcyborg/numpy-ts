@@ -62,6 +62,9 @@ jobs:
       - name: Run all tests
         run: pnpm test
 
+      - name: Dtype order speed
+        run: pnpm run test:perf
+
       - name: DType sweep (JS backend)
         run: pnpm run test:dtypes:js
 

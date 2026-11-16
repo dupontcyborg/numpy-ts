@@ -4,17 +4,20 @@
 
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
+  add,
   arange,
   array,
   diagonal,
   dot,
   einsum,
   einsum_path,
+  eye,
   inner,
   kron,
   linalg,
   matrix_transpose,
   matvec,
+  multiply,
   ones,
   outer,
   permute_dims,
@@ -1931,6 +1934,51 @@ result = {'sign': float(sign), 'logabsdet': float(logabsdet)}
 
         expect(jsResult.sign).toBe(pyResult.value.sign);
         expect(Math.abs(jsResult.logabsdet - pyResult.value.logabsdet)).toBeLessThan(1e-10);
+      });
+    });
+
+    describe('decompositions with more than 256 columns', () => {
+      const n = 300;
+      const matrix = (dtype: 'float64' | 'float32') =>
+        add(
+          arange(0, n * n, 1, dtype).reshape([n, n]),
+          multiply(eye(n, undefined, 0, dtype), n * n),
+        );
+      const PY = `
+n = ${n}
+A = np.arange(n * n, dtype=np.float64).reshape(n, n) + np.eye(n) * n * n
+`;
+
+      it('svd singular values match NumPy', { timeout: 30000 }, () => {
+        const s = linalg.svd(matrix('float64')).s;
+        const py = runNumPy(`${PY}result = np.linalg.svd(A, compute_uv=False).tolist()`);
+        expect(arraysClose(s.toArray(), py.value, 1e-8, 1e-8)).toBe(true);
+      });
+
+      it('svd reconstructs the input', { timeout: 30000 }, () => {
+        const a = matrix('float64');
+        const { u, s, vt } = linalg.svd(a);
+        const rebuilt = dot(multiply(u, s), vt) as any;
+        expect(arraysClose(rebuilt.toArray(), a.toArray(), 1e-8, 1e-6)).toBe(true);
+      });
+
+      it('pinv matches NumPy', { timeout: 30000 }, () => {
+        const p = linalg.pinv(matrix('float64'));
+        const py = runNumPy(`${PY}result = np.linalg.pinv(A).tolist()`);
+        expect(arraysClose(p.toArray(), py.value, 1e-6, 1e-9)).toBe(true);
+      });
+
+      it('lstsq matches NumPy', { timeout: 30000 }, () => {
+        const x = linalg.lstsq(matrix('float64'), ones([n])).x;
+        const py = runNumPy(`${PY}result = np.linalg.lstsq(A, np.ones(n), rcond=None)[0].tolist()`);
+        expect(arraysClose(x.toArray(), py.value, 1e-6, 1e-9)).toBe(true);
+      });
+
+      it('float32 pinv inverts within single precision', { timeout: 30000 }, () => {
+        const a = matrix('float32');
+        const product = dot(a, linalg.pinv(a)) as any;
+        const identity = eye(n, undefined, 0, 'float32');
+        expect(arraysClose(product.toArray(), identity.toArray(), 1e-3, 1e-3)).toBe(true);
       });
     });
 

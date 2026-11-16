@@ -17,6 +17,7 @@ import {
   type TypedArray,
 } from '../common/dtype';
 import { type DType, NDArrayCore } from '../common/ndarray-core';
+import { commitFill, fillTarget, type NumericData } from '../common/numeric-buffer';
 import * as advancedOps from '../common/ops/advanced';
 import { diagonal as diagonalOp } from '../common/ops/linalg';
 import * as shapeOps from '../common/ops/shape';
@@ -280,14 +281,94 @@ export function array(data: unknown, dtype?: DType): NDArrayCore {
       complexData[i * 2 + 1] = im;
     }
   } else {
-    const numData = typedData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+    const out = fillTarget(typedData as NumericData, size);
     for (let i = 0; i < size; i++) {
-      const val = flatData[i];
-      numData[i] = typeof val === 'bigint' ? Number(val) : Number(val);
+      out[i] = Number(flatData[i]);
     }
+    commitFill(typedData as NumericData, out);
   }
 
   return new NDArrayCore(storage);
+}
+
+/**
+ * Writes start + i * step into a non-bigint, non-complex array with one loop per
+ * dtype, so every store site only ever sees one typed-array class. A single
+ * shared loop falls onto V8's generic store path once it has seen more than four.
+ */
+function fillArange(data: NumericData, dtype: DType, n: number, start: number, step: number): void {
+  switch (dtype) {
+    case 'float32': {
+      const d = data as Float32Array;
+      for (let i = 0; i < n; i++) d[i] = start + i * step;
+      break;
+    }
+    case 'float16': {
+      const d = data as Float16Array;
+      for (let i = 0; i < n; i++) d[i] = start + i * step;
+      break;
+    }
+    case 'int32': {
+      const d = data as Int32Array;
+      for (let i = 0; i < n; i++) d[i] = start + i * step;
+      break;
+    }
+    case 'int16': {
+      const d = data as Int16Array;
+      for (let i = 0; i < n; i++) d[i] = start + i * step;
+      break;
+    }
+    case 'int8': {
+      const d = data as Int8Array;
+      for (let i = 0; i < n; i++) d[i] = start + i * step;
+      break;
+    }
+    case 'uint32': {
+      const d = data as Uint32Array;
+      for (let i = 0; i < n; i++) d[i] = start + i * step;
+      break;
+    }
+    case 'uint16': {
+      const d = data as Uint16Array;
+      for (let i = 0; i < n; i++) d[i] = start + i * step;
+      break;
+    }
+    case 'uint8': {
+      const d = data as Uint8Array;
+      for (let i = 0; i < n; i++) d[i] = start + i * step;
+      break;
+    }
+    default: {
+      const d = data as Float64Array;
+      for (let i = 0; i < n; i++) d[i] = start + i * step;
+    }
+  }
+}
+
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+
+/**
+ * Writes start + i * step truncated to 64-bit integers by storing each value's
+ * two 32-bit halves, which avoids allocating a BigInt per element. Values wrap
+ * modulo 2^64 exactly as a BigInt store would; big-endian hosts take the BigInt path.
+ */
+function fillArange64(
+  data: BigInt64Array | BigUint64Array,
+  n: number,
+  start: number,
+  step: number,
+): void {
+  if (!LITTLE_ENDIAN) {
+    for (let i = 0; i < n; i++) data[i] = BigInt(Math.trunc(start + i * step));
+    return;
+  }
+  const words = new Uint32Array(data.buffer, data.byteOffset, n * 2);
+  for (let i = 0; i < n; i++) {
+    const v = Math.trunc(start + i * step);
+    const high = Math.floor(v / 4294967296);
+    words[i * 2] = v - high * 4294967296;
+    words[i * 2 + 1] = high;
+  }
 }
 
 /**
@@ -323,9 +404,7 @@ export function arange(start: number, stop?: number, step: number = 1, dtype?: D
   const data = storage.data;
 
   if (isBigIntDType(actualDtype)) {
-    for (let i = 0; i < length; i++) {
-      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(actualStart + i * step));
-    }
+    fillArange64(data as BigInt64Array | BigUint64Array, length, actualStart, step);
   } else if (actualDtype === 'bool') {
     for (let i = 0; i < length; i++) {
       (data as Uint8Array)[i] = actualStart + i * step !== 0 ? 1 : 0;
@@ -337,9 +416,7 @@ export function arange(start: number, stop?: number, step: number = 1, dtype?: D
       (data as Float64Array | Float32Array)[i * 2 + 1] = 0;
     }
   } else {
-    for (let i = 0; i < length; i++) {
-      (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = actualStart + i * step;
-    }
+    fillArange(data as NumericData, actualDtype, length, actualStart, step);
   }
 
   return new NDArrayCore(storage);
@@ -385,9 +462,11 @@ export function linspace(
       (data as Float64Array | Float32Array)[i * 2 + 1] = 0;
     }
   } else {
+    const out = fillTarget(data as NumericData, num);
     for (let i = 0; i < num; i++) {
-      (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = start + i * step;
+      out[i] = start + i * step;
     }
+    commitFill(data as NumericData, out);
   }
 
   return new NDArrayCore(storage);
@@ -436,10 +515,12 @@ export function logspace(
       (data as Float64Array | Float32Array)[i * 2 + 1] = 0;
     }
   } else {
+    const out = fillTarget(data as NumericData, num);
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
-      (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = base ** exponent;
+      out[i] = base ** exponent;
     }
+    commitFill(data as NumericData, out);
   }
 
   return new NDArrayCore(storage);
@@ -482,28 +563,30 @@ export function geomspace(
   const logStart = Math.log(Math.abs(start));
   const logStop = Math.log(Math.abs(stop));
   const step = (logStop - logStart) / (num - 1);
+  // Both ends are exact, as in NumPy: exp(log(stop)) can land just below stop,
+  // and an integer dtype would then truncate the last element one short.
+  const valueAt = (i: number): number =>
+    i === 0 ? start : i === num - 1 ? stop : signStart * Math.exp(logStart + i * step);
 
   if (isBigIntDType(dtype)) {
     for (let i = 0; i < num; i++) {
-      const value = signStart * Math.exp(logStart + i * step);
-      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(value));
+      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(valueAt(i)));
     }
   } else if (dtype === 'bool') {
     for (let i = 0; i < num; i++) {
-      const value = signStart * Math.exp(logStart + i * step);
-      (data as Uint8Array)[i] = value !== 0 ? 1 : 0;
+      (data as Uint8Array)[i] = valueAt(i) !== 0 ? 1 : 0;
     }
   } else if (isComplexDType(dtype)) {
     for (let i = 0; i < num; i++) {
-      const value = signStart * Math.exp(logStart + i * step);
-      (data as Float64Array | Float32Array)[i * 2] = value;
+      (data as Float64Array | Float32Array)[i * 2] = valueAt(i);
       (data as Float64Array | Float32Array)[i * 2 + 1] = 0;
     }
   } else {
+    const out = fillTarget(data as NumericData, num);
     for (let i = 0; i < num; i++) {
-      const value = signStart * Math.exp(logStart + i * step);
-      (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value;
+      out[i] = valueAt(i);
     }
+    commitFill(data as NumericData, out);
   }
 
   return new NDArrayCore(storage);
@@ -531,15 +614,17 @@ export function eye(
       }
     }
   } else {
-    const typedData = data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+    const typedData = data as NumericData;
     // A complex element occupies two slots, so the diagonal index has to be
     // doubled; writing it unscaled puts the ones in the imaginary half of the
-    // wrong cell and leaves the lower rows empty.
+    // wrong cell and leaves the lower rows empty. The native fill keeps this
+    // from being a store site shared by every dtype.
     const stride = isComplexDType(dtype) ? 2 : 1;
     for (let i = 0; i < n; i++) {
       const j = i + k;
       if (j >= 0 && j < cols) {
-        typedData[(i * cols + j) * stride] = 1;
+        const at = (i * cols + j) * stride;
+        typedData.fill(1, at, at + 1);
       }
     }
   }
@@ -791,10 +876,11 @@ export function tri(
       }
     }
   } else {
+    // Native fill per row; a store loop here would be shared by every dtype.
+    const typedData = data as NumericData;
     for (let i = 0; i < N; i++) {
-      for (let j = 0; j <= Math.min(i + k, cols - 1); j++) {
-        if (j >= 0) (data as Float64Array)[i * cols + j] = 1;
-      }
+      const last = Math.min(i + k, cols - 1);
+      if (last >= 0) typedData.fill(1, i * cols, i * cols + last + 1);
     }
   }
 

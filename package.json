@@ -49,6 +49,7 @@
     "test:io": "vitest run --project=runtime-io",
     "test:wasm-memory": "vitest run --project=wasm-memory",
     "test:leaks": "vitest run --project=leaks",
+    "test:perf": "vitest run --project=perf",
     "test:leaks:large": "LEAK_SIZE_SCALE=large vitest run --project=leaks",
     "test:dtypes": "vitest run --project=validation tests/validation/dtype-sweep/",
     "test:dtypes:js": "FORCE_BACKEND=js vitest run --project=validation tests/validation/dtype-sweep/",

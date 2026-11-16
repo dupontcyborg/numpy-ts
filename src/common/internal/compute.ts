@@ -15,6 +15,7 @@ import {
   promoteDTypes,
   type TypedArray,
 } from '../dtype';
+import { commitFill, fillTarget, logicalValues, type NumericData } from '../numeric-buffer';
 import { ArrayStorage } from '../storage';
 import { wasmAllEqual } from '../wasm/all_equal';
 import { wasmCompare } from '../wasm/compare';
@@ -249,21 +250,13 @@ export function elementwiseBinaryOp(
   ) {
     const size = a.size;
     const result = ArrayStorage.empty(Array.from(aShape), resultDtype);
-    const resultData = result.data;
-    const aOff = a.offset;
-    const bOff = b.offset;
-
-    const aData = a.data;
-    const bData = b.data;
-    if (aOff === 0 && bOff === 0) {
-      for (let i = 0; i < size; i++) {
-        resultData[i] = op(aData[i] as number, bData[i] as number);
-      }
-    } else {
-      for (let i = 0; i < size; i++) {
-        resultData[i] = op(aData[aOff + i] as number, bData[bOff + i] as number);
-      }
+    const aValues = logicalValues(a);
+    const bValues = logicalValues(b);
+    const out = fillTarget(result.data as NumericData, size);
+    for (let i = 0; i < size; i++) {
+      out[i] = op(aValues[i]!, bValues[i]!);
     }
+    commitFill(result.data as NumericData, out);
     return result;
   }
 
@@ -321,6 +314,17 @@ export function elementwiseBinaryOp(
     // Regular numeric types (including float dtypes)
     // Need to convert BigInt values to Number if mixing dtypes
     const needsConversion = isBigIntDType(a.dtype) || isBigIntDType(b.dtype);
+
+    if (!needsConversion) {
+      const aValues = logicalValues(aBroadcast);
+      const bValues = logicalValues(bBroadcast);
+      const out = fillTarget(resultData as NumericData, size);
+      for (let i = 0; i < size; i++) {
+        out[i] = op(aValues[i]!, bValues[i]!);
+      }
+      commitFill(resultData as NumericData, out);
+      return result;
+    }
 
     for (let i = 0; i < size; i++) {
       const aRaw = aBroadcast.iget(i);

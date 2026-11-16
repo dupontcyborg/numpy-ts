@@ -1148,9 +1148,9 @@ function spacingInto(src: TypedArray, off: number, dst: TypedArray, n: number): 
   if (src instanceof Float64Array && dst instanceof Float64Array) {
     for (let i = 0; i < n; i++) dst[i] = spacingSingle(src[off + i]!);
   } else if (src instanceof Float32Array && dst instanceof Float32Array) {
-    for (let i = 0; i < n; i++) dst[i] = spacingSingle(src[off + i]!);
+    for (let i = 0; i < n; i++) dst[i] = float32Spacing(src[off + i]!);
   } else if (src instanceof Float32Array && dst instanceof Float64Array) {
-    for (let i = 0; i < n; i++) dst[i] = spacingSingle(src[off + i]!);
+    for (let i = 0; i < n; i++) dst[i] = float32Spacing(src[off + i]!);
   } else {
     const d = dst as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
     for (let i = 0; i < n; i++) d[i] = spacingSingle(Number(src[off + i]));
@@ -1188,15 +1188,7 @@ export function spacing(a: ArrayStorage): ArrayStorage {
     const resultData = result.data as Float32Array;
     const src = flatF64View(a);
     for (let i = 0; i < size; i++) {
-      F32_V[0] = src[i]!;
-      const bits = F32_U[0]!;
-      if ((bits & 0x7fffffff) === 0) {
-        F32_U[1] = 1;
-        resultData[i] = F32_V[1]!;
-      } else {
-        F32_U[1] = (bits + 1) >>> 0;
-        resultData[i] = Math.abs(F32_V[1]! - F32_V[0]!);
-      }
+      resultData[i] = float32Spacing(src[i]!);
     }
     return result;
   }
@@ -1241,8 +1233,9 @@ export function spacing(a: ArrayStorage): ArrayStorage {
       spacingInto(thisData, off, resultData, size);
     }
   } else {
+    const spacingOf = resultDtype === 'float32' ? float32Spacing : spacingSingle;
     for (let i = 0; i < size; i++) {
-      resultData[i] = spacingSingle(Number(a.iget(i)));
+      resultData[i] = spacingOf(Number(a.iget(i)));
     }
   }
 
@@ -1298,14 +1291,36 @@ function float16Spacing(val: number): number {
   const bits16 = F16_BITS!;
   f16[0] = val;
   const bits = bits16[0]!;
+  // Infinities and NaN have no spacing
+  if ((bits & 0x7c00) === 0x7c00) return NaN;
   // For ±0, return smallest float16 subnormal
   if ((bits & 0x7fff) === 0) {
     bits16[1] = 1;
     return f16[1]!;
   }
-  // Increment mantissa by 1 ULP
-  bits16[1] = bits + 1;
-  return Math.abs(f16[1]! - f16[0]!);
+  // NumPy measures float16 spacing toward +inf, so the result is always
+  // positive and a negative power of two gets the finer step below its magnitude.
+  bits16[1] = bits & 0x8000 ? bits - 1 : bits + 1;
+  return f16[1]! - f16[0]!;
+}
+
+/**
+ * Float32 spacing: the step to the next float32 away from zero, signed like x.
+ * @private
+ */
+function float32Spacing(x: number): number {
+  F32_V[0] = x;
+  const bits = F32_U[0]!;
+  // Infinities and NaN have no spacing
+  if ((bits & 0x7f800000) === 0x7f800000) return NaN;
+  // For ±0, return smallest float32 subnormal
+  if ((bits & 0x7fffffff) === 0) {
+    F32_U[1] = 1;
+    return F32_V[1]!;
+  }
+  // One more bit pattern is one step away from zero for either sign.
+  F32_U[1] = (bits + 1) >>> 0;
+  return F32_V[1]! - F32_V[0]!;
 }
 
 function spacingSingle(x: number): number {
@@ -1324,9 +1339,9 @@ function spacingSingle(x: number): number {
     return Number.MIN_VALUE;
   }
 
-  // The spacing is the absolute difference between x and the next float
-  const next = nextafterSingle(x, Infinity);
-  return Math.abs(next - x);
+  // The step to the next float away from zero, so it takes the sign of x
+  const next = nextafterSingle(x, x > 0 ? Infinity : -Infinity);
+  return next - x;
 }
 
 /**

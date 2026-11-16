@@ -18,6 +18,7 @@ import {
   promote_types,
   wasmConfig,
 } from '../../src';
+import { hasFloat16 } from '../../src/common/dtype';
 import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
@@ -500,6 +501,95 @@ result = np.spacing(arr)
 
         expect(result.shape).toEqual(npResult.shape);
         expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+      });
+
+      // The checks above compare with a tolerance that hides tiny spacings, so
+      // the sign and magnitude of float32 and float64 results, and the float16
+      // step below a negative power of two, were never really tested. This
+      // compares exactly, across every dtype spacing promotes from.
+      const pyLiteral = (v: number): string =>
+        Number.isNaN(v)
+          ? "float('nan')"
+          : v === Infinity
+            ? "float('inf')"
+            : v === -Infinity
+              ? "-float('inf')"
+              : Object.is(v, -0)
+                ? '-0.0'
+                : String(v);
+      const floatValues = [
+        0,
+        -0,
+        1,
+        -1,
+        2,
+        -2,
+        0.5,
+        -0.5,
+        3,
+        -3,
+        5.96e-8,
+        -5.96e-8,
+        65504,
+        -65504,
+        65520,
+        127,
+        -128,
+        1024,
+        -1024,
+        0.1,
+        -0.1,
+        12345.678,
+        -12345.678,
+        Infinity,
+        -Infinity,
+        NaN,
+      ];
+      const float32Values = [
+        ...floatValues,
+        1e-45,
+        -1e-45,
+        3.4028234663852886e38,
+        -3.4028234663852886e38,
+      ];
+      const float64Values = [
+        ...floatValues,
+        5e-324,
+        -5e-324,
+        1.7976931348623157e308,
+        -1.7976931348623157e308,
+      ];
+      const intValues = [0, 1, -1, 2, -2, 3, -3, 5, -5, 64, -64, 127, -128, 128, 255, -256, 1000];
+      const exactCases: [string, number[], string][] = [
+        ['float16', floatValues, 'float16'],
+        ['float32', float32Values, 'float32'],
+        ['float64', float64Values, 'float64'],
+        ['int8', intValues.filter((v) => v >= -128 && v <= 127), 'int8'],
+        ['uint8', intValues.filter((v) => v >= 0 && v <= 255), 'uint8'],
+        ['int16', [...intValues, 32767, -32768], 'int16'],
+        ['uint16', [...intValues.filter((v) => v >= 0), 65535], 'uint16'],
+        ['int32', [...intValues, 2 ** 31 - 1, -(2 ** 31)], 'int32'],
+      ];
+      // Without native Float16Array these dtypes come back as float64 instead of float16.
+      const needsFloat16 = new Set(['float16', 'int8', 'uint8']);
+      for (const [name, values, dtype] of exactCases) {
+        const test = !hasFloat16 && needsFloat16.has(name) ? it.skip : it;
+        test(`spacing() matches NumPy exactly for ${name}`, () => {
+          const result = array(values, dtype as 'float64').spacing();
+          const npResult = runNumPy(`
+arr = np.array([${values.map(pyLiteral).join(', ')}]).astype(np.${dtype})
+with np.errstate(all='ignore'):
+    result = np.spacing(arr)
+`);
+          expect(result.dtype).toBe(npResult.dtype);
+          expect(arraysClose(result.toArray(), npResult.value, 0, 0)).toBe(true);
+        });
+      }
+
+      it('spacing() of a negative float32 has the sign of its input', () => {
+        const result = array([-1, 1], 'float32').spacing().toArray() as number[];
+        expect(result[0]).toBe(-(2 ** -23));
+        expect(result[1]).toBe(2 ** -23);
       });
     });
 

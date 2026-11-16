@@ -97,6 +97,66 @@ describe('Array Creation Functions', () => {
       expect(arange(0, 10, 1, 'int32').dtype).toBe('int32');
     });
 
+    it('fills 64-bit integers across the 32-bit boundary and for negatives', () => {
+      const big = 2 ** 32;
+      expect(Array.from(arange(-3, 3, 1, 'int64').data as BigInt64Array)).toEqual([
+        -3n,
+        -2n,
+        -1n,
+        0n,
+        1n,
+        2n,
+      ]);
+      expect(Array.from(arange(big - 2, big + 2, 1, 'int64').data as BigInt64Array)).toEqual([
+        BigInt(big - 2),
+        BigInt(big - 1),
+        BigInt(big),
+        BigInt(big + 1),
+      ]);
+      expect(Array.from(arange(-big - 1, -big + 2, 1, 'int64').data as BigInt64Array)).toEqual([
+        BigInt(-big - 1),
+        BigInt(-big),
+        BigInt(-big + 1),
+      ]);
+    });
+
+    it('wraps negative values into uint64 and truncates fractional steps', () => {
+      expect(Array.from(arange(-2, 2, 1, 'uint64').data as BigUint64Array)).toEqual([
+        2n ** 64n - 2n,
+        2n ** 64n - 1n,
+        0n,
+        1n,
+      ]);
+      expect(Array.from(arange(0, 3, 0.5, 'int64').data as BigInt64Array)).toEqual([
+        0n,
+        0n,
+        1n,
+        1n,
+        2n,
+        2n,
+      ]);
+    });
+
+    it('fills every non-bigint dtype with the same wrapping as a typed array store', () => {
+      const ctors = {
+        int8: Int8Array,
+        int16: Int16Array,
+        int32: Int32Array,
+        uint8: Uint8Array,
+        uint16: Uint16Array,
+        uint32: Uint32Array,
+        float32: Float32Array,
+        float64: Float64Array,
+      } as const;
+      for (const [dtype, Ctor] of Object.entries(ctors)) {
+        const got = Array.from(
+          arange(-5, 300, 1, dtype as keyof typeof ctors).data as ArrayLike<number>,
+        );
+        const want = Array.from(Ctor.from({ length: 305 }, (_, i) => -5 + i));
+        expect(got, dtype).toEqual(want);
+      }
+    });
+
     it('respects explicit dtype over inference', () => {
       expect(arange(10, undefined, 1, 'float64').dtype).toBe('float64');
     });
@@ -197,6 +257,14 @@ describe('Array Creation Functions', () => {
       expect(arr.toArray()[1]).toBeCloseTo(10);
       expect(arr.toArray()[2]).toBeCloseTo(100);
       expect(arr.toArray()[3]).toBeCloseTo(1000);
+    });
+
+    it('hits both endpoints exactly, so an integer dtype does not truncate stop', () => {
+      for (const dtype of ['int16', 'int32', 'int64', 'uint16', 'float64'] as const) {
+        const data = geomspace(1, 1000, 1000, dtype).data as ArrayLike<number | bigint>;
+        expect(Number(data[0])).toBe(1);
+        expect(Number(data[999])).toBe(1000);
+      }
     });
 
     it('creates single point', () => {

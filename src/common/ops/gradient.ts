@@ -221,6 +221,20 @@ export function ediff1d(
   const isComplex = isComplexDType(dtype);
   const resultDtype = dtype;
 
+  // Plain differences of a contiguous array are a 1-D diff over the same buffer.
+  if (!isComplex && !to_begin && !to_end && ary.isCContiguous) {
+    const flat = ArrayStorage.fromDataShared(
+      ary.data,
+      [flatSize],
+      dtype,
+      [1],
+      ary.offset,
+      ary.wasmRegion,
+    );
+    const wasm = wasmDiff(flat, 0);
+    if (wasm) return wasm;
+  }
+
   // Calculate result size
   const diffSize = Math.max(0, flatSize - 1);
   const beginSize = to_begin ? to_begin.length : 0;

@@ -113,8 +113,9 @@ export function wasmArgsortSlices(
   outputSliceOffsets: Int32Array | number[],
   axisSize: number,
   outerSize: number,
-  dtype: DType,
+  inputDtype: DType,
 ): boolean {
+  const dtype = effectiveDType(inputDtype);
   if (axisSize < 2) return false;
 
   const isComplex = dtype === 'complex128' || dtype === 'complex64';

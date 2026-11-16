@@ -2,15 +2,9 @@
  * Set operations
  */
 
-import {
-  type DType,
-  isComplexDType,
-  isFloatDType,
-  isIntegerDType,
-  promoteDTypes,
-  type TypedArray,
-} from '../dtype';
+import { type DType, isComplexDType, isFloatDType, isIntegerDType, promoteDTypes } from '../dtype';
 import { widenToF64 } from '../internal/dtype-loops';
+import { type NumericData, storeFloat64 } from '../numeric-buffer';
 import { ArrayStorage } from '../storage';
 import { castStorage, concatenate, ravel } from './shape';
 
@@ -42,8 +36,7 @@ function complexEqual(aRe: number, aIm: number, bRe: number, bIm: number): boole
  * O(n + range) instead of O(n log n).
  */
 function uniqueCountingSort(
-  data: TypedArray,
-  off: number,
+  values: Float64Array,
   size: number,
   dtype: DType,
   minVal: number,
@@ -63,7 +56,7 @@ function uniqueCountingSort(
   const firstIdx = returnIndex ? new Int32Array(range).fill(-1) : null;
 
   for (let i = 0; i < size; i++) {
-    const v = Number((data as Int8Array)[off + i]!) - minVal;
+    const v = values[i]! - minVal;
     bucketCounts[v]!++;
     if (firstIdx !== null && firstIdx[v] === -1) firstIdx[v] = i;
   }
@@ -84,13 +77,14 @@ function uniqueCountingSort(
   const indicesData = indicesResult ? (indicesResult.data as Int32Array) : null;
   const valToUniqueIdx = returnInverse ? new Int32Array(range).fill(-1) : null;
 
+  const uniqueScratch = isBigInt ? null : new Float64Array(numUnique);
   let ui = 0;
   for (let v = 0; v < range; v++) {
     if (bucketCounts[v]! > 0) {
-      if (isBigInt) {
-        (uniqueData as BigInt64Array)[ui] = BigInt(v + minVal);
+      if (uniqueScratch) {
+        uniqueScratch[ui] = v + minVal;
       } else {
-        (uniqueData as Int8Array)[ui] = v + minVal;
+        (uniqueData as BigInt64Array)[ui] = BigInt(v + minVal);
       }
       if (countsData) countsData[ui] = bucketCounts[v]!;
       if (indicesData) indicesData[ui] = firstIdx![v]!;
@@ -98,6 +92,8 @@ function uniqueCountingSort(
       ui++;
     }
   }
+
+  if (uniqueScratch) storeFloat64(uniqueData as NumericData, uniqueScratch);
 
   if (!returnIndex && !returnInverse && !returnCounts) return uniqueResult;
 
@@ -114,7 +110,7 @@ function uniqueCountingSort(
     const inverseResult = ArrayStorage.zeros([size], 'int32');
     const inverseData = inverseResult.data as Int32Array;
     for (let i = 0; i < size; i++) {
-      inverseData[i] = valToUniqueIdx![Number((data as Int8Array)[off + i]!) - minVal]!;
+      inverseData[i] = valToUniqueIdx![values[i]! - minVal]!;
     }
     result.inverse = inverseResult;
   }
@@ -363,9 +359,10 @@ export function unique(
   // Fast path: counting sort for int8/uint8 (range 256, always worth it)
   if (dtype === 'int8' || dtype === 'uint8') {
     const minVal = dtype === 'int8' ? -128 : 0;
+    const wide = new Float64Array(size);
+    widenToF64(data, off, size, wide);
     return uniqueCountingSort(
-      data,
-      off,
+      wide,
       size,
       dtype,
       minVal,
@@ -378,18 +375,19 @@ export function unique(
 
   // For int16/uint16/int32/uint32: counting sort only if range is small relative to size
   if (dtype === 'int16' || dtype === 'uint16' || dtype === 'int32' || dtype === 'uint32') {
-    let min = Number(data[off]!),
+    const wide = new Float64Array(size);
+    widenToF64(data, off, size, wide);
+    let min = wide[0]!,
       max = min;
     for (let i = 1; i < size; i++) {
-      const v = Number(data[off + i]!);
+      const v = wide[i]!;
       if (v < min) min = v;
       else if (v > max) max = v;
     }
     const range = max - min + 1;
     if (range <= 4 * size) {
       return uniqueCountingSort(
-        data,
-        off,
+        wide,
         size,
         dtype,
         min,
@@ -510,9 +508,7 @@ export function unique(
         (uniqueData as BigInt64Array)[i] = BigInt(uniqueVals[i]!);
       }
     } else {
-      for (let i = 0; i < numUnique; i++) {
-        (uniqueData as Float64Array)[i] = uniqueVals[i]!;
-      }
+      storeFloat64(uniqueData as NumericData, Float64Array.from(uniqueVals));
     }
 
     if (!returnCounts) return uniqueResult;
@@ -592,10 +588,12 @@ export function unique(
   const uniqueData = uniqueResult.data;
   const resultIsBigInt =
     uniqueData instanceof BigInt64Array || uniqueData instanceof BigUint64Array;
-  for (let i = 0; i < numUnique; i++) {
-    (uniqueData as Float64Array | Int32Array | BigInt64Array)[i] = resultIsBigInt
-      ? BigInt(uniqueValues[i]!)
-      : (uniqueValues[i]! as never);
+  if (resultIsBigInt) {
+    for (let i = 0; i < numUnique; i++) {
+      (uniqueData as BigInt64Array)[i] = BigInt(uniqueValues[i]!);
+    }
+  } else {
+    storeFloat64(uniqueData as NumericData, Float64Array.from(uniqueValues));
   }
 
   if (!returnIndex && !returnInverse && !returnCounts) return uniqueResult;

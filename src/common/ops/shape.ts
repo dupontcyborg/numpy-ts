@@ -9,7 +9,6 @@ import type { Complex } from '../complex';
 import {
   type DType,
   getTypedArrayConstructor,
-  hasFloat16,
   isBigIntDType,
   isComplexDType,
   promoteDTypeSequence,
@@ -17,6 +16,7 @@ import {
 } from '../dtype';
 import { expandEllipsis } from '../internal/indexing';
 import { stridedScatterFrom } from '../internal/strided-copy';
+import { isNumericDType, logicalValues, type NumericData, storeFloat64 } from '../numeric-buffer';
 import { normalizeSlice, parseSlice } from '../slicing';
 import { ArrayStorage, assertValidShape, computeStrides, memoryOrder } from '../storage';
 import { wasmRepeat } from '../wasm/repeat';
@@ -255,11 +255,7 @@ export function reshape(storage: ArrayStorage, newShape: readonly number[]): Arr
       (resultData as BigInt64Array | BigUint64Array)[i] = storage.iget(i) as bigint;
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      (resultData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = storage.iget(
-        i,
-      ) as number;
-    }
+    storeFloat64(resultData as NumericData, logicalValues(storage));
   }
   return result;
 }
@@ -304,6 +300,8 @@ export function flatten(storage: ArrayStorage): ArrayStorage {
       (newData as Float64Array | Float32Array)[i * 2] = value.re;
       (newData as Float64Array | Float32Array)[i * 2 + 1] = value.im;
     }
+  } else if (isNumericDType(dtype)) {
+    storeFloat64(newData as NumericData, logicalValues(storage));
   } else {
     for (let i = 0; i < size; i++) {
       const value = storage.iget(i);
@@ -1094,15 +1092,9 @@ export function tile(storage: ArrayStorage, reps: number | number[]): ArrayStora
   const expandedStrides = expandedStorage.strides;
 
   // Float16Array optimization: bulk-convert to Float32Array for faster per-element access
-  if (dtype === 'float16' && hasFloat16 && expandedStorage.isCContiguous) {
-    const srcSize = expandedStorage.size;
-    const f32Src = new Float32Array(
-      (expandedStorage.data as Float16Array).subarray(
-        expandedStorage.offset,
-        expandedStorage.offset + srcSize,
-      ),
-    );
-    const f32Out = new Float32Array(outputSize);
+  if (isNumericDType(dtype) && expandedStorage.isCContiguous) {
+    const values = logicalValues(expandedStorage);
+    const out = new Float64Array(outputSize);
     const outputIndices = new Array(maxDim).fill(0);
 
     for (let i = 0; i < outputSize; i++) {
@@ -1111,7 +1103,7 @@ export function tile(storage: ArrayStorage, reps: number | number[]): ArrayStora
         const sourceIdx = outputIndices[d]! % paddedShape[d]!;
         sourceFlatIdx += sourceIdx * expandedStrides[d]!;
       }
-      f32Out[i] = f32Src[sourceFlatIdx]!;
+      out[i] = values[sourceFlatIdx]!;
 
       for (let d = maxDim - 1; d >= 0; d--) {
         outputIndices[d]++;
@@ -1120,7 +1112,7 @@ export function tile(storage: ArrayStorage, reps: number | number[]): ArrayStora
       }
     }
 
-    (outputData as Float16Array).set(f32Out);
+    storeFloat64(outputData as NumericData, out);
     return result;
   }
 
@@ -1207,20 +1199,18 @@ export function repeat(
     const outputData = flatResult.data;
 
     // Float16Array optimization: bulk-convert for faster per-element access
-    if (dtype === 'float16' && hasFloat16 && storage.isCContiguous) {
-      const f32Src = new Float32Array(
-        (storage.data as Float16Array).subarray(storage.offset, storage.offset + flatSize),
-      );
-      const f32Out = new Float32Array(outputSize);
+    if (isNumericDType(dtype)) {
+      const values = logicalValues(storage);
+      const out = new Float64Array(outputSize);
       let outIdx = 0;
       for (let i = 0; i < flatSize; i++) {
-        const value = f32Src[i]!;
+        const value = values[i]!;
         const rep = repeatsArr[i]!;
         for (let r = 0; r < rep; r++) {
-          f32Out[outIdx++] = value;
+          out[outIdx++] = value;
         }
       }
-      (outputData as Float16Array).set(f32Out);
+      storeFloat64(outputData as NumericData, out);
       return flatResult;
     }
 
@@ -1285,14 +1275,12 @@ export function repeat(
   }
 
   // Float16Array optimization: bulk-convert for faster per-element access
-  if (dtype === 'float16' && hasFloat16 && storage.isCContiguous) {
-    const f32Src = new Float32Array(
-      (storage.data as Float16Array).subarray(storage.offset, storage.offset + size),
-    );
-    const f32Out = new Float32Array(outputSize);
+  if (isNumericDType(dtype)) {
+    const values = logicalValues(storage);
+    const out = new Float64Array(outputSize);
 
     for (let i = 0; i < size; i++) {
-      const value = f32Src[i]!;
+      const value = values[i]!;
       const axisIdx = sourceIndices[normalizedAxis]!;
       const rep = repeatsArr[axisIdx]!;
 
@@ -1306,7 +1294,7 @@ export function repeat(
       const axisStride = outputStrides[normalizedAxis]!;
       const axisStart = axisPositions[axisIdx]!;
       for (let r = 0; r < rep; r++) {
-        f32Out[baseOutIdx + (axisStart + r) * axisStride] = value;
+        out[baseOutIdx + (axisStart + r) * axisStride] = value;
       }
 
       for (let d = ndim - 1; d >= 0; d--) {
@@ -1316,7 +1304,7 @@ export function repeat(
       }
     }
 
-    (outputData as Float16Array).set(f32Out);
+    storeFloat64(outputData as NumericData, out);
     return axisResult;
   }
 
@@ -1545,16 +1533,14 @@ export function roll(
     const isBigInt = isBigIntDType(dtype);
 
     // Float16Array optimization: bulk-convert for faster per-element access
-    if (dtype === 'float16' && hasFloat16 && flatStorage.isCContiguous) {
-      const f32Src = new Float32Array(
-        (flatStorage.data as Float16Array).subarray(flatStorage.offset, flatStorage.offset + size),
-      );
-      const f32Out = new Float32Array(size);
+    if (isNumericDType(dtype) && flatStorage.isCContiguous) {
+      const values = logicalValues(flatStorage);
+      const out = new Float64Array(size);
       for (let i = 0; i < size; i++) {
         const sourceIdx = (((i - flatShift) % size) + size) % size;
-        f32Out[i] = f32Src[sourceIdx]!;
+        out[i] = values[sourceIdx]!;
       }
-      (outputData as Float16Array).set(f32Out);
+      storeFloat64(outputData as NumericData, out);
       flatStorage.dispose();
       return rollResult;
     }
@@ -1610,11 +1596,9 @@ export function roll(
   const outputIndices = new Array(ndim).fill(0);
 
   // Float16Array optimization: bulk-convert for faster per-element access
-  if (dtype === 'float16' && hasFloat16 && storage.isCContiguous) {
-    const f32Src = new Float32Array(
-      (storage.data as Float16Array).subarray(storage.offset, storage.offset + size),
-    );
-    const f32Out = new Float32Array(size);
+  if (isNumericDType(dtype) && storage.isCContiguous) {
+    const values = logicalValues(storage);
+    const out = new Float64Array(size);
     const srcStrides = storage.strides;
 
     for (let i = 0; i < size; i++) {
@@ -1630,7 +1614,7 @@ export function roll(
       for (let d = 0; d < ndim; d++) {
         srcIdx += sourceIndices[d]! * srcStrides[d]!;
       }
-      f32Out[i] = f32Src[srcIdx]!;
+      out[i] = values[srcIdx]!;
 
       for (let d = ndim - 1; d >= 0; d--) {
         outputIndices[d]++;
@@ -1639,7 +1623,7 @@ export function roll(
       }
     }
 
-    (outputData as Float16Array).set(f32Out);
+    storeFloat64(outputData as NumericData, out);
     return axisRollResult;
   }
 

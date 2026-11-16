@@ -16,6 +16,10 @@ import {
   sign_i16,
   sign_i32,
   sign_i64,
+  sign_u8,
+  sign_u16,
+  sign_u32,
+  sign_u64,
 } from './bins/sign.wasm';
 import { wasmConfig } from './config';
 import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
@@ -32,7 +36,10 @@ const kernels: Partial<Record<DType, UnaryFn>> = {
   int32: sign_i32,
   int16: sign_i16,
   int8: sign_i8,
-  // unsigned types: sign is always 0 or 1, handled in JS
+  uint64: sign_u64,
+  uint32: sign_u32,
+  uint16: sign_u16,
+  uint8: sign_u8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

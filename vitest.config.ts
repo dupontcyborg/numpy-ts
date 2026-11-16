@@ -147,6 +147,17 @@ export default defineConfig({
           setupFiles: ['tests/setup-version.ts'],
         },
       }),
+      // Timing comparisons between dtypes. Kept out of the default run because
+      // load from parallel test files skews them; CI runs them as a separate step.
+      defineProject({
+        test: {
+          name: 'perf',
+          include: ['tests/perf/**/*.test.ts'],
+          exclude: ['**/node_modules/**'],
+          environment: 'node',
+          setupFiles: ['tests/setup-version.ts'],
+        },
+      }),
       // Tree-shaking tests (tests with multiple bundlers)
       // Runs last (groupOrder: 2) so the setupFile can rebuild with production
       // (ReleaseFast) WASM without clobbering dist/ while bundle tests

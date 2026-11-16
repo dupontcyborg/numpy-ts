@@ -28,8 +28,6 @@ export function wasmSvd(
 
   const m = a.shape[0]!;
   const n = a.shape[1]!;
-  // n is capped by the kernel's fixed-size index and norm arrays.
-  if (n > 256) return null;
   if (
     m < BASE_THRESHOLD * wasmConfig.thresholdMultiplier ||
     n < BASE_THRESHOLD * wasmConfig.thresholdMultiplier
@@ -102,7 +100,8 @@ export function wasmSvd(
       }
     }
   }
-  const workSize = m * n + n * n;
+  // The tail holds the n column norms and the n-entry sorted order.
+  const workSize = m * n + n * n + 2 * n;
   const workRegion = wasmMalloc(workSize * bytesPerElem);
   if (!workRegion) {
     aRegion.release();

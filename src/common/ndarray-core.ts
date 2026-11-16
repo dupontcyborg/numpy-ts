@@ -19,6 +19,7 @@ import {
   type Scalar,
   type TypedArray,
 } from './dtype';
+import { asFloat64, type NumericData, setConverted, storeFloat64 } from './numeric-buffer';
 import { array_str } from './ops/formatting';
 import * as shapeOps from './ops/shape';
 import { ArrayStorage, memoryOrder } from './storage';
@@ -75,7 +76,7 @@ export function rawOf<T extends NDArrayCore>(x: T): T {
  *   (the TypedArray store performs the ToIntN truncation).
  *
  * JS TypedArrays differ: they return 0 for inf/NaN and wrap (modular) for
- * out-of-range values on 32-bit types. This function pre-processes the value
+ * out-of-range values on 32-bit types. This function pre-processes the values
  * so that the subsequent TypedArray assignment produces the NumPy result.
  */
 const INT32_MAX = 2147483647;
@@ -88,26 +89,27 @@ const INT_RANGE: Record<string, [number, number]> = {
   uint32: [0, 4294967295],
 };
 
-function floatToInt(value: number, targetDtype: DType): number {
-  if (Number.isNaN(value)) return 0;
-
-  // Narrow types (8/16-bit): NumPy 2.x saturates to int32 range, then the
-  // TypedArray store does the ToIntN bit-truncation.
+function floatsToInt(values: Float64Array, size: number, targetDtype: DType): Float64Array {
+  // The bounds are looked up once: doing it per element costs a Set and an
+  // object lookup keyed by dtype string, which dominates the loop. Types with
+  // no saturation range keep infinite bounds and only truncate.
+  let min = -Infinity;
+  let max = Infinity;
   if (NARROW_INT_TARGETS.has(targetDtype)) {
-    if (value >= INT32_MAX || value === Infinity) return INT32_MAX;
-    if (value <= INT32_MIN || value === -Infinity) return INT32_MIN;
-    return Math.trunc(value);
+    // Narrow types (8/16-bit): NumPy 2.x saturates to int32 range, then the
+    // TypedArray store does the ToIntN bit-truncation.
+    min = INT32_MIN;
+    max = INT32_MAX;
+  } else if (targetDtype in INT_RANGE) {
+    // Wide types (32-bit): NumPy saturates at target bounds
+    [min, max] = INT_RANGE[targetDtype]!;
   }
-
-  // Wide types (32-bit): NumPy saturates at target bounds
-  if (targetDtype in INT_RANGE) {
-    const [min, max] = INT_RANGE[targetDtype]!;
-    if (value >= max || value === Infinity) return max;
-    if (value <= min || value === -Infinity) return min;
-    return Math.trunc(value);
+  const out = new Float64Array(size);
+  for (let i = 0; i < size; i++) {
+    const v = values[i]!;
+    out[i] = v !== v ? 0 : v >= max ? max : v <= min ? min : Math.trunc(v);
   }
-
-  return Math.trunc(value);
+  return out;
 }
 
 export class NDArrayCore<D extends DType = DType> {
@@ -458,9 +460,18 @@ export class NDArrayCore<D extends DType = DType> {
     if (!srcComplex && dstComplex) {
       const newData = new Constructor(size * 2);
       const typedNew = newData as Float64Array | Float32Array;
-      for (let i = 0; i < size; i++) {
-        typedNew[i * 2] = Number(this.data[i]!);
-        typedNew[i * 2 + 1] = 0;
+      if (isBigIntDType(currentDtype)) {
+        const big = this.data as BigInt64Array | BigUint64Array;
+        for (let i = 0; i < size; i++) {
+          typedNew[i * 2] = Number(big[i]!);
+          typedNew[i * 2 + 1] = 0;
+        }
+      } else {
+        const values = asFloat64(this.data as NumericData, size);
+        for (let i = 0; i < size; i++) {
+          typedNew[i * 2] = values[i]!;
+          typedNew[i * 2 + 1] = 0;
+        }
       }
       const storage = ArrayStorage.fromData(newData, shape, dtype);
       return this._wrap(storage);
@@ -493,9 +504,11 @@ export class NDArrayCore<D extends DType = DType> {
           (newData as Uint32Array)[i] = Number.isNaN(v) || v < 0 ? 0 : v;
         }
       } else {
+        const real = new Float64Array(size);
         for (let i = 0; i < size; i++) {
-          (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = oldData[i * 2]!;
+          real[i] = oldData[i * 2]!;
         }
+        storeFloat64(newData as NumericData, real);
       }
       const storage = ArrayStorage.fromData(newData, shape, dtype);
       return this._wrap(storage);
@@ -513,11 +526,11 @@ export class NDArrayCore<D extends DType = DType> {
         }
       } else if (isFloatDType(dtype)) {
         // bigint → float: Number(bigint) is the right conversion.
+        const values = new Float64Array(size);
         for (let i = 0; i < size; i++) {
-          (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = Number(
-            typedOldData[i],
-          );
+          values[i] = Number(typedOldData[i]);
         }
+        storeFloat64(newData as NumericData, values);
       } else {
         // bigint → narrow/wide int: NumPy keeps the low N bits of the source.
         // Number(2^63-class bigint) rounds to a multiple of 2^11 before the
@@ -525,14 +538,14 @@ export class NDArrayCore<D extends DType = DType> {
         // BigInt-space (low 32 bits) first; the TypedArray store performs the
         // final ToInt{8,16,32}/ToUint{8,16,32} truncation correctly from there.
         const MASK32 = 0xffffffffn;
+        const values = new Float64Array(size);
         for (let i = 0; i < size; i++) {
-          (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = Number(
-            typedOldData[i]! & MASK32,
-          );
+          values[i] = Number(typedOldData[i]! & MASK32);
         }
+        storeFloat64(newData as NumericData, values);
       }
     } else if (!isBigIntDType(currentDtype) && isBigIntDType(dtype)) {
-      const typedOldData = oldData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const values = asFloat64(oldData as NumericData, size);
       const isSourceFloat = isFloatDType(currentDtype);
       if (isSourceFloat) {
         // Float → BigInt: NaN→0, clamp to int64/uint64 range, then BigInt
@@ -540,7 +553,7 @@ export class NDArrayCore<D extends DType = DType> {
         const maxVal = isSigned ? BigInt('9223372036854775807') : BigInt('18446744073709551615');
         const minVal = isSigned ? BigInt('-9223372036854775808') : 0n;
         for (let i = 0; i < size; i++) {
-          const v = Number(typedOldData[i]);
+          const v = values[i]!;
           if (Number.isNaN(v)) {
             (newData as BigInt64Array | BigUint64Array)[i] = 0n;
           } else if (!Number.isFinite(v) || v >= Number(maxVal)) {
@@ -553,36 +566,27 @@ export class NDArrayCore<D extends DType = DType> {
         }
       } else {
         for (let i = 0; i < size; i++) {
-          (newData as BigInt64Array | BigUint64Array)[i] = BigInt(
-            Math.round(Number(typedOldData[i])),
-          );
+          (newData as BigInt64Array | BigUint64Array)[i] = BigInt(Math.round(values[i]!));
         }
       }
     } else if (dtype === 'bool') {
-      const typedOldData = oldData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const values = asFloat64(oldData as NumericData, size);
       for (let i = 0; i < size; i++) {
-        (newData as Uint8Array)[i] = typedOldData[i] !== 0 ? 1 : 0;
+        (newData as Uint8Array)[i] = values[i] !== 0 ? 1 : 0;
       }
     } else if (currentDtype === 'bool' && !isBigIntDType(dtype)) {
-      const typedOldData = oldData as Uint8Array;
-      for (let i = 0; i < size; i++) {
-        (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = typedOldData[i]!;
-      }
+      setConverted(newData as NumericData, oldData as Uint8Array, size);
     } else if (!isBigIntDType(currentDtype) && !isBigIntDType(dtype)) {
-      const typedOldData = oldData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const typedOldData = oldData as NumericData;
       const needsFloatToInt = isFloatDType(currentDtype) && !isFloatDType(dtype);
       if (needsFloatToInt) {
         // Float → integer: use NumPy-compatible conversion (saturation/truncation)
-        for (let i = 0; i < size; i++) {
-          (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = floatToInt(
-            typedOldData[i]!,
-            dtype,
-          );
-        }
+        storeFloat64(
+          newData as NumericData,
+          floatsToInt(asFloat64(typedOldData, size), size, dtype),
+        );
       } else {
-        for (let i = 0; i < size; i++) {
-          (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = typedOldData[i]!;
-        }
+        setConverted(newData as NumericData, typedOldData, size);
       }
     } else {
       const typedOldData = oldData as BigInt64Array | BigUint64Array;
