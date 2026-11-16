@@ -110,8 +110,9 @@ export function wasmArgpartitionSlices(
   axisSize: number,
   outerSize: number,
   kth: number,
-  dtype: DType,
+  inputDtype: DType,
 ): boolean {
+  const dtype = effectiveDType(inputDtype);
   if (axisSize < 2) return false;
 
   const sliceKernel = sliceKernels[dtype];

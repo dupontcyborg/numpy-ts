@@ -18,6 +18,7 @@ import {
   promote_types,
   wasmConfig,
 } from '../../src';
+import { hasFloat16 } from '../../src/common/dtype';
 import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
@@ -569,8 +570,11 @@ result = np.spacing(arr)
         ['uint16', [...intValues.filter((v) => v >= 0), 65535], 'uint16'],
         ['int32', [...intValues, 2 ** 31 - 1, -(2 ** 31)], 'int32'],
       ];
+      // Without native Float16Array these dtypes come back as float64 instead of float16.
+      const needsFloat16 = new Set(['float16', 'int8', 'uint8']);
       for (const [name, values, dtype] of exactCases) {
-        it(`spacing() matches NumPy exactly for ${name}`, () => {
+        const test = !hasFloat16 && needsFloat16.has(name) ? it.skip : it;
+        test(`spacing() matches NumPy exactly for ${name}`, () => {
           const result = array(values, dtype as 'float64').spacing();
           const npResult = runNumPy(`
 arr = np.array([${values.map(pyLiteral).join(', ')}]).astype(np.${dtype})

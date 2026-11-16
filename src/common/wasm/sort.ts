@@ -118,8 +118,9 @@ export function wasmSortSlices(
   sliceOffsets: Int32Array | number[],
   axisSize: number,
   outerSize: number,
-  dtype: DType,
+  inputDtype: DType,
 ): boolean {
+  const dtype = effectiveDType(inputDtype);
   if (axisSize < 2) return true;
 
   const sliceKernel = sliceKernels[dtype];
