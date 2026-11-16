@@ -18,12 +18,12 @@
 //!   u[m*m]: left singular vectors
 //!   s[k]:   singular values (descending)
 //!   vt[n*n]: right singular vectors transposed
-//!   work: scratch (needs m*n + n*n f64s)
+//!   work: scratch (needs m*n + n*n + 2*n f64s)
 
 /// Full SVD for f64 matrices: A[m×n] → U[m×m] · diag(S) · Vt[n×n].
 /// `a` is the input matrix (read-only; copied to work).
 /// `u` receives U[m×m], `s` receives singular values[k], `vt` receives V^T[n×n].
-/// `work` needs at least (m*n + n*n) f64s.
+/// `work` needs at least (m*n + n*n + 2*n) f64s.
 /// Singular values are sorted in descending order.
 export fn svd_f64(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: [*]f64, m_arg: u32, n_arg: u32) void {
     const M = @as(usize, m_arg);
@@ -105,11 +105,11 @@ export fn svd_f64(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: [
 
     // Singular values = column norms of W
     // Sort indices by singular value descending
-    var indices: [256]usize = undefined;
-    // The norms go in a local rather than in s: there are N of them and s only
-    // has room for K, so a wide matrix would write past the end of the caller's
-    // buffer. 256 is the same cap indices carries, and the wrapper enforces it.
-    var norms: [256]f64 = undefined;
+    // The norms and the sorted order live in the tail of work, past W and V, so the
+    // matrix size is not capped. The norms stay out of s because there are N of them
+    // and s only has room for K.
+    const norms = v + N * N;
+    const order: [*]u32 = @ptrCast(@alignCast(norms + N));
     for (0..N) |i| {
         var norm: f64 = 0;
         for (0..M) |r| {
@@ -117,31 +117,31 @@ export fn svd_f64(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: [
             norm += val * val;
         }
         norms[i] = @sqrt(norm);
-        indices[i] = i;
+        order[i] = @intCast(i);
     }
 
     // Selection sort by singular value descending
     for (0..N) |i| {
         var max_idx = i;
-        var max_val = norms[indices[i]];
+        var max_val = norms[order[i]];
         for (i + 1..N) |j| {
-            const val = norms[indices[j]];
+            const val = norms[order[j]];
             if (val > max_val) {
                 max_val = val;
                 max_idx = j;
             }
         }
         if (max_idx != i) {
-            const tmp = indices[i];
-            indices[i] = indices[max_idx];
-            indices[max_idx] = tmp;
+            const tmp = order[i];
+            order[i] = order[max_idx];
+            order[max_idx] = tmp;
         }
     }
 
     // Build V^T: rows are columns of V, sorted by descending singular value
     for (0..N) |i| {
         for (0..N) |j| {
-            vt[i * N + j] = v[j * N + indices[i]]; // V^T[i,j] = V[j, sorted_i]
+            vt[i * N + j] = v[j * N + order[i]]; // V^T[i,j] = V[j, sorted_i]
         }
     }
 
@@ -149,7 +149,7 @@ export fn svd_f64(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: [
     for (0..M * M) |i| u_out[i] = 0;
 
     for (0..K) |j| {
-        const col = indices[j];
+        const col = order[j];
         const sigma = norms[col];
         if (sigma > 1e-14) {
             for (0..M) |i| {
@@ -158,7 +158,7 @@ export fn svd_f64(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: [
         }
     }
 
-    for (0..K) |i| s[i] = norms[indices[i]];
+    for (0..K) |i| s[i] = norms[order[i]];
 
     // Complete U for remaining columns (m > n case) via Gram-Schmidt
     if (M > K) {
@@ -192,7 +192,7 @@ export fn svd_f64(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: [
 /// Same one-sided Jacobi algorithm as svd_f64 but in single precision throughout.
 /// `a` is the input matrix (read-only; copied to work).
 /// `u` receives U[m×m], `s` receives singular values[k], `vt` receives V^T[n×n].
-/// `work` needs at least (m*n + n*n) f32s.
+/// `work` needs at least (m*n + n*n + 2*n) f32s.
 /// Singular values are sorted in descending order.
 export fn svd_f32(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [*]f32, m_arg: u32, n_arg: u32) void {
     const M = @as(usize, m_arg);
@@ -274,11 +274,11 @@ export fn svd_f32(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [
 
     // Singular values = column norms of W
     // Sort indices by singular value descending
-    var indices: [256]usize = undefined;
-    // The norms go in a local rather than in s: there are N of them and s only
-    // has room for K, so a wide matrix would write past the end of the caller's
-    // buffer. 256 is the same cap indices carries, and the wrapper enforces it.
-    var norms: [256]f32 = undefined;
+    // The norms and the sorted order live in the tail of work, past W and V, so the
+    // matrix size is not capped. The norms stay out of s because there are N of them
+    // and s only has room for K.
+    const norms = v + N * N;
+    const order: [*]u32 = @ptrCast(@alignCast(norms + N));
     for (0..N) |i| {
         var norm: f32 = 0;
         for (0..M) |r| {
@@ -286,31 +286,31 @@ export fn svd_f32(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [
             norm += val * val;
         }
         norms[i] = @sqrt(norm);
-        indices[i] = i;
+        order[i] = @intCast(i);
     }
 
     // Selection sort by singular value descending
     for (0..N) |i| {
         var max_idx = i;
-        var max_val = norms[indices[i]];
+        var max_val = norms[order[i]];
         for (i + 1..N) |j| {
-            const val = norms[indices[j]];
+            const val = norms[order[j]];
             if (val > max_val) {
                 max_val = val;
                 max_idx = j;
             }
         }
         if (max_idx != i) {
-            const tmp = indices[i];
-            indices[i] = indices[max_idx];
-            indices[max_idx] = tmp;
+            const tmp = order[i];
+            order[i] = order[max_idx];
+            order[max_idx] = tmp;
         }
     }
 
     // Build V^T: rows are columns of V, sorted by descending singular value
     for (0..N) |i| {
         for (0..N) |j| {
-            vt[i * N + j] = v[j * N + indices[i]]; // V^T[i,j] = V[j, sorted_i]
+            vt[i * N + j] = v[j * N + order[i]]; // V^T[i,j] = V[j, sorted_i]
         }
     }
 
@@ -318,7 +318,7 @@ export fn svd_f32(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [
     for (0..M * M) |i| u_out[i] = 0;
 
     for (0..K) |j| {
-        const col = indices[j];
+        const col = order[j];
         const sigma = norms[col];
         if (sigma > 1e-6) {
             for (0..M) |i| {
@@ -327,7 +327,7 @@ export fn svd_f32(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [
         }
     }
 
-    for (0..K) |i| s[i] = norms[indices[i]];
+    for (0..K) |i| s[i] = norms[order[i]];
 
     // Complete U for remaining columns (m > n case) via Gram-Schmidt
     if (M > K) {
@@ -1684,7 +1684,7 @@ test "svd_f64 wide input stays inside s" {
     // column norms here instead of into a local would reach them.
     var s_guarded = [_]f64{-12345} ** N;
     var vt: [N * N]f64 = undefined;
-    var work: [M * N + N * N]f64 = undefined;
+    var work: [M * N + N * N + 2 * N]f64 = undefined;
     svd_f64(&a, &u, &s_guarded, &vt, &work, M, N);
     for (K..N) |i| try testing.expectEqual(@as(f64, -12345), s_guarded[i]);
 }
@@ -1698,7 +1698,23 @@ test "svd_f32 wide input stays inside s" {
     var u: [M * M]f32 = undefined;
     var s_guarded = [_]f32{-12345} ** N;
     var vt: [N * N]f32 = undefined;
-    var work: [M * N + N * N]f32 = undefined;
+    var work: [M * N + N * N + 2 * N]f32 = undefined;
     svd_f32(&a, &u, &s_guarded, &vt, &work, M, N);
     for (K..N) |i| try testing.expectEqual(@as(f32, -12345), s_guarded[i]);
+}
+
+test "svd_f64 handles more than 256 columns" {
+    const testing = @import("std").testing;
+    const N = 300;
+    var a: [N * N]f64 = undefined;
+    for (0..N) |i| {
+        for (0..N) |j| a[i * N + j] = if (i == j) @as(f64, @floatFromInt(i + 1)) else 0;
+    }
+    var u: [N * N]f64 = undefined;
+    var s: [N]f64 = undefined;
+    var vt: [N * N]f64 = undefined;
+    var work: [N * N + N * N + 2 * N]f64 = undefined;
+    svd_f64(&a, &u, &s, &vt, &work, N, N);
+    try testing.expectApproxEqAbs(@as(f64, N), s[0], 1e-9);
+    try testing.expectApproxEqAbs(@as(f64, 1), s[N - 1], 1e-9);
 }
