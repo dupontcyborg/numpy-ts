@@ -138,6 +138,66 @@ export fn sign_i8(a: [*]const i8, out: [*]i8, N: u32) void {
     }
 }
 
+/// Element-wise sign for u64 using 2-wide SIMD: returns 0 or 1.
+export fn sign_u64(a: [*]const u64, out: [*]u64, N: u32) void {
+    const zero: simd.V2u64 = @splat(0);
+    const one: simd.V2u64 = @splat(1);
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v = simd.load2_u64(a, i);
+        simd.store2_u64(out, i, @select(u64, v == zero, zero, one));
+    }
+    while (i < N) : (i += 1) {
+        out[i] = if (a[i] != 0) 1 else 0;
+    }
+}
+
+/// Element-wise sign for u32 using 4-wide SIMD: returns 0 or 1.
+export fn sign_u32(a: [*]const u32, out: [*]u32, N: u32) void {
+    const zero: simd.V4u32 = @splat(0);
+    const one: simd.V4u32 = @splat(1);
+    const n_simd = N & ~@as(u32, 3);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 4) {
+        const v = simd.load4_u32(a, i);
+        simd.store4_u32(out, i, @select(u32, v == zero, zero, one));
+    }
+    while (i < N) : (i += 1) {
+        out[i] = if (a[i] != 0) 1 else 0;
+    }
+}
+
+/// Element-wise sign for u16 using 8-wide SIMD: returns 0 or 1.
+export fn sign_u16(a: [*]const u16, out: [*]u16, N: u32) void {
+    const zero: simd.V8u16 = @splat(0);
+    const one: simd.V8u16 = @splat(1);
+    const n_simd = N & ~@as(u32, 7);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 8) {
+        const v = simd.load8_u16(a, i);
+        simd.store8_u16(out, i, @select(u16, v == zero, zero, one));
+    }
+    while (i < N) : (i += 1) {
+        out[i] = if (a[i] != 0) 1 else 0;
+    }
+}
+
+/// Element-wise sign for u8 using 16-wide SIMD: returns 0 or 1.
+export fn sign_u8(a: [*]const u8, out: [*]u8, N: u32) void {
+    const zero: simd.V16u8 = @splat(0);
+    const one: simd.V16u8 = @splat(1);
+    const n_simd = N & ~@as(u32, 15);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 16) {
+        const v = simd.load16_u8(a, i);
+        simd.store16_u8(out, i, @select(u8, v == zero, zero, one));
+    }
+    while (i < N) : (i += 1) {
+        out[i] = if (a[i] != 0) 1 else 0;
+    }
+}
+
 // --- Tests ---
 
 test "sign_f64 basic" {
@@ -227,4 +287,27 @@ test "sign_f16 basic" {
     try testing.expectEqual(out[1], 0xBC00); // sign(-2) = -1.0
     try testing.expectEqual(out[2], 0x0000); // sign(0) = 0
     try testing.expectEqual(out[3], 0x0000); // sign(-0) = 0
+}
+
+test "sign unsigned kernels" {
+    const testing = @import("std").testing;
+    const a8 = [_]u8{ 0, 1, 255, 0, 7, 0, 128, 3, 0, 9, 0, 0, 5, 200, 0, 1, 2, 0, 4 };
+    var o8: [19]u8 = undefined;
+    sign_u8(&a8, &o8, 19);
+    for (0..19) |i| try testing.expectEqual(@as(u8, if (a8[i] != 0) 1 else 0), o8[i]);
+
+    const a16 = [_]u16{ 0, 1, 65535, 0, 7, 0, 32768, 3, 0, 9, 4 };
+    var o16: [11]u16 = undefined;
+    sign_u16(&a16, &o16, 11);
+    for (0..11) |i| try testing.expectEqual(@as(u16, if (a16[i] != 0) 1 else 0), o16[i]);
+
+    const a32 = [_]u32{ 0, 1, 4294967295, 0, 7, 2147483648, 0 };
+    var o32: [7]u32 = undefined;
+    sign_u32(&a32, &o32, 7);
+    for (0..7) |i| try testing.expectEqual(@as(u32, if (a32[i] != 0) 1 else 0), o32[i]);
+
+    const a64 = [_]u64{ 0, 1, 18446744073709551615, 0, 9223372036854775808 };
+    var o64: [5]u64 = undefined;
+    sign_u64(&a64, &o64, 5);
+    for (0..5) |i| try testing.expectEqual(@as(u64, if (a64[i] != 0) 1 else 0), o64[i]);
 }

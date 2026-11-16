@@ -243,6 +243,29 @@ describe('Mathematical Operations', () => {
   });
 
   describe('sign', () => {
+    it.each(['uint8', 'uint16', 'uint32', 'uint64'] as const)(
+      'maps unsigned %s to 0 or 1 past the WASM size threshold',
+      (dtype) => {
+        const big = dtype === 'uint64';
+        const max = {
+          uint8: 255,
+          uint16: 65535,
+          uint32: 4294967295,
+          uint64: 18446744073709551615n,
+        }[dtype];
+        const values = Array.from({ length: 101 }, (_, i) => {
+          const v = i % 4 === 0 ? 0 : i % 4 === 1 ? 1 : i % 4 === 2 ? max : 7;
+          return big ? BigInt(v) : (v as number);
+        });
+        const result = sign(array(values as number[], dtype));
+        expect(result.dtype).toBe(dtype);
+        const expected = values.map((v) => (v === 0 || v === 0n ? 0 : 1));
+        expect(Array.from(result.toArray() as ArrayLike<number | bigint>, Number)).toEqual(
+          expected,
+        );
+      },
+    );
+
     it('returns sign of values (-1, 0, 1)', () => {
       const arr = array([-5, -0.5, 0, 0.5, 5]);
       const result = sign(arr);
