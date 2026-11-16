@@ -31,6 +31,9 @@ export function setupArrays(setup: BenchmarkSetup, operation?: string): Record<s
         arrays[key] = shape;
         // Store dtype for operations that need it (e.g., randint)
         if (dtype) arrays['dtype'] = dtype;
+      } else if (key === 'n') {
+        // Count-driven creation ops (arange, linspace, eye, ...) take their dtype from here
+        arrays['dtype'] = dtype;
       }
       continue;
     }
@@ -97,6 +100,25 @@ export function setupArrays(setup: BenchmarkSetup, operation?: string): Record<s
       const flat = np.arange(0, size, 1, dtype);
       arrays[key] = np.reshape(flat, shape);
       flat.dispose();
+    } else if (fill === 'complex_invertible') {
+      // Diagonally dominant; real and imaginary parts use different periods so no two rows repeat
+      const n = shape[0];
+      const size = shape.reduce((a: number, b: number) => a * b, 1);
+      const vals = [];
+      for (let i = 0; i < size; i++) {
+        const onDiagonal = Math.floor(i / n) === i % n;
+        vals.push(new np.Complex((i % 13) + 1 + (onDiagonal ? n * n : 0), (i % 7) + 1));
+      }
+      const flat = np.array(vals);
+      const reshaped = np.reshape(flat, shape);
+      flat.dispose();
+      if (dtype === 'complex64') {
+        const casted = np.asarray(reshaped, 'complex64');
+        reshaped.dispose();
+        arrays[key] = casted;
+      } else {
+        arrays[key] = reshaped;
+      }
     } else if (fill === 'invertible') {
       const n = shape[0];
       const size = shape.reduce((a: number, b: number) => a * b, 1);
@@ -162,16 +184,16 @@ export type OpFn = (arrays: Record<string, any>) => any;
 
 const OPERATIONS: Record<string, OpFn> = {
   // Array creation
-  zeros: (a) => np.zeros(a['shape']),
-  ones: (a) => np.ones(a['shape']),
-  empty: (a) => np.empty(a['shape']),
-  full: (a) => np.full(a['shape'], a['fill_value']),
-  arange: (a) => np.arange(0, a['n'], 1),
-  linspace: (a) => np.linspace(0, 100, a['n']),
-  logspace: (a) => np.logspace(0, 3, a['n']),
-  geomspace: (a) => np.geomspace(1, 1000, a['n']),
-  eye: (a) => np.eye(a['n']),
-  identity: (a) => np.identity(a['n']),
+  zeros: (a) => np.zeros(a['shape'], a['dtype']),
+  ones: (a) => np.ones(a['shape'], a['dtype']),
+  empty: (a) => np.empty(a['shape'], a['dtype']),
+  full: (a) => np.full(a['shape'], a['fill_value'], a['dtype']),
+  arange: (a) => np.arange(0, a['n'], 1, a['dtype']),
+  linspace: (a) => np.linspace(0, 100, a['n'], a['dtype']),
+  logspace: (a) => np.logspace(0, 3, a['n'], 10, a['dtype']),
+  geomspace: (a) => np.geomspace(1, 1000, a['n'], a['dtype']),
+  eye: (a) => np.eye(a['n'], undefined, 0, a['dtype']),
+  identity: (a) => np.identity(a['n'], a['dtype']),
   copy: (a) => np.copy(a['a']),
   zeros_like: (a) => np.zeros_like(a['a']),
   ones_like: (a) => np.ones_like(a['a']),
@@ -191,11 +213,13 @@ const OPERATIONS: Record<string, OpFn> = {
   fabs: (a) => np.fabs(a['a']),
   divmod: (a) => np.divmod(a['a'], a['b']),
   gcd: (a) => {
-    const scalar = a['b'].size === 1 ? a['b'].get([0]) : a['b'];
+    // The scalar overload takes a number; get() returns a BigInt for 64-bit dtypes.
+    const scalar = a['b'].size === 1 ? Number(a['b'].get([0])) : a['b'];
     return np.gcd(a['a'], scalar);
   },
   lcm: (a) => {
-    const scalar = a['b'].size === 1 ? a['b'].get([0]) : a['b'];
+    // The scalar overload takes a number; get() returns a BigInt for 64-bit dtypes.
+    const scalar = a['b'].size === 1 ? Number(a['b'].get([0])) : a['b'];
     return np.lcm(a['a'], scalar);
   },
   float_power: (a) => {
@@ -373,7 +397,7 @@ const OPERATIONS: Record<string, OpFn> = {
 
   // Creation - misc
   diag: (a) => np.diag(a['a']),
-  tri: (a) => np.tri(a['shape'][0], a['shape'][1]),
+  tri: (a) => np.tri(a['shape'][0], a['shape'][1], 0, a['dtype']),
   tril: (a) => np.tril(a['a']),
   triu: (a) => np.triu(a['a']),
 
