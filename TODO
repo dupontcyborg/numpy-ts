@@ -71,6 +71,7 @@
 ## P2
 
 - [ ] Comment/docs cleanup
+- [ ] Add Node 26 LTS to CI/CD
 - [ ] Remove JS functions and make WASM handle all cases (no minimum threshold; non-contiguous support)
 - [ ] Growable WASM memory. Replace the fixed 256 MiB heap (`initial === maximum`) with a small heap that grows when `heap_malloc` fails, which removes the 256 MiB default, the need for `configureWasm()` before first use, and the one-way fall back to JS when the heap fills. Pairs with the item above: Zig runs every op at every size, and JS shrinks to one generic strided loop per op family, used only when growth fails at `maximum` or 4 GB (warn once).
     - Where `WebAssembly.Memory.prototype.toResizableBuffer()` exists (Chrome 144+, Firefox 145+, Safari 26.2, Node 26), convert once at memory creation. Fixed-length views on the resizable buffer survive `grow()` and `mem.buffer` keeps its identity. Kernels are built with `--import-memory` and no `--max-memory`, so they accept any maximum
