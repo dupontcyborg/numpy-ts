@@ -2835,6 +2835,57 @@ export function arctanh<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<
   return up(core.arctanh(x)) as NDArray<MathResult<D>>;
 }
 
+/** Alias for power */
+export const pow = power;
+
+/** Alias for absolute */
+export const abs = absolute;
+
+/** Alias for divide */
+export const true_divide = divide;
+
+/** Alias for conj */
+export const conjugate = conj;
+
+/** Alias for max */
+export const amax = max;
+
+/** Alias for min */
+export const amin = min;
+
+/** Alias for variance */
+export const var_ = variance;
+
+/** Alias for cumsum */
+export const cumulative_sum = cumsum;
+
+/** Alias for cumprod */
+export const cumulative_prod = cumprod;
+
+/** Alias for vstack */
+export const row_stack = vstack;
+
+/** Alias for arcsin */
+export const asin = arcsin;
+
+/** Alias for arccos */
+export const acos = arccos;
+
+/** Alias for arctan */
+export const atan = arctan;
+
+/** Alias for arctan2 */
+export const atan2 = arctan2;
+
+/** Alias for arcsinh */
+export const asinh = arcsinh;
+
+/** Alias for arccosh */
+export const acosh = arccosh;
+
+/** Alias for arctanh */
+export const atanh = arctanh;
+
 /** Linear algebra namespace (numpy.linalg); results are NDArray */
 export const linalg = {
   /** Matrix multiplication */
@@ -2990,23 +3041,13 @@ export { hasFloat16 } from '../common/dtype';
 export { wasmConfig } from '../common/wasm/config';
 export { configureWasm, wasmFreeBytes } from '../common/wasm/runtime';
 export {
-  abs,
-  acos,
-  acosh,
   allclose,
-  amax,
-  amin,
   array_equal,
   array_equiv,
   array_repr,
   array_split,
   array_str,
   array2string,
-  asin,
-  asinh,
-  atan,
-  atan2,
-  atanh,
   base_repr,
   binary_repr,
   broadcast_arrays,
@@ -3014,11 +3055,8 @@ export {
   byteswap,
   can_cast,
   common_type,
-  conjugate,
   copyto,
   count_nonzero,
-  cumulative_prod,
-  cumulative_sum,
   dsplit,
   einsum,
   einsum_path,
@@ -3048,14 +3086,12 @@ export {
   mintypecode,
   ndim,
   place,
-  pow,
   printoptions,
   promote_types,
   put,
   put_along_axis,
   putmask,
   result_type,
-  row_stack,
   searchsorted,
   set_printoptions,
   seterr,
@@ -3066,12 +3102,10 @@ export {
   tobytes,
   tofile,
   tolist,
-  true_divide,
   typename,
   unique_all,
   unique_counts,
   unique_inverse,
-  var_,
   vdot,
   view,
   vsplit,

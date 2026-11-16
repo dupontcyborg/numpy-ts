@@ -8,6 +8,7 @@
  * to keep the codebase modular and testable.
  */
 
+import { broadcastPair } from '../broadcasting';
 import type { Complex } from '../complex';
 import {
   type DType,
@@ -504,6 +505,7 @@ export function arctan2(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
  * @private
  */
 function arctan2Array(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  [x1, x2] = broadcastPair(x1, x2);
   const wasmResult = wasmArctan2(x1, x2);
   if (wasmResult) return wasmResult;
 
@@ -619,6 +621,7 @@ export function hypot(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
  * @private
  */
 function hypotArray(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  [x1, x2] = broadcastPair(x1, x2);
   const wasmResult = wasmHypot(x1, x2);
   if (wasmResult) return wasmResult;
 

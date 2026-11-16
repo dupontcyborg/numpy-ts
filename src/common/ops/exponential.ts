@@ -8,7 +8,7 @@
  * to keep the codebase modular and testable.
  */
 
-import { broadcastTo } from '../broadcasting';
+import { broadcastPair, broadcastTo } from '../broadcasting';
 import type { Complex } from '../complex';
 import {
   type DType,
@@ -838,11 +838,12 @@ export function logaddexp(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
  * @private
  */
 function logaddexpArray(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  [x1, x2] = broadcastPair(x1, x2);
   const wasmResult = wasmLogaddexp(x1, x2);
   if (wasmResult) return wasmResult;
 
-  const outputShape = broadcastShapes(x1.shape, x2.shape);
-  const size = outputShape.reduce((a, b) => a * b, 1);
+  const outputShape = Array.from(x1.shape);
+  const size = x1.size;
   const dtype1 = x1.dtype;
   const dtype2 = x2.dtype;
 
@@ -961,11 +962,12 @@ export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArraySt
  * @private
  */
 function logaddexp2Array(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  [x1, x2] = broadcastPair(x1, x2);
   const wasmResult = wasmLogaddexp2(x1, x2);
   if (wasmResult) return wasmResult;
 
-  const outputShape = broadcastShapes(x1.shape, x2.shape);
-  const size = outputShape.reduce((a, b) => a * b, 1);
+  const outputShape = Array.from(x1.shape);
+  const size = x1.size;
   const dtype1 = x1.dtype;
   const dtype2 = x2.dtype;
 

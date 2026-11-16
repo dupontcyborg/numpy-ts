@@ -8,7 +8,7 @@
  * to keep the codebase modular and testable.
  */
 
-import { broadcastShapes, broadcastTo } from '../broadcasting';
+import { broadcastPair, broadcastShapes, broadcastTo } from '../broadcasting';
 import type { Complex } from '../complex';
 import type { DType } from '../dtype';
 import {
@@ -1361,8 +1361,19 @@ export function mod(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   const wasmArr = wasmMod(a, b);
   if (wasmArr) return wasmArr;
 
-  // NumPy uses floor modulo: ((x % y) + y) % y for proper sign handling
-  return elementwiseBinaryOp(a, b, (x, y) => ((x % y) + y) % y, 'mod');
+  return elementwiseBinaryOp(a, b, floorMod, 'mod');
+}
+
+/**
+ * Floor modulo the way NumPy computes it: C fmod (JS %, which is exact), then
+ * shifted into the divisor's sign. The shorter ((x % y) + y) % y loses x % y
+ * whenever y dwarfs it and gives NaN for an infinite y.
+ * @private
+ */
+function floorMod(x: number, y: number): number {
+  const r = x % y;
+  if (r === 0) return y < 0 ? -0 : 0;
+  return r < 0 !== y < 0 ? r + y : r;
 }
 
 /**
@@ -1403,12 +1414,12 @@ function modScalar(storage: ArrayStorage, divisor: number): ArrayStorage {
     if (contiguous) {
       for (let i = 0; i < size; i++) {
         const val = Number(data[off + i]!);
-        resultData[i] = ((val % divisor) + divisor) % divisor;
+        resultData[i] = floorMod(val, divisor);
       }
     } else {
       for (let i = 0; i < size; i++) {
         const val = Number(storage.iget(i));
-        resultData[i] = ((val % divisor) + divisor) % divisor;
+        resultData[i] = floorMod(val, divisor);
       }
     }
   }
@@ -1839,6 +1850,11 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
       'Heaviside step function is not defined for complex numbers.',
     );
   }
+  // A size-1 x2 that adds no dimensions takes the scalar path below; anything
+  // else is broadcast up front so the loops can index both operands by i.
+  if (typeof x2 !== 'number' && !(x2.size === 1 && x2.shape.length <= x1.shape.length)) {
+    [x1, x2] = broadcastPair(x1, x2);
+  }
   const x2Dtype = typeof x2 === 'number' ? x1.dtype : x2.dtype;
   const shape = Array.from(x1.shape);
   const size = x1.size;
@@ -1890,55 +1906,40 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
       }
       return result;
     } else {
-      // Array x2 - needs to broadcast
-      const x2Shape = x2.shape;
+      // Array x2, already broadcast to x1's shape
       const x2Float =
         x2.dtype === wasmDtype ? x2 : convertToFloatDType(x2, wasmDtype as 'float32' | 'float64');
 
       try {
-        // Simple case: same shape
-        if (shape.every((d, i) => d === x2Shape[i])) {
-          // Try WASM binary path
-          const wasmResult = wasmHeaviside(x1Float, x2Float, wasmDtype as 'float64' | 'float32');
-          if (wasmResult) {
-            if (resultDtype === 'float16') {
-              const f16 = ArrayStorage.empty(Array.from(wasmResult.shape), 'float16');
-              (f16.data as unknown as Float16Array).set(wasmResult.data as Float32Array);
-              wasmResult.dispose();
-              return f16;
-            }
-            return wasmResult;
+        const wasmResult = wasmHeaviside(x1Float, x2Float, wasmDtype as 'float64' | 'float32');
+        if (wasmResult) {
+          if (resultDtype === 'float16') {
+            const f16 = ArrayStorage.empty(Array.from(wasmResult.shape), 'float16');
+            (f16.data as unknown as Float16Array).set(wasmResult.data as Float32Array);
+            wasmResult.dispose();
+            return f16;
           }
+          return wasmResult;
+        }
 
-          const result = ArrayStorage.empty(shape, resultDtype);
-          const resultData = result.data;
-          if (x1Float.isCContiguous && x2Float.isCContiguous) {
-            const x1Data = x1Float.data;
-            const x1Off = x1Float.offset;
-            const x2Data = x2Float.data;
-            const x2Off = x2Float.offset;
-            for (let i = 0; i < size; i++) {
-              const val = x1Data[x1Off + i] as number;
-              resultData[i] = val < 0 ? 0 : val === 0 ? (x2Data[x2Off + i] as number) : 1;
-            }
-          } else {
-            for (let i = 0; i < size; i++) {
-              const val = Number(x1.iget(i));
-              resultData[i] = val < 0 ? 0 : val === 0 ? Number(x2.iget(i)) : 1;
-            }
+        const result = ArrayStorage.empty(shape, resultDtype);
+        const resultData = result.data;
+        if (x1Float.isCContiguous && x2Float.isCContiguous) {
+          const x1Data = x1Float.data;
+          const x1Off = x1Float.offset;
+          const x2Data = x2Float.data;
+          const x2Off = x2Float.offset;
+          for (let i = 0; i < size; i++) {
+            const val = x1Data[x1Off + i] as number;
+            resultData[i] = val < 0 ? 0 : val === 0 ? (x2Data[x2Off + i] as number) : 1;
           }
-          return result;
         } else {
-          // Broadcasting case
-          const result = ArrayStorage.empty(shape, resultDtype);
-          const resultData = result.data;
           for (let i = 0; i < size; i++) {
             const val = Number(x1.iget(i));
-            const x2Idx = i % x2.size;
-            resultData[i] = val < 0 ? 0 : val === 0 ? Number(x2.iget(x2Idx)) : 1;
+            resultData[i] = val < 0 ? 0 : val === 0 ? Number(x2.iget(i)) : 1;
           }
-          return result;
         }
+        return result;
       } finally {
         if (x2Float !== x2) x2Float.dispose();
       }
@@ -1955,6 +1956,7 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
  * @returns Result in float64
  */
 export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (typeof x2 !== 'number') [x1, x2] = broadcastPair(x1, x2);
   const dtype1 = x1.dtype;
 
   // Complex float_power: z1^z2 = exp(z2 * log(z1))
@@ -2145,7 +2147,7 @@ export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
   const wasmArr = wasmFmod(x1, x2);
   if (wasmArr) return wasmArr;
 
-  return elementwiseBinaryOp(x1, x2, (a, b) => a - Math.trunc(a / b) * b, 'fmod');
+  return elementwiseBinaryOp(x1, x2, truncMod, 'fmod');
 }
 
 /**
@@ -2167,10 +2169,23 @@ function fmodScalar(x1: ArrayStorage, x2: number): ArrayStorage {
   }
   for (let i = 0; i < size; i++) {
     const val = Number(resultData[i]!);
-    resultData[i] = val - Math.trunc(val / x2) * x2;
+    resultData[i] = truncMod(val, x2);
   }
 
   return result;
+}
+
+/**
+ * C fmod. The quotient formula is much faster than JS % on doubles, and it is
+ * exact whenever its result lands in range with the dividend's sign. An infinite
+ * divisor or a quotient past the mantissa breaks that, so those fall back to %.
+ * @private
+ */
+function truncMod(x: number, y: number): number {
+  const r = x - Math.trunc(x / y) * y;
+  if (r === 0) return x < 0 || Object.is(x, -0) ? -0 : 0;
+  if (Math.abs(r) < Math.abs(y) && r < 0 === x < 0) return r;
+  return x % y;
 }
 
 /**
@@ -2501,8 +2516,8 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
 
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'ldexp', 'ldexp is not defined for complex numbers.');
-    // Extract scalar from size-1 array
-    if (x2.size === 1) {
+    // Extract scalar from size-1 array, unless it would add dimensions
+    if (x2.size === 1 && x2.shape.length <= x1.shape.length) {
       return ldexp(x1, Number(x2.iget(0)));
     }
   }
@@ -2546,6 +2561,7 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
   }
 
   // Array x2: output dtype follows x1 only (not standard binary promotion)
+  [x1, x2] = broadcastPair(x1, x2);
   const resultDtype = mathResultDtype(x1.dtype);
   const result = ArrayStorage.empty(Array.from(x1.shape), resultDtype);
   const resultData = result.data;
@@ -3013,9 +3029,16 @@ export function nan_to_num(
   const shape = Array.from(x.shape);
   const size = x.size;
 
-  // Default to dtype max/min values
-  const posinfVal = posinf !== undefined ? posinf : Number.MAX_VALUE;
-  const neginfVal = neginf !== undefined ? neginf : -Number.MAX_VALUE;
+  // Default to the largest finite value of the float (or complex component)
+  // dtype; a float64 maximum would overflow back to inf in a narrower array.
+  const finiteMax =
+    dtype === 'float16'
+      ? 65504
+      : dtype === 'float32' || dtype === 'complex64'
+        ? 3.4028234663852886e38
+        : Number.MAX_VALUE;
+  const posinfVal = posinf !== undefined ? posinf : finiteMax;
+  const neginfVal = neginf !== undefined ? neginf : -finiteMax;
 
   if (isComplexDType(dtype)) {
     // Apply nan_to_num to real and imaginary parts independently
@@ -3046,15 +3069,17 @@ export function nan_to_num(
 
   const result = ArrayStorage.empty(shape, dtype);
   const resultData = result.data;
-  const xData = x.data;
+  const src = x.isCContiguous ? x : x.copy();
+  const xData = src.data;
+  const off = src.offset;
 
   if (isIntegerDType(dtype)) {
     // Integer types can never contain NaN or Inf, just bulk copy
     // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
-    (resultData as any).set((xData as any).subarray(x.offset, x.offset + size));
+    (resultData as any).set((xData as any).subarray(off, off + size));
   } else {
     for (let i = 0; i < size; i++) {
-      const val = Number(xData[i]!);
+      const val = Number(xData[off + i]!);
       if (Number.isNaN(val)) {
         resultData[i] = nan;
       } else if (val === Infinity) {
@@ -3067,6 +3092,7 @@ export function nan_to_num(
     }
   }
 
+  if (src !== x) src.dispose();
   return result;
 }
 

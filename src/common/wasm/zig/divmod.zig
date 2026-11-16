@@ -1,47 +1,62 @@
 //! Fused divmod scalar kernels: compute floor quotient and floor remainder in one pass.
 //!
 //! out_q[i] = floor(a[i] / scalar)
-//! out_r[i] = a[i] - out_q[i] * scalar   (floor modulo, same sign as divisor)
+//! out_r[i] = a[i] - out_q[i] * scalar   (floor modulo, same sign as divisor; lanes
+//!           where that goes wrong are recomputed by float_rem.zig)
 //!
 //! For float types, uses @floor. For integer types, reads native int, converts
 //! to f64, computes, then writes f64 results (NumPy promotes int→float64).
 
 const simd = @import("simd.zig");
+const frem = @import("float_rem.zig");
+
+/// Fused float divmod: 2-wide f64 or 4-wide f32 SIMD. The divisor for element
+/// i is b[i * b_stride], so a scalar divisor passes a pointer to itself with
+/// stride 0. Remainder lanes that float_rem.zig flags are repaired in a second
+/// pass, only when there are any.
+inline fn divmodFloat(comptime T: type, a: [*]const T, b: [*]const T, comptime b_stride: u32, out_q: [*]T, out_r: [*]T, N: u32) void {
+    const n = if (T == f64) 2 else 4;
+    const V = @Vector(n, T);
+    const n_simd = N & ~@as(u32, n - 1);
+    var bad: @Vector(n, bool) = @splat(false);
+    var i: u32 = 0;
+    if (b_stride == 0 and frem.isInf(T, b[0])) {
+        while (i < N) : (i += 1) {
+            out_q[i] = @floor(a[i] / b[0]);
+            out_r[i] = frem.floorRem(T, a[i], b[0]);
+        }
+        return;
+    }
+    while (i < n_simd) : (i += n) {
+        const v: V = if (T == f64) simd.load2_f64(a, i) else simd.load4_f32(a, i);
+        const s: V = if (b_stride == 0) @splat(b[0]) else if (T == f64) simd.load2_f64(b, i) else simd.load4_f32(b, i);
+        const q = @floor(v / s);
+        const r = if (T == f64) simd.nmulAdd_f64x2(q, s, v) else simd.nmulAdd_f32x4(q, s, v); // v − q·s
+        if (b_stride != 0) frem.flag(V, r, &bad);
+        if (T == f64) {
+            simd.store2_f64(out_q, i, q);
+            simd.store2_f64(out_r, i, r);
+        } else {
+            simd.store4_f32(out_q, i, q);
+            simd.store4_f32(out_r, i, r);
+        }
+    }
+    if (@reduce(.Or, bad)) frem.repairFloor(T, a, b, b_stride, out_r, n_simd);
+    while (i < N) : (i += 1) {
+        const s = b[i * b_stride];
+        out_q[i] = @floor(a[i] / s);
+        out_r[i] = frem.floorRem(T, a[i], s);
+    }
+}
 
 /// Fused divmod scalar for f64: 2-wide SIMD.
 export fn divmod_scalar_f64(a: [*]const f64, out_q: [*]f64, out_r: [*]f64, N: u32, scalar: f64) void {
-    const s: simd.V2f64 = @splat(scalar);
-    const n_simd = N & ~@as(u32, 1);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        const v = simd.load2_f64(a, i);
-        const q = @floor(v / s);
-        simd.store2_f64(out_q, i, q);
-        simd.store2_f64(out_r, i, v - q * s);
-    }
-    while (i < N) : (i += 1) {
-        const q = @floor(a[i] / scalar);
-        out_q[i] = q;
-        out_r[i] = a[i] - q * scalar;
-    }
+    divmodFloat(f64, a, @ptrCast(&scalar), 0, out_q, out_r, N);
 }
 
 /// Fused divmod scalar for f32: 4-wide SIMD.
 export fn divmod_scalar_f32(a: [*]const f32, out_q: [*]f32, out_r: [*]f32, N: u32, scalar: f32) void {
-    const s: simd.V4f32 = @splat(scalar);
-    const n_simd = N & ~@as(u32, 3);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 4) {
-        const v = simd.load4_f32(a, i);
-        const q = @floor(v / s);
-        simd.store4_f32(out_q, i, q);
-        simd.store4_f32(out_r, i, v - q * s);
-    }
-    while (i < N) : (i += 1) {
-        const q = @floor(a[i] / scalar);
-        out_q[i] = q;
-        out_r[i] = a[i] - q * scalar;
-    }
+    divmodFloat(f32, a, @ptrCast(&scalar), 0, out_q, out_r, N);
 }
 
 /// Integer divmod scalar for i64. Keeps i64 dtype.
@@ -160,38 +175,12 @@ export fn divmod_scalar_u8(a: [*]const u8, out_q: [*]u8, out_r: [*]u8, N: u32, s
 
 /// Fused divmod for f64 arrays: 2-wide SIMD.
 export fn divmod_f64(a: [*]const f64, b: [*]const f64, out_q: [*]f64, out_r: [*]f64, N: u32) void {
-    const n_simd = N & ~@as(u32, 1);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        const v = simd.load2_f64(a, i);
-        const s = simd.load2_f64(b, i);
-        const q = @floor(v / s);
-        simd.store2_f64(out_q, i, q);
-        simd.store2_f64(out_r, i, v - q * s);
-    }
-    while (i < N) : (i += 1) {
-        const q = @floor(a[i] / b[i]);
-        out_q[i] = q;
-        out_r[i] = a[i] - q * b[i];
-    }
+    divmodFloat(f64, a, b, 1, out_q, out_r, N);
 }
 
 /// Fused divmod for f32 arrays: 4-wide SIMD.
 export fn divmod_f32(a: [*]const f32, b: [*]const f32, out_q: [*]f32, out_r: [*]f32, N: u32) void {
-    const n_simd = N & ~@as(u32, 3);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 4) {
-        const v = simd.load4_f32(a, i);
-        const s = simd.load4_f32(b, i);
-        const q = @floor(v / s);
-        simd.store4_f32(out_q, i, q);
-        simd.store4_f32(out_r, i, v - q * s);
-    }
-    while (i < N) : (i += 1) {
-        const q = @floor(a[i] / b[i]);
-        out_q[i] = q;
-        out_r[i] = a[i] - q * b[i];
-    }
+    divmodFloat(f32, a, b, 1, out_q, out_r, N);
 }
 
 /// Integer divmod for arrays. Division by zero writes 0/0, matching the

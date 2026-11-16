@@ -1240,6 +1240,7 @@ function generateIndexFile(
   allFunctions: Map<string, FunctionInfo>,
   wrappedFunctions: Set<string>,
   reexportedFunctions: Set<string>,
+  wrappedAliases: Map<string, string>,
   linalgCode: string,
   coreImportPath: string = '../core',
   outputFile: string = INDEX_OUTPUT_FILE,
@@ -1335,6 +1336,12 @@ export { Complex } from '../common/complex';
       output.push(generateWrapperFunction(info, ''));
       output.push('');
     }
+  }
+
+  for (const [name, target] of wrappedAliases) {
+    output.push(`/** Alias for ${target} */`);
+    output.push(`export const ${name} = ${target};`);
+    output.push('');
   }
 
   output.push(linalgCode);
@@ -1729,6 +1736,8 @@ async function main() {
 
   // Track const exports separately
   const constExports: Set<string> = new Set();
+  // `export const amax = max` style aliases, resolved once every wrapper is known
+  const aliasTargets: Map<string, string> = new Map();
 
   for (const file of coreFiles) {
     const filePath = path.join(CORE_DIR, file);
@@ -1756,7 +1765,12 @@ async function main() {
       for (const decl of varStatement.getDeclarations()) {
         const name = decl.getName();
         constExports.add(name);
-        reexportedFunctions.add(name);
+        const init = decl.getInitializer();
+        if (init?.getKind() === SyntaxKind.Identifier) {
+          aliasTargets.set(name, init.getText());
+        } else {
+          reexportedFunctions.add(name);
+        }
       }
     }
 
@@ -1765,11 +1779,20 @@ async function main() {
     );
   }
 
+  // An alias of a wrapped function has to point at the wrapper; re-exporting
+  // it from core would hand back a bare NDArrayCore.
+  const wrappedAliases: Map<string, string> = new Map();
+  for (const [name, target] of aliasTargets) {
+    if (wrappedFunctions.has(target)) wrappedAliases.set(name, target);
+    else reexportedFunctions.add(name);
+  }
+
   // Generate full/ files
   generateIndexFile(
     allFunctions,
     wrappedFunctions,
     reexportedFunctions,
+    wrappedAliases,
     generateLinalgNamespace(project),
     '../core',
     INDEX_OUTPUT_FILE,

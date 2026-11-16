@@ -6,7 +6,7 @@
  */
 
 import type { Complex } from '../complex';
-import { type DType, hasFloat16, isBigIntDType, isComplexDType } from '../dtype';
+import { type DType, hasFloat16, isBigIntDType, isComplexDType, promoteDTypes } from '../dtype';
 import { sortedCopy, writeInterleaved } from '../internal/dtype-loops';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { ArrayStorage } from '../storage';
@@ -19,6 +19,7 @@ import { wasmPartition, wasmPartitionSlices } from '../wasm/partition';
 import { wasmReduceCountNz } from '../wasm/reduce_count_nz';
 import { wasmSearchsorted } from '../wasm/searchsorted';
 import { wasmSort, wasmSortSlices } from '../wasm/sort';
+import { castStorage } from './shape';
 
 /**
  * Check if a value at index i is non-zero (truthy)
@@ -1433,6 +1434,20 @@ export function where(
     throw new Error('either both or neither of x and y should be given');
   }
 
+  // NumPy promotes x and y together. Casting both up front lets every path
+  // below copy elements of one shared dtype.
+  const dtype = promoteDTypes(x.dtype, y.dtype);
+  if (x.dtype !== dtype || y.dtype !== dtype) {
+    const xc = castStorage(x, dtype);
+    const yc = castStorage(y, dtype);
+    try {
+      return where(condition, xc, yc);
+    } finally {
+      if (xc !== x) xc.dispose();
+      if (yc !== y) yc.dispose();
+    }
+  }
+
   // WASM fast path: same shape, contiguous, non-complex, non-broadcast
   if (
     condition.size === x.size &&
@@ -1480,7 +1495,6 @@ export function where(
     resultShape.push(maxDim);
   }
 
-  // Use float64 for result dtype (could be improved to handle dtype promotion)
   const resultDtype = x.dtype as DType;
   const result = ArrayStorage.zeros(resultShape, resultDtype);
   const resultData = result.data;

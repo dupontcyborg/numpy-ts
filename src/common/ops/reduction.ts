@@ -1950,6 +1950,15 @@ export function variance(
   const off = storage.offset;
   const inputStrides = storage.strides;
 
+  // Reducing the only axis of a 1-D array is a full reduction, and mean returns
+  // a scalar for it, so the per-axis path below has no array to work with.
+  if (axis !== undefined && ndim === 1 && !keepdims) {
+    if (axis !== 0 && axis !== -1) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension 1`);
+    }
+    return variance(storage, undefined, ddof);
+  }
+
   // Compute mean for var.
   // NumPy's var does NOT promote f16→f32 for its internal mean (unlike standalone mean()),
   // so f16 sum can overflow → inf mean → inf var. We must match this behavior.

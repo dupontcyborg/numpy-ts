@@ -5,6 +5,7 @@
  * imported independently for optimal tree-shaking.
  */
 
+import { type DType, isComplexDType, isFloatDType, isIntegerDType } from '../common/dtype';
 import { normalizeAxisTuple } from '../common/internal/indexing';
 import * as reductionOps from '../common/ops/reduction';
 import * as sortingOps from '../common/ops/sorting';
@@ -85,15 +86,42 @@ export function where(
   x?: ArrayLike,
   y?: ArrayLike,
 ): NDArrayCore | NDArrayCore[] {
+  let xArr = x === undefined ? undefined : asarray(x);
+  let yArr = y === undefined ? undefined : asarray(y);
+  if (xArr && yArr) {
+    xArr = weakScalar(x, xArr, yArr.dtype as DType);
+    yArr = weakScalar(y, yArr, xArr.dtype as DType);
+  }
   const result = sortingOps.where(
     toStorage(condition),
-    x !== undefined ? toStorage(asarray(x)) : undefined,
-    y !== undefined ? toStorage(asarray(y)) : undefined,
+    xArr && toStorage(xArr),
+    yArr && toStorage(yArr),
   );
   if (Array.isArray(result)) {
     return fromStorageArray(result);
   }
   return fromStorage(result);
+}
+
+/**
+ * Re-type a where() operand that came from a JS scalar the way NumPy treats a
+ * weak scalar: it takes the other operand's dtype when that dtype can hold it,
+ * so where(mask, int32Arr, 0) stays int32 rather than promoting to float64. As
+ * in NumPy, an integer out of the other dtype's range wraps instead of widening.
+ * A fractional value against an integer or bool array keeps the default dtype
+ * it was converted with.
+ *
+ * @param value - The operand as passed to where()
+ * @param arr - That operand already converted with asarray
+ * @param other - The other operand's dtype
+ * @returns arr, or the scalar re-created in the other operand's dtype
+ */
+function weakScalar(value: unknown, arr: NDArrayCore, other: DType): NDArrayCore {
+  if (typeof value === 'boolean') return asarray(value, other);
+  if (typeof value !== 'number') return arr;
+  if (isFloatDType(other) || isComplexDType(other)) return asarray(value, other);
+  if (isIntegerDType(other) && Number.isInteger(value)) return asarray(value, other);
+  return arr;
 }
 
 /** Find indices for inserting elements to maintain order */
