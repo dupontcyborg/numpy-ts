@@ -44,6 +44,29 @@ function perCallMicros(make: () => { dispose(): void }): number {
   return best;
 }
 
+// Times every dtype in order, then re-times any that look slow until a reading comes in
+// under the bound. Load from other test workers comes and goes, while a real slowdown
+// shows in every reading. The dtypes cannot be timed in interleaved rounds instead: once
+// a site has seen too many classes it is slow for all of them, so the first four have
+// to be timed before the later ones run.
+function slowDtypes(
+  setup: (d: Numeric | typeof WARMUP_DTYPE) => () => { dispose(): void },
+  bound: number,
+): { fastest: number; slow: string[] } {
+  perCallMicros(setup(WARMUP_DTYPE));
+  const times = TIMED.map((d) => [d, perCallMicros(setup(d))] as const);
+  const fastest = Math.min(...times.map(([, t]) => t));
+  const slow: string[] = [];
+  for (const [d, t] of times) {
+    let best = t;
+    for (let i = 0; i < 5 && best > fastest * bound; i++) {
+      best = Math.min(best, perCallMicros(setup(d)));
+    }
+    if (best > fastest * bound) slow.push(`${d} ${best.toFixed(1)}us`);
+  }
+  return { fastest, slow };
+}
+
 const FILLS: [string, (dtype: Numeric | typeof WARMUP_DTYPE) => { dispose(): void }][] = [
   ['arange', (d) => np.arange(0, 1000, 1, d)],
   ['tri', (d) => np.tri(100, 100, 0, d)],
@@ -53,12 +76,7 @@ const FILLS: [string, (dtype: Numeric | typeof WARMUP_DTYPE) => { dispose(): voi
 describe('fill speed is independent of dtype order', () => {
   for (const [name, make] of FILLS) {
     it(`${name} takes about the same time for every dtype`, { timeout: 30000 }, () => {
-      perCallMicros(() => make(WARMUP_DTYPE));
-      const times = TIMED.map((d) => [d, perCallMicros(() => make(d))] as const);
-      const fastest = Math.min(...times.map(([, t]) => t));
-      const slow = times
-        .filter(([, t]) => t > fastest * 4)
-        .map(([d, t]) => `${d} ${t.toFixed(1)}us`);
+      const { fastest, slow } = slowDtypes((d) => () => make(d), 4);
       expect(
         slow,
         `${name} has dtypes more than 4x slower than the fastest (${fastest.toFixed(1)}us). ` +
@@ -149,12 +167,7 @@ const GATHERS: [string, (d: Numeric | typeof WARMUP_DTYPE) => () => { dispose():
 describe('copy and conversion speed is independent of dtype order', () => {
   for (const [name, setup] of GATHERS) {
     it(`${name} takes about the same time for every dtype`, { timeout: 30000 }, () => {
-      perCallMicros(setup(WARMUP_DTYPE));
-      const times = TIMED.map((d) => [d, perCallMicros(setup(d))] as const);
-      const fastest = Math.min(...times.map(([, t]) => t));
-      const slow = times
-        .filter(([, t]) => t > fastest * 1.8)
-        .map(([d, t]) => `${d} ${t.toFixed(1)}us`);
+      const { fastest, slow } = slowDtypes(setup, 1.8);
       expect(
         slow,
         `${name} has dtypes more than 1.8x slower than the fastest (${fastest.toFixed(1)}us). ` +
